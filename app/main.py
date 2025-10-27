@@ -1,0 +1,94 @@
+"""
+时光胶囊·校园 - FastAPI 应用入口
+"""
+import os
+import sys
+
+current_path = os.path.abspath(__file__)
+root_path = os.path.dirname(current_path)
+if root_path not in sys.path:
+    sys.path.append(root_path)
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from api.v1.capsules import router as capsules_router
+from api.v1.unlock import router as unlock_router
+
+
+
+# 创建 FastAPI 应用实例
+app = FastAPI(
+    title="时光胶囊·校园",
+    description="基于地理位置与时间触发的校园记忆数字化平台",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# # 全局异常处理
+# @app.exception_handler(HTTPException)
+# async def http_exception_handler(request: Request, exc: HTTPException):
+#     """HTTP 异常处理"""
+#     return JSONResponse(
+#         status_code=exc.status_code,
+#         content={
+#             "success": False,
+#             "error": {
+#                 "code": exc.status_code,
+#                 "message": exc.detail,
+#                 "details": str(exc.detail)
+#             }
+#         }
+#     )
+
+
+# @app.exception_handler(Exception)
+# async def general_exception_handler(request: Request, exc: Exception):
+#     """通用异常处理"""
+#     return JSONResponse(
+#         status_code=500,
+#         content={
+#             "success": False,
+#             "error": {
+#                 "code": "INTERNAL_SERVER_ERROR",
+#                 "message": "服务器内部错误",
+#                 "details": str(exc)
+#             }
+#         }
+#     )
+
+
+# 注册 API 路由
+app.include_router(capsules_router, prefix="/api/v1")
+app.include_router(unlock_router, prefix="/api/v1")
+
+
+# 根路径
+@app.get("/")
+async def root():
+    """根路径 - 返回应用信息"""
+    return {
+        "message": "欢迎使用时光胶囊·校园 API",
+        "version": "1.0.0",
+        "docs": "/docs"
+    }
+
+
+# 健康检查端点
+@app.get("/health")
+async def health_check():
+    """健康检查"""
+    return {
+        "status": "healthy",
+        "timestamp": "2024-10-26T10:00:00Z"  # TODO: 使用实际时间
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True
+    )

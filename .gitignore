@@ -33,6 +33,8 @@ ENV/
 .venv/
 env.bak/
 venv.bak/
+*.venv-linux
+venv-linux/
 
 # PyCharm IDE
 .idea/
@@ -83,3 +85,6 @@ Thumbs.db  # Windows
 dmypy.json
 .pylint.d/
 *.pyre/
+
+# AI工具
+CLAUDE.md
