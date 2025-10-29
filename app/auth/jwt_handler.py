@@ -3,8 +3,11 @@ JWT Token 处理模块 - 生成、验证、刷新 JWT Token
 """
 import jwt
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, List, Union
+from enum import Enum
 from models.core.user import UserRole, Permission
+from pydantic import BaseModel, Field, ValidationError
+from models.core.user import UserRole, Permission, AccessUser, AuthenticatedUser, AdminUser, BaseUser
 
 
 class JWTConfig:
@@ -17,23 +20,85 @@ class JWTConfig:
     REFRESH_TOKEN_EXPIRE_DAYS = 7
     
     # Token 类型
-    TOKEN_TYPE_ACCESS = "access"
-    TOKEN_TYPE_REFRESH = "refresh"
+    class TokenType(str, Enum):
+        TOKEN_TYPE_ACCESS = "access"
+        TOKEN_TYPE_REFRESH = "refresh"
     
     # 算法
     ALGORITHM = "HS256"
 
+class AccessTokenPayload(BaseModel):
+    """访问令牌"""
+    sub: str = Field(..., description="用户ID")
+    username: str = Field(..., description="用户名")
+    role: UserRole = Field(..., description="用户角色")
+    permissions: List[Permission] = Field([], description="用户权限列表")
+    token_type: JWTConfig.TokenType = Field(..., description="Token类型")
+    iat: datetime = Field(..., description="发行时间")
+    exp: datetime = Field(..., description="过期时间")
+
+    # @staticmethod
+    # def from_user(user: AuthenticatedUser|AdminUser):
+    #     """从 AuthenticatedUser 创建 AccessTokenPayload"""
+    #     return AccessTokenPayload(
+    #         sub=user.user_id,
+    #         username=user.username, 
+    #         role=user.role,
+    #         permissions=[p for p in user.permissions],
+    #         token_type=JWTConfig.TokenType.TOKEN_TYPE_ACCESS,
+    #         iat=datetime.now(timezone.utc),  # 发行时间
+    #         exp=datetime.now(timezone.utc) + timedelta(hours=JWTConfig.ACCESS_TOKEN_EXPIRE_HOURS),  # 过期时间
+    #     )
+
+
+class RefreshTokenPayload(BaseModel):
+    """刷新令牌"""
+    sub: str = Field(..., description="用户ID")
+    username: str = Field(..., description="用户名")
+    token_type: JWTConfig.TokenType = Field(..., description="Token类型")
+    iat: datetime = Field(..., description="发行时间")
+    exp: datetime = Field(..., description="过期时间")
+
+    # @staticmethod
+    # def from_user(user: AuthenticatedUser|AdminUser):
+    #     """从 AuthenticatedUser 创建 RefreshTokenPayload"""
+    #     return RefreshTokenPayload(
+    #         sub=user.user_id,
+    #         username=user.username,
+    #         token_type=JWTConfig.TokenType.TOKEN_TYPE_REFRESH,
+    #         iat=datetime.now(timezone.utc),  # 发行时间
+    #         exp=datetime.now(timezone.utc) + timedelta(days=JWTConfig.REFRESH_TOKEN_EXPIRE_DAYS),  # 过期时间
+    #     )
+
 
 class JWTHandler:
     """JWT Token 处理器"""
+
+    @staticmethod
+    def generate_token(payload: BaseModel) -> str:
+        """
+        生成 JWT Token
+        
+        Args:
+            payload: 载荷对象
+        
+        Returns:
+            JWT Token 字符串
+        """
+        token = jwt.encode(
+            payload.model_dump(),
+            JWTConfig.SECRET_KEY,
+            algorithm=JWTConfig.ALGORITHM
+        )
+        return token
     
     @staticmethod
     def generate_access_token(
         user_id: str,
         username: str,
         role: UserRole,
-        permissions: list = None,
-        expires_hours: Optional[int] = None
+        permissions: Optional[list[Permission]] = None,
+        expires_hours: Optional[int] = None,
     ) -> str:
         """
         生成访问令牌 (Access Token)
@@ -44,35 +109,54 @@ class JWTHandler:
             role: 用户角色
             permissions: 权限列表
             expires_hours: 过期时间（小时）
+
         
         Returns:
             JWT Token 字符串
         """
         if expires_hours is None:
             expires_hours = JWTConfig.ACCESS_TOKEN_EXPIRE_HOURS
-        
-        payload = {
-            "sub": user_id,  # Subject - 用户ID
-            "username": username,
-            "role": role.value,
-            "permissions": permissions or [],
-            "type": JWTConfig.TOKEN_TYPE_ACCESS,
-            "iat": datetime.now(timezone.utc),  # 发行时间
-            "exp": datetime.now(timezone.utc) + timedelta(hours=expires_hours),  # 过期时间
-        }
-        
-        token = jwt.encode(
-            payload,
-            JWTConfig.SECRET_KEY,
-            algorithm=JWTConfig.ALGORITHM
+
+
+        payload = AccessTokenPayload(
+            sub=user_id,  # Subject - 用户ID
+            username=username,
+            role=role,
+            permissions=permissions or [],
+            token_type=JWTConfig.TokenType.TOKEN_TYPE_ACCESS,
+            iat=datetime.now(timezone.utc),  # 发行时间
+            exp=datetime.now(timezone.utc) + timedelta(hours=expires_hours),  # 过期时间
         )
-        return token
+        
+        return JWTHandler.generate_token(payload)
+    
+    @staticmethod
+    def generate_access_token_from_user(user: BaseUser) -> str:
+        """
+        生成访问令牌 (Access Token)
+        
+        Args:
+            user: 用户对象
+        
+        Returns:
+            JWT Token 字符串
+        """
+        if user.role == UserRole.GUEST:
+            raise ValueError("访客用户无访问令牌")
+
+        return JWTHandler.generate_access_token(
+            user_id=user.user_id,
+            username=user.username,
+            role=user.role,
+            permissions=[p for p in user.permissions],
+            expires_hours=JWTConfig.ACCESS_TOKEN_EXPIRE_HOURS
+        )
     
     @staticmethod
     def generate_refresh_token(
         user_id: str,
         username: str,
-        expires_days: Optional[int] = None
+        expires_days: Optional[int] = None,
     ) -> str:
         """
         生成刷新令牌 (Refresh Token)
@@ -88,23 +172,38 @@ class JWTHandler:
         if expires_days is None:
             expires_days = JWTConfig.REFRESH_TOKEN_EXPIRE_DAYS
         
-        payload = {
-            "sub": user_id,
-            "username": username,
-            "type": JWTConfig.TOKEN_TYPE_REFRESH,
-            "iat": datetime.now(timezone.utc),
-            "exp": datetime.now(timezone.utc) + timedelta(days=expires_days),
-        }
-        
-        token = jwt.encode(
-            payload,
-            JWTConfig.SECRET_KEY,
-            algorithm=JWTConfig.ALGORITHM
+
+        payload = RefreshTokenPayload(
+            sub=user_id,
+            username=username,
+            token_type=JWTConfig.TokenType.TOKEN_TYPE_REFRESH,
+            iat=datetime.now(timezone.utc),  # 发行时间
+            exp=datetime.now(timezone.utc) + timedelta(days=expires_days),  # 过期时间
         )
-        return token
+        
+        return JWTHandler.generate_token(payload)
     
     @staticmethod
-    def verify_token(token: str) -> Tuple[bool, Optional[Dict]]:
+    def generate_refresh_token_from_user(user: BaseUser) -> str:
+        """
+        生成刷新令牌 (Refresh Token)
+        
+        Args:
+            user: 用户对象
+        
+        Returns:
+            JWT Token 字符串
+        """
+        if user.role == UserRole.GUEST:
+            raise ValueError("访客用户无刷新令牌")
+        return JWTHandler.generate_refresh_token(
+            user_id=user.user_id,
+            username=user.username,
+            expires_days=JWTConfig.REFRESH_TOKEN_EXPIRE_DAYS,
+        )
+    
+    @staticmethod
+    def verify_token(token: str) -> Tuple[bool, Union[AccessTokenPayload, RefreshTokenPayload, None], Optional[str]]:
         """
         验证 Token 的有效性
         
@@ -112,61 +211,24 @@ class JWTHandler:
             token: JWT Token 字符串
         
         Returns:
-            (是否有效, 解码后的 payload) 元组
+            (是否有效, 解码后的 payload, 错误信息) 元组
         """
         try:
-            payload = jwt.decode(
+            payload_dict = jwt.decode(
                 token,
                 JWTConfig.SECRET_KEY,
                 algorithms=[JWTConfig.ALGORITHM]
             )
-            return True, payload
+            payload = AccessTokenPayload.model_validate(payload_dict)
+            return True, payload, None
         except jwt.ExpiredSignatureError:
-            return False, {"error": "Token已过期"}
-        except jwt.InvalidTokenError as e:
-            return False, {"error": f"无效的Token: {str(e)}"}
-    
-    @staticmethod
-    def verify_access_token(token: str) -> Tuple[bool, Optional[Dict]]:
-        """
-        验证访问令牌
-        
-        Args:
-            token: JWT Token 字符串
-        
-        Returns:
-            (是否有效, 解码后的 payload) 元组
-        """
-        valid, payload = JWTHandler.verify_token(token)
-        if not valid:
-            return False, payload
-        
-        # 检查 token 类型
-        if payload.get("type") != JWTConfig.TOKEN_TYPE_ACCESS:
-            return False, {"error": "不是有效的 Access Token"}
-        
-        return True, payload
-    
-    @staticmethod
-    def verify_refresh_token(token: str) -> Tuple[bool, Optional[Dict]]:
-        """
-        验证刷新令牌
-        
-        Args:
-            token: JWT Token 字符串
-        
-        Returns:
-            (是否有效, 解码后的 payload) 元组
-        """
-        valid, payload = JWTHandler.verify_token(token)
-        if not valid:
-            return False, payload
-        
-        # 检查 token 类型
-        if payload.get("type") != JWTConfig.TOKEN_TYPE_REFRESH:
-            return False, {"error": "不是有效的 Refresh Token"}
-        
-        return True, payload
+            return False, None, "Token已过期"
+        except jwt.InvalidTokenError:
+            return False, None, "无效的Token"
+        except ValidationError:
+            return False, None, "Token字段解析失败"
+        except Exception as e:
+            return False, None, f"未知错误: {str(e)}"
     
     @staticmethod
     def refresh_access_token(refresh_token: str) -> Tuple[bool, Optional[str], Optional[str]]:
@@ -179,22 +241,26 @@ class JWTHandler:
         Returns:
             (是否成功, 新的access_token, 错误信息) 元组
         """
-        valid, payload = JWTHandler.verify_refresh_token(refresh_token)
+        valid, payload, error = JWTHandler.verify_token(refresh_token)
         if not valid:
-            return False, None, payload.get("error", "Token验证失败")
+            return False, None, error
+        
+        # 检查 token 类型
+        if payload is not None and payload.token_type != JWTConfig.TokenType.TOKEN_TYPE_REFRESH:
+            return False, None, "不是 Refresh Token"
         
         # 生成新的 access token
         new_access_token = JWTHandler.generate_access_token(
-            user_id=payload.get("sub"),
-            username=payload.get("username"),
-            role=UserRole.USER,  # 默认为 USER，实际应从数据库获取
+            user_id=payload.sub,
+            username=payload.username,
+            role=UserRole.USER,  # TODO: 默认为 USER，实际应从数据库获取
             permissions=[]
         )
         
         return True, new_access_token, None
     
     @staticmethod
-    def decode_token(token: str) -> Optional[Dict]:
+    def decode_token(token: str) -> Union[AccessTokenPayload, RefreshTokenPayload, None]:
         """
         解码 Token（不验证过期时间）
         
@@ -211,6 +277,10 @@ class JWTHandler:
                 algorithms=[JWTConfig.ALGORITHM],
                 options={"verify_exp": False}  # 不验证过期时间
             )
-            return payload
+            return AccessTokenPayload.model_validate(payload)
         except jwt.InvalidTokenError:
             return None
+        except ValidationError:
+            return None
+
+

@@ -2,7 +2,7 @@
 用户数据模型 - 定义用户角色、权限和用户实体
 """
 from enum import Enum
-from typing import Set, List, Optional
+from typing import Set, List, Optional, Union
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -94,7 +94,6 @@ class BaseUser:
     role: UserRole  # 用户角色
     permissions: Set[Permission] = field(default_factory=set)  # 用户权限集合
     created_at: datetime = field(default_factory=datetime.now)  # 创建时间
-    last_login: Optional[datetime] = None  # 最后登录时间
     
     def has_permission(self, permission: Permission) -> bool:
         """检查用户是否拥有指定权限"""
@@ -123,6 +122,8 @@ class AccessUser(BaseUser):
 @dataclass
 class AuthenticatedUser(BaseUser):
     """认证用户 - 已登录用户，有创建和管理自己内容的权限"""
+    last_login: Optional[datetime] = None  # 最后登录时间
+
     email: Optional[str] = None  # 邮箱
     department: Optional[str] = None  # 部门/学院
     student_id: Optional[str] = None  # 学号
@@ -147,6 +148,7 @@ class AuthenticatedUser(BaseUser):
 @dataclass
 class AdminUser(BaseUser):
     """管理员用户 - 拥有完全权限"""
+    last_login: Optional[datetime] = None  # 最后登录时间
     admin_level: int = 1  # 管理员级别（1-普通管理员，0-超级管理员）
     
     def __post_init__(self):
@@ -167,6 +169,8 @@ class AdminUser(BaseUser):
         """检查是否可以审核内容"""
         return self.has_permission(Permission.MODERATE_CONTENT)
 
+
+RegisteredUser = Union[AuthenticatedUser, AdminUser]  # 注册用户类型别名
 
 class UserFactory:
     """用户工厂类 - 创建不同类型的用户对象"""

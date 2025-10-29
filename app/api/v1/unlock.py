@@ -5,9 +5,9 @@ from fastapi import APIRouter, HTTPException, Query, Path
 from typing import Optional, List
 from datetime import datetime
 
-from models.net.request import UnlockCheckRequest, UnlockCapsuleRequest
+from api.v1.model.request import UnlockCheckRequest, UnlockCapsuleRequest
 from models.core.condition import Location
-from models.net.response import (
+from api.v1.model.response import (
     UnlockCheckResponse,
     UnlockCapsuleResponse,
     ErrorResponse,

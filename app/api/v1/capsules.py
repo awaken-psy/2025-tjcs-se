@@ -4,9 +4,12 @@
 from fastapi import APIRouter, HTTPException, Query, Path
 from typing import Optional, List
 from datetime import datetime
-from models.net.request import CapsuleCreateRequest, CapsuleUpdateRequest
-from models.net.response import CapsuleCreatedResponse, CapsuleDeleteResponse, CapsuleDetailResponse, CapsuleListResponse, CapsuleUpdateResponse, ErrorResponse
+from pydantic import BaseModel, Field
+from models.core.condition import Location, UnlockConditions
 from models.core.capsule import CapsuleStatus, Visibility
+
+from api.v1.model.request import CapsuleCreateRequest, CapsuleUpdateRequest
+from api.v1.model.response import CapsuleCreatedResponse, CapsuleListResponse, CapsuleDetailResponse, CapsuleUpdateResponse, ErrorResponse, CapsuleDeleteResponse
 
 router = APIRouter(prefix="/capsules", tags=["capsules"])
 
