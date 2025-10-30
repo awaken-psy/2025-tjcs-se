@@ -48,8 +48,6 @@ lint:python:
     # 主分支和 MR 运行完整检查
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
     - if: $CI_MERGE_REQUEST_IID
-  tags:
-    - docker
 
 # ============================================
 # 第二阶段：单元测试 (Test)
@@ -83,8 +81,6 @@ test:unit:
         coverage_format: cobertura
         path: coverage.xml
     expire_in: 1 week
-  tags:
-    - docker
 
 # 其他分支的简化测试 - 只运行基本测试，不生成覆盖率报告
 test:quick:
@@ -100,8 +96,6 @@ test:quick:
   rules:
     # 仅在非主分支且非 MR 时运行
     - if: $CI_COMMIT_BRANCH != "main" && $CI_COMMIT_BRANCH != "master" && $CI_COMMIT_BRANCH != "develop" && $CI_MERGE_REQUEST_IID == null
-  tags:
-    - docker
 
 test:api:
   stage: test
@@ -116,8 +110,6 @@ test:api:
     - sleep 5
     - echo "✅ API startup test passed"
   allow_failure: true
-  tags:
-    - docker
 
 # ============================================
 # 第三阶段：安全扫描 (Security)
@@ -135,8 +127,6 @@ security:secret-detection:
     # 仅在主分支和 MR 运行
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
     - if: $CI_MERGE_REQUEST_IID
-  tags:
-    - docker
 
 security:dependency-check:
   stage: security
@@ -151,8 +141,6 @@ security:dependency-check:
     # 仅在主分支和 MR 运行
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
     - if: $CI_MERGE_REQUEST_IID
-  tags:
-    - docker
 
 security:sast:
   stage: security
@@ -173,8 +161,6 @@ security:sast:
     # 仅在主分支和 MR 运行
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
     - if: $CI_MERGE_REQUEST_IID
-  tags:
-    - docker
 
 # ============================================
 # 第四阶段：构建验证 (Build)
@@ -192,8 +178,6 @@ build:validate:
     - python -m py_compile app/main.py
     - python -m py_compile app/**/*.py || true
     - echo "✅ Build validation passed"
-  tags:
-    - docker
 
 build:docker:
   stage: build
@@ -220,8 +204,6 @@ build:docker:
     - main
     - master
     - develop
-  tags:
-    - docker
   allow_failure: true
 
 # ============================================
@@ -241,8 +223,6 @@ deploy:staging:
   only:
     - develop
   when: manual  # 手动触发
-  tags:
-    - docker
 
 deploy:production:
   stage: deploy
@@ -258,8 +238,6 @@ deploy:production:
     - main
     - master
   when: manual  # 手动触发，需要批准
-  tags:
-    - docker
 
 # ============================================
 # 其他配置
