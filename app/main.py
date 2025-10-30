@@ -14,7 +14,6 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from api.v1.capsules import router as capsules_router
 from api.v1.unlock import router as unlock_router
-from api.v1.auth import router as auth_router
 
 
 
@@ -61,7 +60,6 @@ app = FastAPI(
 
 
 # 注册 API 路由
-app.include_router(auth_router, prefix="/api/v1")
 app.include_router(capsules_router, prefix="/api/v1")
 app.include_router(unlock_router, prefix="/api/v1")
 
