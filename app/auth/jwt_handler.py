@@ -4,7 +4,7 @@ JWT Token 处理模块 - 生成、验证、刷新 JWT Token
 import jwt
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional, Tuple
-from models.core.user import UserRole, Permission
+from app.models.core.user import UserRole, Permission
 
 
 class JWTConfig:

@@ -2,7 +2,7 @@
 用户服务模块 - 处理用户相关的业务逻辑（临时 mock 实现）
 """
 from typing import Optional, Dict
-from models.core.user import (
+from app.models.core.user import (
     BaseUser, AuthenticatedUser, AdminUser, AccessUser,
     UserRole, UserFactory, Permission
 )

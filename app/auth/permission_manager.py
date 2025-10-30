@@ -2,7 +2,7 @@
 权限管理模块 - 定义权限检查和验证逻辑
 """
 from typing import Set, Callable, Optional
-from models.core.user import Permission, BaseUser, UserRole
+from app.models.core.user import Permission, BaseUser, UserRole
 
 
 class PermissionManager:

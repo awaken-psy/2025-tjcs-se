@@ -8,10 +8,10 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, Path
 from typing import Optional
 from datetime import datetime
-from models.core.capsule import Capsule, CapsuleStatus, Visibility
-from models.core.user import BaseUser, Permission
-from auth.dependencies import AuthenticationDependencies, PermissionChecker
-from auth.permission_manager import PermissionManager
+from app.models.core.capsule import Capsule, CapsuleStatus, Visibility
+from app.models.core.user import BaseUser, Permission
+from app.auth.dependencies import AuthenticationDependencies, PermissionChecker
+from app.auth.permission_manager import PermissionManager
 
 
 router = APIRouter(prefix="/capsules-integrated", tags=["capsules"])

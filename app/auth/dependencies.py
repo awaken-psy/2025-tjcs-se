@@ -3,9 +3,9 @@
 """
 from typing import Optional
 from fastapi import Depends, HTTPException, Header
-from auth.jwt_handler import JWTHandler
-from auth.permission_manager import PermissionManager, UnauthorizedException, PermissionDeniedException
-from models.core.user import (
+from app.auth.jwt_handler import JWTHandler
+from app.auth.permission_manager import PermissionManager, UnauthorizedException, PermissionDeniedException
+from app.models.core.user import (
     BaseUser, AccessUser, AuthenticatedUser, AdminUser, 
     UserRole, Permission, UserFactory
 )

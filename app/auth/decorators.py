@@ -3,8 +3,8 @@
 """
 from functools import wraps
 from typing import List, Callable, Optional
-from models.core.user import Permission, BaseUser
-from auth.permission_manager import PermissionManager, PermissionDeniedException
+from app.models.core.user import Permission, BaseUser
+from app.auth.permission_manager import PermissionManager, PermissionDeniedException
 
 
 def require_permission(permission: Permission):

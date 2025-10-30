@@ -5,11 +5,11 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import Optional
 from pydantic import BaseModel
 from datetime import datetime
-from auth.jwt_handler import JWTHandler, JWTConfig
-from auth.dependencies import AuthenticationDependencies, PermissionChecker
-from auth.permission_manager import PermissionManager
-from models.core.user import Permission, UserRole, BaseUser
-from services.user_service import UserService
+from app.auth.jwt_handler import JWTHandler, JWTConfig
+from app.auth.dependencies import AuthenticationDependencies, PermissionChecker
+from app.auth.permission_manager import PermissionManager
+from app.models.core.user import Permission, UserRole, BaseUser
+from app.services.user_service import UserService
 
 
 # 请求和响应模型
