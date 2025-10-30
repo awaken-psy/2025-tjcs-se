@@ -167,6 +167,14 @@ class AdminUser(BaseUser):
         """检查是否可以审核内容"""
         return self.has_permission(Permission.MODERATE_CONTENT)
 
+    def can_edit_capsule(self, capsule_owner_id: str) -> bool:
+        """管理员可以编辑任何胶囊"""
+        return self.has_permission(Permission.UPDATE_CAPSULE)
+
+    def can_delete_capsule(self, capsule_owner_id: str) -> bool:
+        """管理员可以删除任何胶囊"""
+        return self.has_permission(Permission.DELETE_CAPSULE)
+
 
 class UserFactory:
     """用户工厂类 - 创建不同类型的用户对象"""
