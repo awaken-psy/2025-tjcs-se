@@ -3,8 +3,8 @@ JWT Token 处理器测试
 """
 import pytest
 from datetime import datetime, timedelta, timezone
-from auth.jwt_handler import JWTHandler, JWTConfig
-from models.core.user import UserRole, Permission
+from app.auth.jwt_handler import JWTHandler, JWTConfig
+from app.models.core.user import UserRole, Permission
 
 
 class TestJWTHandler:

@@ -3,11 +3,11 @@
 """
 import pytest
 from datetime import datetime, timedelta, timezone
-from models.core.user import (
+from app.models.core.user import (
     UserRole, Permission, AccessUser, AuthenticatedUser, AdminUser,
     UserFactory, RolePermissionMap
 )
-from auth.permission_manager import PermissionManager
+from app.auth.permission_manager import PermissionManager
 
 
 class TestUserModel:
