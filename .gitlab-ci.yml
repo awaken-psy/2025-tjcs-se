@@ -45,9 +45,11 @@ lint:python:
     - isort --check-only app/ || true
   allow_failure: true  # 暂时允许失败，不阻塞流水线
   rules:
-    # 主分支和 MR 运行完整检查
+    # 主分支和 MR 运行
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
     - if: $CI_MERGE_REQUEST_IID
+    # 功能分支（setup/feature 开头）也运行
+    - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
 
 # ============================================
 # 第二阶段：单元测试 (Test)
@@ -81,6 +83,10 @@ test:unit:
         coverage_format: cobertura
         path: coverage.xml
     expire_in: 1 week
+  rules:
+    # 仅在主分支和 MR 运行完整测试
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_MERGE_REQUEST_IID
 
 # 其他分支的简化测试 - 只运行基本测试，不生成覆盖率报告
 test:quick:
@@ -110,6 +116,12 @@ test:api:
     - sleep 5
     - echo "✅ API startup test passed"
   allow_failure: true
+  rules:
+    # 主分支和 MR 运行
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_MERGE_REQUEST_IID
+    # 功能分支（setup/feature 开头）也运行
+    - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
 
 # ============================================
 # 第三阶段：安全扫描 (Security)
@@ -124,9 +136,11 @@ security:secret-detection:
     - detect-secrets scan --baseline .secrets.baseline || true
   allow_failure: true
   rules:
-    # 仅在主分支和 MR 运行
+    # 主分支和 MR 运行
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
     - if: $CI_MERGE_REQUEST_IID
+    # 功能分支（setup/feature 开头）也运行
+    - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
 
 security:dependency-check:
   stage: security
@@ -138,9 +152,11 @@ security:dependency-check:
     - pip freeze | safety check --json || true
   allow_failure: true
   rules:
-    # 仅在主分支和 MR 运行
+    # 主分支和 MR 运行
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
     - if: $CI_MERGE_REQUEST_IID
+    # 功能分支（setup/feature 开头）也运行
+    - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
 
 security:sast:
   stage: security
@@ -158,9 +174,11 @@ security:sast:
     expire_in: 1 week
   allow_failure: true
   rules:
-    # 仅在主分支和 MR 运行
+    # 主分支和 MR 运行
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
     - if: $CI_MERGE_REQUEST_IID
+    # 功能分支（setup/feature 开头）也运行
+    - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
 
 # ============================================
 # 第四阶段：构建验证 (Build)
