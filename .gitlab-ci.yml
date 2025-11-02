@@ -283,15 +283,14 @@ deploy:test:
       "
   allow_failure: false
 
-# 实际部署
 deploy:production:
   <<: *deploy_base
   script:
-    - echo "🚀 开始部署..."
+    - echo "🚀 开始无密码部署..."
     - |
       ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_SERVER "
         set -e
-        echo '=== 部署开始 ==='
+        echo '=== 无密码部署开始 ==='
         
         # 切换到项目目录
         cd $PROJECT_PATH
@@ -300,31 +299,29 @@ deploy:production:
         echo '设置 Git 安全目录...'
         git config --global --add safe.directory $PROJECT_PATH
         
-        # 如果目录为空，初始化git
-        if [ ! -d .git ]; then
-          echo '初始化Git仓库...'
-          git init
-          git remote add origin $CI_REPOSITORY_URL
-        fi
-        
-        # 拉取代码
-        echo '拉取最新代码...'
+        # 强制重置到远程分支
+        echo '强制重置到远程分支...'
         git fetch origin
-        git checkout $CI_COMMIT_REF_NAME
+        git checkout -f $CI_COMMIT_REF_NAME
         git reset --hard origin/$CI_COMMIT_REF_NAME
         
-        # 设置权限
-        echo '设置权限...'
-        sudo chown -R www-data:mujica $PROJECT_PATH
-        sudo find $PROJECT_PATH -type d -exec chmod 775 {} \\;
-        sudo find $PROJECT_PATH -type f -exec chmod 664 {} \\;
+        # 设置权限（使用无密码 sudo）
+        echo '设置文件权限...'
+        sudo -n chown -R www-data:mujica $PROJECT_PATH
+        sudo -n find $PROJECT_PATH -type d -exec chmod 775 {} \\;
+        sudo -n find $PROJECT_PATH -type f -exec chmod 664 {} \\;
+        sudo -n chmod +x scripts/*.sh 2>/dev/null || true
         
         # 重启服务
         echo '重启服务...'
-        sudo systemctl reload nginx
+        sudo -n systemctl reload nginx
         
-        echo '✅ 部署完成!'
+        echo '✅ 无密码部署完成!'
         echo '访问: http://$DEPLOY_SERVER'
+        
+        # 健康检查
+        echo '执行健康检查...'
+        curl -f http://localhost/ && echo '✅ 健康检查通过' || echo '⚠️ 健康检查警告'
       "
   environment:
     name: production
