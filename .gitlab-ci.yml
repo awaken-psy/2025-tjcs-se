@@ -248,13 +248,21 @@ deploy:test:
     - apk add --no-cache openssh-client curl
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
-    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    # 使用正确的方法处理私钥
+    - |
+      cat > ~/.ssh/id_rsa << EOF
+      $SSH_PRIVATE_KEY
+      EOF
     - chmod 600 ~/.ssh/id_rsa
     - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
   script:
     - echo "🧪 测试服务器连接..."
+    - echo "私钥文件内容前几行:"
+    - head -5 ~/.ssh/id_rsa
+    - echo "..."
+    - tail -5 ~/.ssh/id_rsa
     - |
-      ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_SERVER "
+      ssh -v -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_SERVER "
         echo '✅ 服务器连接成功'
         echo '服务器: $DEPLOY_SERVER'
         echo '用户: $(whoami)'
@@ -266,7 +274,6 @@ deploy:test:
       "
   only:
     - main
-    - develop
 
 deploy:production:
   stage: deploy
