@@ -236,7 +236,7 @@ build:docker:
   stage: deploy
   image: alpine:latest
   before_script:
-    - apk add --no-cache openssh-client curl
+    - apk add --no-cache openssh-client curl git
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     # 使用更安全的方法写入私钥
@@ -248,12 +248,9 @@ build:docker:
       } > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
     - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
-    # 验证密钥
-    - echo "验证SSH密钥..."
-    - ls -la ~/.ssh/
-    - head -2 ~/.ssh/id_rsa
-    - echo "..."
-    - tail -2 ~/.ssh/id_rsa
+    # 设置 Git 全局配置（在 CI 环境中）
+    - git config --global user.name "GitLab CI"
+    - git config --global user.email "ci@timecapsule.local"
   only:
     - main
     - develop
@@ -298,6 +295,10 @@ deploy:production:
         
         # 切换到项目目录
         cd $PROJECT_PATH
+        
+        # 设置 Git 安全目录
+        echo '设置 Git 安全目录...'
+        git config --global --add safe.directory $PROJECT_PATH
         
         # 如果目录为空，初始化git
         if [ ! -d .git ]; then
