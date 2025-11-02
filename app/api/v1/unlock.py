@@ -14,8 +14,8 @@ from api.v1.model.response import (
     SimpleCapsuleInfo,
     DetailedCapsuleInfo
 )
-from models.core.capsule import CapsuleStatus, Visibility
-from models.core.condition import UnlockConditions
+from app.models.core.capsule import CapsuleStatus, Visibility
+from app.models.core.condition import UnlockConditions
 
 router = APIRouter(prefix="/unlock", tags=["unlock"])
 
