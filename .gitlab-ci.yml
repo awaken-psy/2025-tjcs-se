@@ -279,3 +279,69 @@ workflow:
 
 # 流水线成功/失败通知
 # 可以配置邮件或其他通知方式
+
+# ============================================
+# 实际部署配置 - 添加到文件末尾
+# ============================================
+
+# 部署到服务器的配置
+.deploy_template: &deploy_config
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client rsync git
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
+    - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
+  only:
+    - main
+    - develop
+
+# 实际部署任务
+deploy:server:
+  <<: *deploy_config
+  stage: deploy
+  script:
+    - echo "🚀 开始部署到服务器..."
+    - |
+      ssh $DEPLOY_USER@$DEPLOY_SERVER "
+        set -e
+        echo '=== 部署信息 ==='
+        echo '分支: $CI_COMMIT_REF_NAME'
+        echo '提交: $CI_COMMIT_SHORT_SHA'
+        echo '时间: $(date)'
+        echo '================'
+        
+        # 执行部署脚本
+        /home/TimeCapsule/scripts/deploy.sh deploy '$CI_COMMIT_REF_NAME' '$CI_COMMIT_SHORT_SHA'
+        
+        echo '✅ 部署完成!'
+      "
+  environment:
+    name: production
+    url: http://$DEPLOY_SERVER
+  when: manual  # 手动触发，更安全
+
+# 快速部署（自动触发，用于开发分支）
+deploy:development:
+  <<: *deploy_config
+  stage: deploy
+  script:
+    - echo "🚀 快速部署到开发环境..."
+    - |
+      ssh $DEPLOY_USER@$DEPLOY_SERVER "
+        cd $PROJECT_PATH
+        git fetch origin
+        git checkout develop
+        git reset --hard origin/develop
+        sudo chown -R www-data:mujica $PROJECT_PATH
+        sudo systemctl reload nginx
+        echo '✅ 开发环境部署完成!'
+      "
+  environment:
+    name: development
+    url: http://$DEPLOY_SERVER
+  only:
+    - develop
+  when: manual  # 开发环境也手动触发，更安全
