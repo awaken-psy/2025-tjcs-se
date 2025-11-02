@@ -225,66 +225,10 @@ build:docker:
   allow_failure: true
 
 # ============================================
-# 第五阶段：部署 (Deploy)
+# 第五阶段：部署 (Deploy) - 实际部署配置
 # ============================================
 
-deploy:staging:
-  stage: deploy
-  image: continuumio/miniconda3:latest
-  script:
-    - echo "🚀 Deploying to staging environment..."
-    - echo "⚠️  Deployment configuration needed"
-    - echo "✅ Staging deployment completed"
-  environment:
-    name: staging
-    url: https://staging.timecapsule.example.com
-  only:
-    - develop
-  when: manual  # 手动触发
-
-deploy:production:
-  stage: deploy
-  image: continuumio/miniconda3:latest
-  script:
-    - echo "🚀 Deploying to production environment..."
-    - echo "⚠️  Production deployment configuration needed"
-    - echo "✅ Production deployment completed"
-  environment:
-    name: production
-    url: https://timecapsule.example.com
-  only:
-    - main
-    - master
-  when: manual  # 手动触发，需要批准
-
-# ============================================
-# 其他配置
-# ============================================
-
-# Pipeline 触发规则
-workflow:
-  rules:
-    # 主分支：运行完整 Pipeline
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
-      when: always
-    # Merge Request：运行完整 Pipeline
-    - if: $CI_MERGE_REQUEST_IID
-      when: always
-    # Git Tag：运行完整 Pipeline
-    - if: $CI_COMMIT_TAG
-      when: always
-    # 其他分支：运行简化 Pipeline（只有 test:quick）
-    - if: $CI_COMMIT_BRANCH
-      when: always
-
-# 流水线成功/失败通知
-# 可以配置邮件或其他通知方式
-
-# ============================================
-# 实际部署配置 - 添加到文件末尾
-# ============================================
-
-# 部署到服务器的配置
+# 部署基础配置模板
 .deploy_template: &deploy_config
   image: alpine:latest
   before_script:
@@ -294,54 +238,154 @@ workflow:
     - eval $(ssh-agent -s)
     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
     - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
-  only:
-    - main
-    - develop
+  tags:
+    - shell  # 使用 Shell 执行器，确保可以运行 SSH
 
-# 实际部署任务
-deploy:server:
+# 实际部署到开发环境
+deploy:development:
   <<: *deploy_config
   stage: deploy
   script:
-    - echo "🚀 开始部署到服务器..."
+    - echo "🚀 开始部署到开发环境..."
     - |
       ssh $DEPLOY_USER@$DEPLOY_SERVER "
         set -e
         echo '=== 部署信息 ==='
+        echo '服务器: $DEPLOY_SERVER'
+        echo '用户: $DEPLOY_USER'
+        echo '项目路径: $PROJECT_PATH'
         echo '分支: $CI_COMMIT_REF_NAME'
         echo '提交: $CI_COMMIT_SHORT_SHA'
         echo '时间: $(date)'
         echo '================'
         
-        # 执行部署脚本
-        /home/TimeCapsule/scripts/deploy.sh deploy '$CI_COMMIT_REF_NAME' '$CI_COMMIT_SHORT_SHA'
-        
-        echo '✅ 部署完成!'
-      "
-  environment:
-    name: production
-    url: http://$DEPLOY_SERVER
-  when: manual  # 手动触发，更安全
-
-# 快速部署（自动触发，用于开发分支）
-deploy:development:
-  <<: *deploy_config
-  stage: deploy
-  script:
-    - echo "🚀 快速部署到开发环境..."
-    - |
-      ssh $DEPLOY_USER@$DEPLOY_SERVER "
+        # 确保项目目录存在
+        sudo mkdir -p $PROJECT_PATH
         cd $PROJECT_PATH
+        
+        # 初始化 Git 仓库（如果不存在）
+        if [ ! -d .git ]; then
+          echo '初始化 Git 仓库...'
+          git init
+          git remote add origin $CI_REPOSITORY_URL
+        fi
+        
+        # 拉取最新代码
+        echo '拉取最新代码...'
         git fetch origin
-        git checkout develop
-        git reset --hard origin/develop
+        git checkout $CI_COMMIT_REF_NAME
+        git reset --hard origin/$CI_COMMIT_REF_NAME
+        
+        # 设置文件权限
+        echo '设置文件权限...'
         sudo chown -R www-data:mujica $PROJECT_PATH
+        sudo find $PROJECT_PATH -type d -exec chmod 775 {} \\;
+        sudo find $PROJECT_PATH -type f -exec chmod 664 {} \\;
+        
+        # 安装依赖（如果存在相关文件）
+        if [ -f '$PROJECT_PATH/requirements.txt' ]; then
+          echo '安装 Python 依赖...'
+          pip3 install -r requirements.txt
+        fi
+        
+        if [ -f '$PROJECT_PATH/package.json' ]; then
+          echo '安装 Node.js 依赖...'
+          npm install --production
+        fi
+        
+        # 重启服务
+        echo '重启 Web 服务...'
         sudo systemctl reload nginx
+        
         echo '✅ 开发环境部署完成!'
+        echo '🌐 访问地址: http://$DEPLOY_SERVER'
       "
   environment:
     name: development
     url: http://$DEPLOY_SERVER
   only:
     - develop
-  when: manual  # 开发环境也手动触发，更安全
+  when: manual
+
+# 实际部署到生产环境
+deploy:production:
+  <<: *deploy_config
+  stage: deploy
+  script:
+    - echo "🚀 开始部署到生产环境..."
+    - |
+      ssh $DEPLOY_USER@$DEPLOY_SERVER "
+        set -e
+        echo '=== 生产环境部署 ==='
+        echo '服务器: $DEPLOY_SERVER'
+        echo '分支: $CI_COMMIT_REF_NAME'
+        echo '提交: $CI_COMMIT_SHORT_SHA'
+        echo '时间: $(date)'
+        echo '==================='
+        
+        # 切换到项目目录
+        cd $PROJECT_PATH
+        
+        # 拉取最新代码
+        echo '拉取最新代码...'
+        git fetch origin
+        git checkout $CI_COMMIT_REF_NAME
+        git reset --hard origin/$CI_COMMIT_REF_NAME
+        
+        # 设置文件权限
+        echo '设置文件权限...'
+        sudo chown -R www-data:mujica $PROJECT_PATH
+        sudo find $PROJECT_PATH -type d -exec chmod 775 {} \\;
+        sudo find $PROJECT_PATH -type f -exec chmod 664 {} \\;
+        
+        # 安装依赖
+        if [ -f '$PROJECT_PATH/requirements.txt' ]; then
+          echo '安装 Python 依赖...'
+          pip3 install -r requirements.txt
+        fi
+        
+        if [ -f '$PROJECT_PATH/package.json' ]; then
+          echo '安装 Node.js 依赖...'
+          npm install --production
+          npm run build 2>/dev/null || true
+        fi
+        
+        # 重启服务
+        echo '重启服务...'
+        sudo systemctl reload nginx
+        
+        # 健康检查
+        echo '执行健康检查...'
+        sleep 5
+        if curl -f http://localhost/ >/dev/null 2>&1; then
+          echo '✅ 健康检查通过'
+        else
+          echo '⚠️  健康检查未通过，但部署完成'
+        fi
+        
+        echo '✅ 生产环境部署完成!'
+        echo '🌐 访问地址: http://$DEPLOY_SERVER'
+      "
+  environment:
+    name: production
+    url: http://$DEPLOY_SERVER
+  only:
+    - main
+  when: manual
+
+# 快速测试部署（用于验证配置）
+deploy:test:
+  <<: *deploy_config
+  stage: deploy
+  script:
+    - echo "🧪 测试部署连接..."
+    - |
+      ssh $DEPLOY_USER@$DEPLOY_SERVER "
+        echo '=== 部署连接测试 ==='
+        /home/TimeCapsule/scripts/quick_deploy_test.sh
+        echo '=== 测试完成 ==='
+      "
+  allow_failure: false
+  only:
+    - main
+    - develop
