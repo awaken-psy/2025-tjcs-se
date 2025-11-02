@@ -240,7 +240,7 @@ build:docker:
     - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
 
 
-# 简化的部署配置 - 替换现有的部署部分
+# 修复后的部署配置 - 正确处理 File 类型变量
 deploy:test:
   stage: deploy
   image: alpine:latest
@@ -248,32 +248,19 @@ deploy:test:
     - apk add --no-cache openssh-client curl
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
-    # 使用正确的方法处理私钥
-    - |
-      cat > ~/.ssh/id_rsa << EOF
-      $SSH_PRIVATE_KEY
-      EOF
+    # 对于 Variable 类型的私钥
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
     - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
   script:
     - echo "🧪 测试服务器连接..."
-    - echo "私钥文件内容前几行:"
-    - head -5 ~/.ssh/id_rsa
-    - echo "..."
-    - tail -5 ~/.ssh/id_rsa
     - |
-      ssh -v -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_SERVER "
-        echo '✅ 服务器连接成功'
-        echo '服务器: $DEPLOY_SERVER'
-        echo '用户: $(whoami)'
-        echo '时间: $(date)'
-        echo 'Nginx 状态:'
-        sudo systemctl status nginx --no-pager -l | head -10
-        echo '项目目录:'
-        ls -la /home/TimeCapsule/
+      ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_SERVER "
+        /home/TimeCapsule/scripts/test_ci_connection.sh
       "
   only:
     - main
+    - develop
 
 deploy:production:
   stage: deploy
