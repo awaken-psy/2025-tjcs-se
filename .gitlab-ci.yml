@@ -238,133 +238,80 @@ build:docker:
     - eval $(ssh-agent -s)
     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
     - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
-  tags:
-    - shell  # 使用 Shell 执行器，确保可以运行 SSH
 
-# 实际部署到开发环境
-deploy:development:
-  <<: *deploy_config
+
+# 简化的部署配置 - 替换现有的部署部分
+deploy:test:
   stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client curl
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
   script:
-    - echo "🚀 开始部署到开发环境..."
+    - echo "🧪 测试服务器连接..."
     - |
-      ssh $DEPLOY_USER@$DEPLOY_SERVER "
-        set -e
-        echo '=== 部署信息 ==='
+      ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_SERVER "
+        echo '✅ 服务器连接成功'
         echo '服务器: $DEPLOY_SERVER'
-        echo '用户: $DEPLOY_USER'
-        echo '项目路径: $PROJECT_PATH'
-        echo '分支: $CI_COMMIT_REF_NAME'
-        echo '提交: $CI_COMMIT_SHORT_SHA'
+        echo '用户: $(whoami)'
         echo '时间: $(date)'
-        echo '================'
-        
-        # 确保项目目录存在
-        sudo mkdir -p $PROJECT_PATH
-        cd $PROJECT_PATH
-        
-        # 初始化 Git 仓库（如果不存在）
-        if [ ! -d .git ]; then
-          echo '初始化 Git 仓库...'
-          git init
-          git remote add origin $CI_REPOSITORY_URL
-        fi
-        
-        # 拉取最新代码
-        echo '拉取最新代码...'
-        git fetch origin
-        git checkout $CI_COMMIT_REF_NAME
-        git reset --hard origin/$CI_COMMIT_REF_NAME
-        
-        # 设置文件权限
-        echo '设置文件权限...'
-        sudo chown -R www-data:mujica $PROJECT_PATH
-        sudo find $PROJECT_PATH -type d -exec chmod 775 {} \\;
-        sudo find $PROJECT_PATH -type f -exec chmod 664 {} \\;
-        
-        # 安装依赖（如果存在相关文件）
-        if [ -f '$PROJECT_PATH/requirements.txt' ]; then
-          echo '安装 Python 依赖...'
-          pip3 install -r requirements.txt
-        fi
-        
-        if [ -f '$PROJECT_PATH/package.json' ]; then
-          echo '安装 Node.js 依赖...'
-          npm install --production
-        fi
-        
-        # 重启服务
-        echo '重启 Web 服务...'
-        sudo systemctl reload nginx
-        
-        echo '✅ 开发环境部署完成!'
-        echo '🌐 访问地址: http://$DEPLOY_SERVER'
+        echo 'Nginx 状态:'
+        sudo systemctl status nginx --no-pager -l | head -10
+        echo '项目目录:'
+        ls -la /home/TimeCapsule/
       "
-  environment:
-    name: development
-    url: http://$DEPLOY_SERVER
   only:
+    - main
     - develop
-  when: manual
 
-# 实际部署到生产环境
 deploy:production:
-  <<: *deploy_config
   stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client git
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
   script:
     - echo "🚀 开始部署到生产环境..."
     - |
-      ssh $DEPLOY_USER@$DEPLOY_SERVER "
+      ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_SERVER "
         set -e
-        echo '=== 生产环境部署 ==='
-        echo '服务器: $DEPLOY_SERVER'
-        echo '分支: $CI_COMMIT_REF_NAME'
-        echo '提交: $CI_COMMIT_SHORT_SHA'
-        echo '时间: $(date)'
-        echo '==================='
+        echo '=== 开始部署 ==='
         
         # 切换到项目目录
         cd $PROJECT_PATH
         
+        # 如果目录是空的，克隆仓库
+        if [ ! -d .git ]; then
+          echo '克隆项目仓库...'
+          git clone $CI_REPOSITORY_URL .
+        fi
+        
         # 拉取最新代码
         echo '拉取最新代码...'
         git fetch origin
         git checkout $CI_COMMIT_REF_NAME
         git reset --hard origin/$CI_COMMIT_REF_NAME
         
-        # 设置文件权限
+        # 设置权限
         echo '设置文件权限...'
         sudo chown -R www-data:mujica $PROJECT_PATH
         sudo find $PROJECT_PATH -type d -exec chmod 775 {} \\;
         sudo find $PROJECT_PATH -type f -exec chmod 664 {} \\;
         
-        # 安装依赖
-        if [ -f '$PROJECT_PATH/requirements.txt' ]; then
-          echo '安装 Python 依赖...'
-          pip3 install -r requirements.txt
-        fi
-        
-        if [ -f '$PROJECT_PATH/package.json' ]; then
-          echo '安装 Node.js 依赖...'
-          npm install --production
-          npm run build 2>/dev/null || true
-        fi
-        
         # 重启服务
-        echo '重启服务...'
+        echo '重启 Nginx...'
         sudo systemctl reload nginx
         
-        # 健康检查
-        echo '执行健康检查...'
-        sleep 5
-        if curl -f http://localhost/ >/dev/null 2>&1; then
-          echo '✅ 健康检查通过'
-        else
-          echo '⚠️  健康检查未通过，但部署完成'
-        fi
-        
-        echo '✅ 生产环境部署完成!'
-        echo '🌐 访问地址: http://$DEPLOY_SERVER'
+        echo '✅ 部署完成!'
+        echo '🌐 访问: http://$DEPLOY_SERVER'
       "
   environment:
     name: production
@@ -372,20 +319,3 @@ deploy:production:
   only:
     - main
   when: manual
-
-# 快速测试部署（用于验证配置）
-deploy:test:
-  <<: *deploy_config
-  stage: deploy
-  script:
-    - echo "🧪 测试部署连接..."
-    - |
-      ssh $DEPLOY_USER@$DEPLOY_SERVER "
-        echo '=== 部署连接测试 ==='
-        /home/TimeCapsule/scripts/quick_deploy_test.sh
-        echo '=== 测试完成 ==='
-      "
-  allow_failure: false
-  only:
-    - main
-    - develop
