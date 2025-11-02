@@ -4,9 +4,9 @@
 from fastapi import APIRouter, HTTPException, Query, Path
 from typing import Optional, List
 from datetime import datetime
-from app.models.net.request import CapsuleCreateRequest, CapsuleUpdateRequest
-from app.models.net.response import CapsuleCreatedResponse, CapsuleDeleteResponse, CapsuleDetailResponse, CapsuleListResponse, CapsuleUpdateResponse, ErrorResponse
-from app.models.core.capsule import CapsuleStatus, Visibility
+from models.net.request import CapsuleCreateRequest, CapsuleUpdateRequest
+from models.net.response import CapsuleCreatedResponse, CapsuleDeleteResponse, CapsuleDetailResponse, CapsuleListResponse, CapsuleUpdateResponse, ErrorResponse
+from models.core.capsule import CapsuleStatus, Visibility
 
 router = APIRouter(prefix="/capsules", tags=["capsules"])
 

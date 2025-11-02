@@ -5,17 +5,17 @@ from fastapi import APIRouter, HTTPException, Query, Path
 from typing import Optional, List
 from datetime import datetime
 
-from app.models.net.request import UnlockCheckRequest, UnlockCapsuleRequest
-from app.models.core.condition import Location
-from app.models.net.response import (
+from models.net.request import UnlockCheckRequest, UnlockCapsuleRequest
+from models.core.condition import Location
+from models.net.response import (
     UnlockCheckResponse,
     UnlockCapsuleResponse,
     ErrorResponse,
     SimpleCapsuleInfo,
     DetailedCapsuleInfo
 )
-from app.models.core.capsule import CapsuleStatus, Visibility
-from app.models.core.condition import UnlockConditions
+from models.core.capsule import CapsuleStatus, Visibility
+from models.core.condition import UnlockConditions
 
 router = APIRouter(prefix="/unlock", tags=["unlock"])
 
