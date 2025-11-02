@@ -125,33 +125,17 @@ async def refresh_token(request: RefreshTokenRequest):
         "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGc..."
     }
     """
-    success, payload, error = JWTHandler.verify_token(request.refresh_token)
-    
-    if not success or payload is None:
-        raise HTTPException(
-            status_code=401,
-            detail=error or "刷新失败"
-        )
-    
-    if payload.token_type != JWTConfig.TokenType.TOKEN_TYPE_REFRESH:
-        raise HTTPException(
-            status_code=400,
-            detail="非刷新令牌"
-        )
-    
-    # 生成新令牌
-    new_refresh_token = JWTHandler.generate_token(payload)
-    # 生成新刷新令牌
-    success, new_token, error = JWTHandler.refresh_access_token(request.refresh_token)
+   
+    success, new_access_token, new_refresh_token, error = JWTHandler.refresh_access_token(request.refresh_token)
 
-    if not success or new_token is None:
+    if not success or new_access_token is None or new_refresh_token is None:
         raise HTTPException(
             status_code=401,
             detail=error or "刷新失败"
         )
     
     return TokenResponse(
-        access_token=new_token,
+        access_token=new_access_token,
         refresh_token=new_refresh_token,
         expires_in=JWTConfig.ACCESS_TOKEN_EXPIRE_HOURS * 3600
     )

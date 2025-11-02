@@ -203,7 +203,7 @@ class JWTHandler:
         )
     
     @staticmethod
-    def verify_token(token: str) -> Tuple[bool, Union[AccessTokenPayload, RefreshTokenPayload, None], Optional[str]]:
+    def verify_token(token: str) -> Tuple[bool, Optional[Dict[str, str]], Optional[str]]:
         """
         验证 Token 的有效性
         
@@ -214,40 +214,81 @@ class JWTHandler:
             (是否有效, 解码后的 payload, 错误信息) 元组
         """
         try:
-            payload_dict = jwt.decode(
+            payload = jwt.decode(
                 token,
                 JWTConfig.SECRET_KEY,
                 algorithms=[JWTConfig.ALGORITHM]
             )
-            payload = AccessTokenPayload.model_validate(payload_dict)
             return True, payload, None
         except jwt.ExpiredSignatureError:
             return False, None, "Token已过期"
         except jwt.InvalidTokenError:
             return False, None, "无效的Token"
-        except ValidationError:
-            return False, None, "Token字段解析失败"
+        # except ValidationError:
+        #     return False, None, "Token字段解析失败"
         except Exception as e:
             return False, None, f"未知错误: {str(e)}"
+        
+    @staticmethod
+    def verify_access_token(token: str) -> Tuple[bool, Union[AccessTokenPayload, None], Optional[str]]:
+        """
+        验证访问令牌的有效性
+        
+        Args:
+            token: JWT Token 字符串
+        
+        Returns:
+            (是否有效, 解码后的 payload, 错误信息) 元组
+        """
+        valid, payload, error = JWTHandler.verify_token(token)
+        if not valid:
+            return False, None, error
+        
+        # 从字典中解析 payload
+        try:
+            payload = AccessTokenPayload.model_validate(payload)
+        except ValidationError:
+            return False, None, "Access Token字段解析失败"
+        
+        return True, payload, None
     
     @staticmethod
-    def refresh_access_token(refresh_token: str) -> Tuple[bool, Optional[str], Optional[str]]:
+    def verify_refresh_token(token: str) -> Tuple[bool, Union[RefreshTokenPayload, None], Optional[str]]:
         """
-        使用刷新令牌生成新的访问令牌
+        验证刷新令牌的有效性
+        
+        Args:
+            token: JWT Token 字符串
+        
+        Returns:
+            (是否有效, 解码后的 payload, 错误信息) 元组
+        """
+        valid, payload, error = JWTHandler.verify_token(token)
+        if not valid:
+            return False, None, error
+        
+        # 从字典中解析 payload
+        try:
+            payload = RefreshTokenPayload.model_validate(payload)
+        except ValidationError:
+            return False, None, "Refresh Token字段解析失败"
+        
+        return True, payload, None
+    
+    @staticmethod
+    def refresh_access_token(refresh_token: str) -> Tuple[bool, Optional[str], Optional[str], Optional[str]]:
+        """
+        使用刷新令牌生成新的访问令牌和刷新令牌
         
         Args:
             refresh_token: 刷新令牌
         
         Returns:
-            (是否成功, 新的access_token, 错误信息) 元组
+            (是否成功, 新的access_token, 新的refresh_token, 错误信息) 元组
         """
-        valid, payload, error = JWTHandler.verify_token(refresh_token)
-        if not valid:
-            return False, None, error
-        
-        # 检查 token 类型
-        if payload is not None and payload.token_type != JWTConfig.TokenType.TOKEN_TYPE_REFRESH:
-            return False, None, "不是 Refresh Token"
+        valid, payload, error = JWTHandler.verify_refresh_token(refresh_token)
+        if not valid or payload is None:
+            return False, None, None, error
         
         # 生成新的 access token
         new_access_token = JWTHandler.generate_access_token(
@@ -256,31 +297,33 @@ class JWTHandler:
             role=UserRole.USER,  # TODO: 默认为 USER，实际应从数据库获取
             permissions=[]
         )
+
+        new_refresh_token = JWTHandler.generate_token(payload)
         
-        return True, new_access_token, None
+        return True, new_access_token, new_refresh_token, None
     
-    @staticmethod
-    def decode_token(token: str) -> Union[AccessTokenPayload, RefreshTokenPayload, None]:
-        """
-        解码 Token（不验证过期时间）
+    # @staticmethod
+    # def decode_token(token: str) -> Union[AccessTokenPayload, RefreshTokenPayload, None]:
+    #     """
+    #     解码 Token（不验证过期时间）
         
-        Args:
-            token: JWT Token 字符串
+    #     Args:
+    #         token: JWT Token 字符串
         
-        Returns:
-            解码后的 payload，或 None 如果解码失败
-        """
-        try:
-            payload = jwt.decode(
-                token,
-                JWTConfig.SECRET_KEY,
-                algorithms=[JWTConfig.ALGORITHM],
-                options={"verify_exp": False}  # 不验证过期时间
-            )
-            return AccessTokenPayload.model_validate(payload)
-        except jwt.InvalidTokenError:
-            return None
-        except ValidationError:
-            return None
+    #     Returns:
+    #         解码后的 payload，或 None 如果解码失败
+    #     """
+    #     try:
+    #         payload = jwt.decode(
+    #             token,
+    #             JWTConfig.SECRET_KEY,
+    #             algorithms=[JWTConfig.ALGORITHM],
+    #             options={"verify_exp": False}  # 不验证过期时间
+    #         )
+    #         return AccessTokenPayload.model_validate(payload)
+    #     except jwt.InvalidTokenError:
+    #         return None
+    #     except ValidationError:
+    #         return None
 
 
