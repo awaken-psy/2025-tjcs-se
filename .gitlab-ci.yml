@@ -228,88 +228,104 @@ build:docker:
 # 第五阶段：部署 (Deploy) - 实际部署配置
 # ============================================
 
-# 部署基础配置模板
-.deploy_template: &deploy_config
-  image: alpine:latest
-  before_script:
-    - apk add --no-cache openssh-client rsync git
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    - eval $(ssh-agent -s)
-    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
-    - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
+# ============================================
+# 修复版部署配置 - 使用更健壮的SSH处理方法
+# ============================================
 
-
-# 修复后的部署配置 - 正确处理 File 类型变量
-deploy:test:
+.deploy_base: &deploy_base
   stage: deploy
   image: alpine:latest
   before_script:
     - apk add --no-cache openssh-client curl
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
-    # 对于 Variable 类型的私钥
-    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    # 使用更安全的方法写入私钥
+    - |
+      {
+        echo "-----BEGIN OPENSSH PRIVATE KEY-----"
+        echo "$SSH_PRIVATE_KEY" | grep -v "PRIVATE KEY"
+        echo "-----END OPENSSH PRIVATE KEY-----"
+      } > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
     - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
-  script:
-    - echo "🧪 测试服务器连接..."
-    - |
-      ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_SERVER "
-        /home/TimeCapsule/scripts/test_ci_connection.sh
-      "
+    # 验证密钥
+    - echo "验证SSH密钥..."
+    - ls -la ~/.ssh/
+    - head -2 ~/.ssh/id_rsa
+    - echo "..."
+    - tail -2 ~/.ssh/id_rsa
   only:
     - main
     - develop
 
-deploy:production:
-  stage: deploy
-  image: alpine:latest
-  before_script:
-    - apk add --no-cache openssh-client git
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-    - chmod 600 ~/.ssh/id_rsa
-    - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
+# 基础连接测试
+deploy:connection-test:
+  <<: *deploy_base
   script:
-    - echo "🚀 开始部署到生产环境..."
+    - echo "🔗 测试基础连接..."
+    - timeout 10s ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_SERVER "echo '✅ 基础连接成功'"
+  allow_failure: false
+
+# 完整环境测试
+deploy:test:
+  <<: *deploy_base
+  script:
+    - echo "🧪 测试完整环境..."
+    - |
+      ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_SERVER "
+        echo '=== 环境测试 ==='
+        echo '用户: $(whoami)'
+        echo '主机: $(hostname)'
+        echo '时间: $(date)'
+        echo '目录:'
+        pwd
+        ls -la /home/TimeCapsule/
+        echo '权限测试:'
+        sudo systemctl status nginx --no-pager -l | head -3 && echo '✅ Nginx权限正常'
+        echo '✅ 环境测试通过'
+      "
+  allow_failure: false
+
+# 实际部署
+deploy:production:
+  <<: *deploy_base
+  script:
+    - echo "🚀 开始部署..."
     - |
       ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_SERVER "
         set -e
-        echo '=== 开始部署 ==='
+        echo '=== 部署开始 ==='
         
         # 切换到项目目录
         cd $PROJECT_PATH
         
-        # 如果目录是空的，克隆仓库
+        # 如果目录为空，初始化git
         if [ ! -d .git ]; then
-          echo '克隆项目仓库...'
-          git clone $CI_REPOSITORY_URL .
+          echo '初始化Git仓库...'
+          git init
+          git remote add origin $CI_REPOSITORY_URL
         fi
         
-        # 拉取最新代码
+        # 拉取代码
         echo '拉取最新代码...'
         git fetch origin
         git checkout $CI_COMMIT_REF_NAME
         git reset --hard origin/$CI_COMMIT_REF_NAME
         
         # 设置权限
-        echo '设置文件权限...'
+        echo '设置权限...'
         sudo chown -R www-data:mujica $PROJECT_PATH
         sudo find $PROJECT_PATH -type d -exec chmod 775 {} \\;
         sudo find $PROJECT_PATH -type f -exec chmod 664 {} \\;
         
         # 重启服务
-        echo '重启 Nginx...'
+        echo '重启服务...'
         sudo systemctl reload nginx
         
         echo '✅ 部署完成!'
-        echo '🌐 访问: http://$DEPLOY_SERVER'
+        echo '访问: http://$DEPLOY_SERVER'
       "
   environment:
     name: production
     url: http://$DEPLOY_SERVER
-  only:
-    - main
   when: manual
