@@ -88,3 +88,4 @@ dmypy.json
 
 # AI工具
 CLAUDE.md
+node_modules
