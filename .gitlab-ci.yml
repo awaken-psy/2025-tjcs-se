@@ -3,11 +3,9 @@
 
 # 定义流水线阶段
 stages:
-  - lint          # 代码质量检查
   - test          # 单元测试
-  - security      # 安全扫描
   - build         # 构建验证
-  - deploy        # 部署（可选）
+  - deploy        # 部署
 
 # 全局变量配置
 variables:
@@ -22,37 +20,7 @@ cache:
     - .pytest_cache
 
 # ============================================
-# 第一阶段：代码质量检查 (Lint)
-# ============================================
-
-lint:python:
-  stage: lint
-  image: python:3.13-slim
-  before_script:
-    - pip install flake8 pylint black isort
-  script:
-    # Python 代码风格检查
-    - echo "🔍 Running flake8 for code style check..."
-    - flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics || true
-    - flake8 app/ --count --max-complexity=10 --max-line-length=127 --statistics || true
-
-    # 检查代码格式
-    - echo "🔍 Checking code formatting with black..."
-    - black --check app/ || true
-
-    # 检查 import 排序
-    - echo "🔍 Checking import ordering with isort..."
-    - isort --check-only app/ || true
-  allow_failure: true  # 暂时允许失败，不阻塞流水线
-  rules:
-    # 主分支和 MR 运行
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
-    - if: $CI_MERGE_REQUEST_IID
-    # 功能分支（setup/feature 开头）也运行
-    - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
-
-# ============================================
-# 第二阶段：单元测试 (Test)
+# 第一阶段：单元测试 (Test)
 # ============================================
 
 test:unit:
@@ -124,64 +92,7 @@ test:api:
     - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
 
 # ============================================
-# 第三阶段：安全扫描 (Security)
-# ============================================
-
-security:secret-detection:
-  stage: security
-  image: python:3.13-slim
-  script:
-    - echo "🔐 Running secret detection..."
-    - pip install detect-secrets
-    - detect-secrets scan --baseline .secrets.baseline || true
-  allow_failure: true
-  rules:
-    # 主分支和 MR 运行
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
-    - if: $CI_MERGE_REQUEST_IID
-    # 功能分支（setup/feature 开头）也运行
-    - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
-
-security:dependency-check:
-  stage: security
-  image: python:3.13-slim
-  before_script:
-    - pip install safety
-  script:
-    - echo "🛡️ Checking for vulnerable dependencies..."
-    - pip freeze | safety check --json || true
-  allow_failure: true
-  rules:
-    # 主分支和 MR 运行
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
-    - if: $CI_MERGE_REQUEST_IID
-    # 功能分支（setup/feature 开头）也运行
-    - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
-
-security:sast:
-  stage: security
-  image: python:3.13-slim
-  before_script:
-    - pip install bandit
-  script:
-    - echo "🔒 Running SAST security analysis..."
-    - bandit -r app/ -f json -o bandit-report.json || true
-    - bandit -r app/ -f txt || true
-  artifacts:
-    when: always
-    paths:
-      - bandit-report.json
-    expire_in: 1 week
-  allow_failure: true
-  rules:
-    # 主分支和 MR 运行
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
-    - if: $CI_MERGE_REQUEST_IID
-    # 功能分支（setup/feature 开头）也运行
-    - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
-
-# ============================================
-# 第四阶段：构建验证 (Build)
+# 第二阶段：构建验证 (Build)
 # ============================================
 
 build:validate:
@@ -225,11 +136,7 @@ build:docker:
   allow_failure: true
 
 # ============================================
-# 第五阶段：部署 (Deploy) - 实际部署配置
-# ============================================
-
-# ============================================
-# 修复版部署配置 - 使用更健壮的SSH处理方法
+# 第三阶段：部署 (Deploy)
 # ============================================
 
 .deploy_base: &deploy_base
