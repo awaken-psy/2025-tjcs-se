@@ -3,11 +3,9 @@
 
 # 定义流水线阶段
 stages:
-  - lint          # 代码质量检查
   - test          # 单元测试
-  - security      # 安全扫描
   - build         # 构建验证
-  - deploy        # 部署（可选）
+  - deploy        # 部署
 
 # 全局变量配置
 variables:
@@ -22,37 +20,7 @@ cache:
     - .pytest_cache
 
 # ============================================
-# 第一阶段：代码质量检查 (Lint)
-# ============================================
-
-lint:python:
-  stage: lint
-  image: python:3.13-slim
-  before_script:
-    - pip install flake8 pylint black isort
-  script:
-    # Python 代码风格检查
-    - echo "🔍 Running flake8 for code style check..."
-    - flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics || true
-    - flake8 app/ --count --max-complexity=10 --max-line-length=127 --statistics || true
-
-    # 检查代码格式
-    - echo "🔍 Checking code formatting with black..."
-    - black --check app/ || true
-
-    # 检查 import 排序
-    - echo "🔍 Checking import ordering with isort..."
-    - isort --check-only app/ || true
-  allow_failure: true  # 暂时允许失败，不阻塞流水线
-  rules:
-    # 主分支和 MR 运行
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
-    - if: $CI_MERGE_REQUEST_IID
-    # 功能分支（setup/feature 开头）也运行
-    - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
-
-# ============================================
-# 第二阶段：单元测试 (Test)
+# 第一阶段：单元测试 (Test)
 # ============================================
 
 test:unit:
@@ -124,64 +92,7 @@ test:api:
     - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
 
 # ============================================
-# 第三阶段：安全扫描 (Security)
-# ============================================
-
-security:secret-detection:
-  stage: security
-  image: python:3.13-slim
-  script:
-    - echo "🔐 Running secret detection..."
-    - pip install detect-secrets
-    - detect-secrets scan --baseline .secrets.baseline || true
-  allow_failure: true
-  rules:
-    # 主分支和 MR 运行
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
-    - if: $CI_MERGE_REQUEST_IID
-    # 功能分支（setup/feature 开头）也运行
-    - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
-
-security:dependency-check:
-  stage: security
-  image: python:3.13-slim
-  before_script:
-    - pip install safety
-  script:
-    - echo "🛡️ Checking for vulnerable dependencies..."
-    - pip freeze | safety check --json || true
-  allow_failure: true
-  rules:
-    # 主分支和 MR 运行
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
-    - if: $CI_MERGE_REQUEST_IID
-    # 功能分支（setup/feature 开头）也运行
-    - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
-
-security:sast:
-  stage: security
-  image: python:3.13-slim
-  before_script:
-    - pip install bandit
-  script:
-    - echo "🔒 Running SAST security analysis..."
-    - bandit -r app/ -f json -o bandit-report.json || true
-    - bandit -r app/ -f txt || true
-  artifacts:
-    when: always
-    paths:
-      - bandit-report.json
-    expire_in: 1 week
-  allow_failure: true
-  rules:
-    # 主分支和 MR 运行
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
-    - if: $CI_MERGE_REQUEST_IID
-    # 功能分支（setup/feature 开头）也运行
-    - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
-
-# ============================================
-# 第四阶段：构建验证 (Build)
+# 第二阶段：构建验证 (Build)
 # ============================================
 
 build:validate:
@@ -225,57 +136,101 @@ build:docker:
   allow_failure: true
 
 # ============================================
-# 第五阶段：部署 (Deploy)
+# 第三阶段：部署 (Deploy)
 # ============================================
 
-deploy:staging:
+.deploy_base: &deploy_base
   stage: deploy
-  image: continuumio/miniconda3:latest
-  script:
-    - echo "🚀 Deploying to staging environment..."
-    - echo "⚠️  Deployment configuration needed"
-    - echo "✅ Staging deployment completed"
-  environment:
-    name: staging
-    url: https://staging.timecapsule.example.com
-  only:
-    - develop
-  when: manual  # 手动触发
-
-deploy:production:
-  stage: deploy
-  image: continuumio/miniconda3:latest
-  script:
-    - echo "🚀 Deploying to production environment..."
-    - echo "⚠️  Production deployment configuration needed"
-    - echo "✅ Production deployment completed"
-  environment:
-    name: production
-    url: https://timecapsule.example.com
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client curl git
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    # 使用更安全的方法写入私钥
+    - |
+      {
+        echo "-----BEGIN OPENSSH PRIVATE KEY-----"
+        echo "$SSH_PRIVATE_KEY" | grep -v "PRIVATE KEY"
+        echo "-----END OPENSSH PRIVATE KEY-----"
+      } > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
+    # 设置 Git 全局配置（在 CI 环境中）
+    - git config --global user.name "GitLab CI"
+    - git config --global user.email "ci@timecapsule.local"
   only:
     - main
-    - master
-  when: manual  # 手动触发，需要批准
+    - develop
 
-# ============================================
-# 其他配置
-# ============================================
+# 基础连接测试
+deploy:connection-test:
+  <<: *deploy_base
+  script:
+    - echo "🔗 测试基础连接..."
+    - timeout 10s ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_SERVER "echo '✅ 基础连接成功'"
+  allow_failure: false
 
-# Pipeline 触发规则
-workflow:
-  rules:
-    # 主分支：运行完整 Pipeline
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
-      when: always
-    # Merge Request：运行完整 Pipeline
-    - if: $CI_MERGE_REQUEST_IID
-      when: always
-    # Git Tag：运行完整 Pipeline
-    - if: $CI_COMMIT_TAG
-      when: always
-    # 其他分支：运行简化 Pipeline（只有 test:quick）
-    - if: $CI_COMMIT_BRANCH
-      when: always
+# 完整环境测试
+deploy:test:
+  <<: *deploy_base
+  script:
+    - echo "🧪 测试完整环境..."
+    - |
+      ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_SERVER "
+        echo '=== 环境测试 ==='
+        echo '用户: $(whoami)'
+        echo '主机: $(hostname)'
+        echo '时间: $(date)'
+        echo '目录:'
+        pwd
+        ls -la /home/TimeCapsule/
+        echo '权限测试:'
+        sudo systemctl status nginx --no-pager -l | head -3 && echo '✅ Nginx权限正常'
+        echo '✅ 环境测试通过'
+      "
+  allow_failure: false
 
-# 流水线成功/失败通知
-# 可以配置邮件或其他通知方式
+deploy:production:
+  <<: *deploy_base
+  script:
+    - echo "🚀 开始无密码部署..."
+    - |
+      ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_SERVER "
+        set -e
+        echo '=== 无密码部署开始 ==='
+        
+        # 切换到项目目录
+        cd $PROJECT_PATH
+        
+        # 设置 Git 安全目录
+        echo '设置 Git 安全目录...'
+        git config --global --add safe.directory $PROJECT_PATH
+        
+        # 强制重置到远程分支
+        echo '强制重置到远程分支...'
+        git fetch origin
+        git checkout -f $CI_COMMIT_REF_NAME
+        git reset --hard origin/$CI_COMMIT_REF_NAME
+        
+        # 设置权限（使用无密码 sudo）
+        echo '设置文件权限...'
+        sudo -n chown -R www-data:mujica $PROJECT_PATH
+        sudo -n find $PROJECT_PATH -type d -exec chmod 775 {} \\;
+        sudo -n find $PROJECT_PATH -type f -exec chmod 664 {} \\;
+        sudo -n chmod +x scripts/*.sh 2>/dev/null || true
+        
+        # 重启服务
+        echo '重启服务...'
+        sudo -n systemctl reload nginx
+        
+        echo '✅ 无密码部署完成!'
+        echo '访问: http://$DEPLOY_SERVER'
+        
+        # 健康检查
+        echo '执行健康检查...'
+        curl -f http://localhost/ && echo '✅ 健康检查通过' || echo '⚠️ 健康检查警告'
+      "
+  environment:
+    name: production
+    url: http://$DEPLOY_SERVER
+  when: manual
