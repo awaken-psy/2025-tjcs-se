@@ -8,6 +8,16 @@ stages:
   - build          # 构建/产物
   - deploy         # 部署（可选）
 
+.default_before_script: &default_before_script
+  - python --version
+  - conda --version
+  - conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main/
+  - conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/
+  - conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/
+  - conda config --set show_channel_urls yes
+  - conda config --set channel_priority flexible
+  - conda clean --all
+
 # 全局变量
 variables:
   PYTHON_VERSION: "3.13"
@@ -71,6 +81,7 @@ test:backend:
 
   before_script:
     - echo "Setting up conda environment..."
+    - *default_before_script
     - conda env create -f backend/environment.yml -n $CONDA_ENV_NAME || conda env update -f backend/environment.yml -n $CONDA_ENV_NAME
     - source activate $CONDA_ENV_NAME
     - conda list
@@ -102,6 +113,7 @@ test:backend:quick:
     pull_policy: if-not-present
 
   before_script:
+    - *default_before_script
     - conda env create -f backend/environment.yml -n $CONDA_ENV_NAME || conda env update -f backend/environment.yml -n $CONDA_ENV_NAME
     - source activate $CONDA_ENV_NAME
   script:
@@ -117,6 +129,7 @@ test:backend:api:
     name: continuumio/miniconda3:latest
     pull_policy: if-not-present
   before_script:
+    - *default_before_script
     - conda env create -f backend/environment.yml -n $CONDA_ENV_NAME || conda env update -f backend/environment.yml -n $CONDA_ENV_NAME
     - source activate $CONDA_ENV_NAME
   script:
@@ -219,6 +232,7 @@ build:backend:validate:
     name: continuumio/miniconda3:latest
     pull_policy: if-not-present
   before_script:
+    - *default_before_script
     - conda env create -f backend/environment.yml -n $CONDA_ENV_NAME || conda env update -f backend/environment.yml -n $CONDA_ENV_NAME
     - source activate $CONDA_ENV_NAME
   script:
@@ -253,6 +267,7 @@ build:docker:
     - /docker:27-dind
   script:
     - echo "Building backend Docker image..."
+    - *default_before_script
     - |
       cat > Dockerfile <<EOF
       FROM /continuumio/miniconda3:latest
