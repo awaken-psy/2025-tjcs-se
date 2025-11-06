@@ -45,8 +45,8 @@ lint:python:
 lint:frontend:
   stage: lint
   image: 
-		name: node:20-bullseye
-		pull_policy: if-not-present
+    name: node:20-bullseye
+    pull_policy: if-not-present
 
   before_script:
     - cd frontend
@@ -66,8 +66,8 @@ lint:frontend:
 test:backend:
   stage: test
   image: 
-		name: continuumio/miniconda3:latest
-		pull_policy: if-not-present
+    name: continuumio/miniconda3:latest
+    pull_policy: if-not-present
 
   before_script:
     - echo "Setting up conda environment..."
@@ -98,8 +98,8 @@ test:backend:
 test:backend:quick:
   stage: test
   image: 
-		name: continuumio/miniconda3:latest
-		pull_policy: if-not-present
+    name: continuumio/miniconda3:latest
+    pull_policy: if-not-present
 
   before_script:
     - conda env create -f backend/environment.yml -n $CONDA_ENV_NAME || conda env update -f backend/environment.yml -n $CONDA_ENV_NAME
@@ -114,8 +114,8 @@ test:backend:quick:
 test:backend:api:
   stage: test
   image: 
-		name: continuumio/miniconda3:latest
-		pull_policy: if-not-present
+    name: continuumio/miniconda3:latest
+    pull_policy: if-not-present
   before_script:
     - conda env create -f backend/environment.yml -n $CONDA_ENV_NAME || conda env update -f backend/environment.yml -n $CONDA_ENV_NAME
     - source activate $CONDA_ENV_NAME
@@ -134,8 +134,8 @@ test:backend:api:
 test:frontend:
   stage: test
   image: 
-		name: node:20-bullseye
-		pull_policy: if-not-present
+    name: node:20-bullseye
+    pull_policy: if-not-present
   before_script:
     - cd frontend
     - npm ci
@@ -158,8 +158,8 @@ test:frontend:
 security:secret-detection:
   stage: security
   image: 
-		name: python:3.13-slim
-		pull_policy: if-not-present
+    name: python:3.13-slim
+    pull_policy: if-not-present
   script:
     - pip install detect-secrets
     - detect-secrets scan --baseline .secrets.baseline || true
@@ -172,8 +172,8 @@ security:secret-detection:
 security:dependency-check:
   stage: security
   image: 
-		name: python:3.13-slim
-		pull_policy: if-not-present
+    name: python:3.13-slim
+    pull_policy: if-not-present
   before_script:
     - pip install safety
     # 基于 requirements.txt 进行依赖检查（避免在 CI 中完整创建 conda 环境）
@@ -190,8 +190,8 @@ security:dependency-check:
 security:sast:
   stage: security
   image: 
-		name: python:3.13-slim
-		pull_policy: if-not-present
+    name: python:3.13-slim
+    pull_policy: if-not-present
   before_script:
     - pip install bandit
   script:
@@ -216,8 +216,8 @@ security:sast:
 build:backend:validate:
   stage: build
   image: 
-		name: continuumio/miniconda3:latest
-		pull_policy: if-not-present
+    name: continuumio/miniconda3:latest
+    pull_policy: if-not-present
   before_script:
     - conda env create -f backend/environment.yml -n $CONDA_ENV_NAME || conda env update -f backend/environment.yml -n $CONDA_ENV_NAME
     - source activate $CONDA_ENV_NAME
@@ -230,8 +230,8 @@ build:backend:validate:
 build:frontend:
   stage: build
   image: 
-		name: node:20-bullseye
-		pull_policy: if-not-present
+    name: node:20-bullseye
+    pull_policy: if-not-present
   before_script:
     - cd frontend
     - npm ci
@@ -247,8 +247,8 @@ build:frontend:
 build:docker:
   stage: build
   image: 
-		name: docker:27
-		pull_policy: if-not-present
+    name: docker:27
+    pull_policy: if-not-present
   services:
     - /docker:27-dind
   script:
@@ -277,8 +277,8 @@ build:docker:
 .deploy_base: &deploy_base
   stage: deploy
   image: 
-		name: alpine:3.20
-		pull_policy: if-not-present
+    name: alpine:3.20
+    pull_policy: if-not-present
   before_script:
     - apk add --no-cache openssh-client curl git
     - mkdir -p ~/.ssh
