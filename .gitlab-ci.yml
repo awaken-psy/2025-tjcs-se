@@ -39,6 +39,7 @@ lint:python:
   stage: lint
   image: python:3.13
   before_script:
+    - pip install click 
     - pip install flake8 black isort
   script:
     # 后端 Python 代码检查
