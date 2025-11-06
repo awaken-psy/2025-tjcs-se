@@ -280,13 +280,12 @@ build:frontend:
 build:docker:
   stage: build
   image: 
-    name: python:3.11
+    name: docker:27
     pull_policy: if-not-present
   services:
     - /docker:27-dind
   script:
     - echo "Building backend Docker image..."
-    - *default_before_script
     - |
       cat > Dockerfile <<EOF
       FROM /continuumio/miniconda3:latest
