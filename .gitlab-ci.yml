@@ -37,7 +37,7 @@ cache:
 
 lint:python:
   stage: lint
-  image: /python:3.13-slim
+  image: /python:3.13
   before_script:
     - pip install flake8 black isort
   script:
@@ -174,7 +174,7 @@ test:frontend:
 security:secret-detection:
   stage: security
   image: 
-    name: python:3.13-slim
+    name: python:3.13
     pull_policy: if-not-present
   script:
     - pip install detect-secrets
@@ -188,7 +188,7 @@ security:secret-detection:
 security:dependency-check:
   stage: security
   image: 
-    name: python:3.13-slim
+    name: python:3.13
     pull_policy: if-not-present
   before_script:
     - pip install safety
@@ -206,7 +206,7 @@ security:dependency-check:
 security:sast:
   stage: security
   image: 
-    name: python:3.13-slim
+    name: python:3.13
     pull_policy: if-not-present
   before_script:
     - pip install bandit
