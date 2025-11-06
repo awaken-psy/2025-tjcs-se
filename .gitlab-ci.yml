@@ -27,9 +27,7 @@ cache:
 
 lint:python:
   stage: lint
-  image:
-    name: python:3.13-slim
-    pull_policy: if-not-present
+  image: /python:3.13-slim
   before_script:
     - pip install flake8 black isort
   script:
@@ -67,14 +65,16 @@ lint:frontend:
 
 test:backend:
   stage: test
-  image:
-    name: python:3.13-slim
+  image: 
+    name: continuumio/miniconda3:latest
     pull_policy: if-not-present
 
   before_script:
-    - echo "Installing Python dependencies..."
-    - pip install --no-cache-dir -r backend/requirements.txt
-    - pip install --no-cache-dir pytest-cov
+    - echo "Setting up conda environment..."
+    - conda env create -f backend/environment.yml -n $CONDA_ENV_NAME || conda env update -f backend/environment.yml -n $CONDA_ENV_NAME
+    - source activate $CONDA_ENV_NAME
+    - conda list
+    - pip install pytest-cov
   script:
     - echo "Running backend unit tests..."
     - pytest backend/tests/ -v --tb=short --color=yes
@@ -97,13 +97,13 @@ test:backend:
 # 其他分支的简化测试（不生成覆盖率）
 test:backend:quick:
   stage: test
-  image:
-    name: python:3.13-slim
+  image: 
+    name: continuumio/miniconda3:latest
     pull_policy: if-not-present
 
   before_script:
-    - echo "Installing Python dependencies..."
-    - pip install --no-cache-dir -r backend/requirements.txt
+    - conda env create -f backend/environment.yml -n $CONDA_ENV_NAME || conda env update -f backend/environment.yml -n $CONDA_ENV_NAME
+    - source activate $CONDA_ENV_NAME
   script:
     - echo "Running quick backend tests for feature branch..."
     - pytest backend/tests/ -v --tb=short --color=yes
@@ -113,12 +113,12 @@ test:backend:quick:
 # 后端 API 启动冒烟测试（可选 不阻塞）
 test:backend:api:
   stage: test
-  image:
-    name: python:3.13-slim
+  image: 
+    name: continuumio/miniconda3:latest
     pull_policy: if-not-present
   before_script:
-    - echo "Installing Python dependencies..."
-    - pip install --no-cache-dir -r backend/requirements.txt
+    - conda env create -f backend/environment.yml -n $CONDA_ENV_NAME || conda env update -f backend/environment.yml -n $CONDA_ENV_NAME
+    - source activate $CONDA_ENV_NAME
   script:
     - echo "Testing backend API startup..."
     - timeout 10 python backend/app/main.py &
@@ -215,12 +215,12 @@ security:sast:
 
 build:backend:validate:
   stage: build
-  image:
-    name: python:3.13-slim
+  image: 
+    name: continuumio/miniconda3:latest
     pull_policy: if-not-present
   before_script:
-    - echo "Installing Python dependencies..."
-    - pip install --no-cache-dir -r backend/requirements.txt
+    - conda env create -f backend/environment.yml -n $CONDA_ENV_NAME || conda env update -f backend/environment.yml -n $CONDA_ENV_NAME
+    - source activate $CONDA_ENV_NAME
   script:
     - echo "Validating backend build..."
     - python -m py_compile backend/app/main.py
@@ -246,22 +246,23 @@ build:frontend:
 
 build:docker:
   stage: build
-  image:
+  image: 
     name: docker:27
     pull_policy: if-not-present
   services:
-    - docker:27-dind
+    - /docker:27-dind
   script:
     - echo "Building backend Docker image..."
     - |
       cat > Dockerfile <<EOF
-      FROM python:3.13-slim
+      FROM /continuumio/miniconda3:latest
       WORKDIR /app
-      COPY backend/requirements.txt ./requirements.txt
-      RUN pip install --no-cache-dir -r requirements.txt
+      COPY backend/environment.yml ./environment.yml
+      RUN conda env create -f environment.yml -n timecapsule
+      SHELL ["conda", "run", "-n", "timecapsule", "/bin/bash", "-c"]
       COPY backend/app/ ./app/
       EXPOSE 8000
-      CMD ["python", "app/main.py"]
+      CMD ["conda", "run", "-n", "timecapsule", "python", "app/main.py"]
       EOF
     - docker build -t timecapsule-backend:$CI_COMMIT_SHORT_SHA .
     - echo "Docker image built successfully"
