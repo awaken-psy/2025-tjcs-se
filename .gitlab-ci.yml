@@ -187,6 +187,8 @@ security:secret-detection:
     name: python:3.11
     pull_policy: if-not-present
   script:
+    - pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple 
+    - python -m pip install -U pip -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=100
     - pip install detect-secrets
     - detect-secrets scan --baseline .secrets.baseline || true
   allow_failure: true
@@ -201,6 +203,8 @@ security:dependency-check:
     name: python:3.11
     pull_policy: if-not-present
   before_script:
+    - pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple 
+    - python -m pip install -U pip -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=100
     - pip install safety
     # 基于 requirements.txt 进行依赖检查（避免在 CI 中完整创建 conda 环境）
     - pip install -r backend/requirements.txt || true
@@ -219,6 +223,8 @@ security:sast:
     name: python:3.11
     pull_policy: if-not-present
   before_script:
+    - pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple 
+    - python -m pip install -U pip -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=100
     - pip install bandit
   script:
     - echo "Running Bandit SAST on backend..."
