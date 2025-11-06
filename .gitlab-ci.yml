@@ -280,7 +280,7 @@ build:frontend:
 build:docker:
   stage: build
   image: 
-    name: docker:27
+    name: python:3.11
     pull_policy: if-not-present
   services:
     - /docker:27-dind
