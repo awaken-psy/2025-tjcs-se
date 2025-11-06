@@ -37,7 +37,7 @@ cache:
 
 lint:python:
   stage: lint
-  image: /python:3.13
+  image: python:3.13
   before_script:
     - pip install flake8 black isort
   script:
