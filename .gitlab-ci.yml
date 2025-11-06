@@ -283,7 +283,12 @@ build:docker:
     name: docker:27
     pull_policy: if-not-present
   services:
-    - /docker:27-dind
+  - name: docker:27-dind
+    alias: docker
+  variables:
+    DOCKER_HOST: "tcp://docker:2375"
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_DRIVER: overlay2
   script:
     - echo "Building backend Docker image..."
     - |
