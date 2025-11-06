@@ -57,9 +57,13 @@ lint:frontend:
   image: 
     name: node:20-bullseye
     pull_policy: if-not-present
-
+  variables:
+    GIT_STRATEGY: clone
+    GIT_CLEAN_FLAGS: none  # ← 禁用git clean
+    FF_USE_NEW_BASH_EVAL: "true"
   before_script:
     - cd frontend
+    - rm -rf node_modules .cache dist
     - npm ci
   script:
     - npm run lint || true
