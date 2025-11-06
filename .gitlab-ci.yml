@@ -17,7 +17,8 @@ stages:
   - conda config --set show_channel_urls yes
   - conda config --set channel_priority flexible
   - conda clean --all
-  - pip install --upgrade pip
+  - python -m pip install -U pip -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=100
+
 
 # 全局变量
 variables:
@@ -40,8 +41,8 @@ lint:python:
   stage: lint
   image: python:3.11
   before_script:
-    - python -m pip install -U pip
-    - pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+    - pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple 
+    - python -m pip install -U pip -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=100
     - pip install click 
     - pip install flake8 black isort
   script:
