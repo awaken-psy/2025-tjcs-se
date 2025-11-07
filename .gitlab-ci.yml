@@ -338,7 +338,8 @@ build:docker:
       sshpass -p "$DEPLOY_PASSWORD" ssh \
         -o StrictHostKeyChecking=no \
         -o ConnectTimeout=5 \
-        $DEPLOY_USER@$DEPLOY_SERVER "echo 'Connection OK'"
+        $DEPLOY_USER@$DEPLOY_SERVER "
+      echo 'Connection OK'"
     - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
     - git config --global user.name "GitLab CI"
     - git config --global user.email "ci@timecapsule.local"
