@@ -325,6 +325,11 @@ build:docker:
     name: alpine
     pull_policy: if-not-present
   before_script:
+    - echo "Using Tsinghua Alpine mirror..."
+    - sed -i 's#https://dl-cdn.alpinelinux.org/alpine#https://mirrors.tuna.tsinghua.edu.cn/alpine#g' /etc/apk/repositories
+    - apk update
+    - apk add --no-cache openssh-client git curl
+    - echo "All dependencies installed successfully!"
     - apk add --no-cache openssh-client git curl
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
