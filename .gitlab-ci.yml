@@ -292,6 +292,7 @@ build:docker:
     DOCKER_TLS_CERTDIR: ""
     DOCKER_DRIVER: overlay2
     DOCKER_DAEMON_OPTIONS: "--insecure-registry=docker:2375"
+    DOCKER_REGISTRY_MIRROR: "https://823f7578c5ba482fbcfcff047463e7b6.mirror.swr.myhuaweicloud.com"
   script:
     - echo "Building backend Docker image..."
     - |
