@@ -325,14 +325,6 @@ build:docker:
   before_script:
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
-    # 写入私钥
-    - |
-      sshpass -p "$DEPLOY_PASSWORD" ssh \
-        -o StrictHostKeyChecking=no \
-        -o ConnectTimeout=5 \
-        $DEPLOY_USER@$DEPLOY_SERVER "
-      echo 'Connection OK'"
-    - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
     - git config --global user.name "GitLab CI"
     - git config --global user.email "ci@timecapsule.local"
   rules:
@@ -349,6 +341,14 @@ deploy:test:
     - sed -i 's#https://dl-cdn.alpinelinux.org/alpine#https://mirrors.tuna.tsinghua.edu.cn/alpine#g' /etc/apk/repositories
     - apk update
     - apk add --no-cache openssh-client sshpass git curl
+    # 写入私钥
+    - |
+      sshpass -p "$DEPLOY_PASSWORD" ssh \
+        -o StrictHostKeyChecking=no \
+        -o ConnectTimeout=5 \
+        $DEPLOY_USER@$DEPLOY_SERVER "
+      echo 'Connection OK'"
+    - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
     - echo "All dependencies installed successfully!"
   script:
     - echo "Testing remote environment..."
@@ -374,9 +374,13 @@ deploy:production:
   rules:
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"
   image: continuumio/miniconda3:latest
+  before_script:
+    - echo "Installing deployment dependencies..."
+    - apt-get update && apt-get install -y sshpass
+    - echo "Dependencies installed successfully"
   script:
     - echo "Start production deploy with Docker backend..."
-    - |
+    - |      
       sshpass -p "$DEPLOY_PASSWORD" ssh \
         -o StrictHostKeyChecking=no \
         -o ConnectTimeout=5 \
