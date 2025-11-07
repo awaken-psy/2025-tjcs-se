@@ -399,7 +399,7 @@ deploy:production:
         # 如果不是 git 仓库则 clone
         if [ ! -d .git ]; then
           echo '首次部署：正在 clone 仓库...'
-          git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/tj-cs-swe/CS10102302-2025/group15/timecapsule.git 
+          git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/tj-cs-swe/CS10102302-2025/group15/timecapsule.git .
         fi
 
         git config --global --add safe.directory $PROJECT_PATH
@@ -410,8 +410,16 @@ deploy:production:
         sudo -n find $PROJECT_PATH -type d -exec chmod 775 {} \\; || true
         sudo -n find $PROJECT_PATH -type f -exec chmod 664 {} \\; || true
         sudo -n systemctl reload nginx || true
+
+        # 构建 Docker 后端
+        cd $PROJECT_PATH
+        docker build -t timecapsule-backend:$CI_COMMIT_SHORT_SHA ./backend
+        docker rm -f timecapsule-backend || true
+        docker run -d --name timecapsule-backend -p 8000:8000 timecapsule-backend:$CI_COMMIT_SHORT_SHA
+
         echo '=== 部署完成 ==='
       "
+
   environment:
     name: production
     url: http://$DEPLOY_SERVER
