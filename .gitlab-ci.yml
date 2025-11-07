@@ -352,11 +352,11 @@ deploy:connection-test:
   <<: *deploy_base
   script:
     - echo "Testing SSH connectivity..."
-    - sshpass -p "$DEPLOY_PASSWORD" ssh \
+    - |
+      sshpass -p "$DEPLOY_PASSWORD" ssh \
         -o StrictHostKeyChecking=no \
         -o ConnectTimeout=5 \
-        $DEPLOY_USER@$DEPLOY_SERVER "
-      echo 'Connection OK'"
+        "${DEPLOY_USER}@${DEPLOY_SERVER}" 'echo "Connection OK"'
   allow_failure: false
 
 # 环境探测（非必须）
