@@ -13,7 +13,7 @@ before_script:
   - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
   - chmod 600 ~/.ssh/id_ed25519
   - ssh-keyscan gitlab.com >> ~/.ssh/known_hosts
-  - git remote set-url origin git@gitlab.com:tj-cs-swe/CS10102302-2025/group15/timecapsule.git
+  - git remote set-url origin git@gitlab.com:tj-cs-swe/CS10102302-2025/group15/timecapsule.git || true
 
 .default_before_script: &default_before_script
   - python --version
