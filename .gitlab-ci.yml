@@ -324,10 +324,9 @@ build:docker:
 .deploy_base: &deploy_base
   stage: deploy
   image: 
-    name: alpine
+    name: alpine/git
     pull_policy: if-not-present
   before_script:
-    - apk add --no-cache openssh-client curl git
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     # 写入私钥（需在 CI/CD 变量中配置 SSH_PRIVATE_KEY、DEPLOY_SERVER、DEPLOY_USER、PROJECT_PATH）
