@@ -378,6 +378,7 @@ deploy:production:
   image: continuumio/miniconda3:latest
   before_script:
     - echo "Installing deployment dependencies..."
+    - sed -i 's#http://deb.debian.org#https://mirrors.tuna.tsinghua.edu.cn#g' /etc/apt/sources.list
     - apt-get update && apt-get install -y sshpass
     - echo "Dependencies installed successfully"
   script:
