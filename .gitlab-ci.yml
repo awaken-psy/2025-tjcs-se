@@ -353,14 +353,19 @@ deploy:test:
   script:
     - echo "Testing remote environment..."
     - |
-      sshpass -p "$DEPLOY_PASSWORD" ssh $DEPLOY_USER@$DEPLOY_SERVER "
-        echo '=== 环境测试 ===';
-        whoami;
-        hostname;
-        date;
-        ls -la /home/TimeCapsule/ || true;
-        sudo -n systemctl status nginx --no-pager -l | head -3 || echo 'Nginx 权限测试失败'
-      "
+      sshpass -p "$DEPLOY_PASSWORD" ssh \
+        -o StrictHostKeyChecking=no \
+        -o ConnectTimeout=5 \
+        $DEPLOY_USER@$DEPLOY_SERVER '
+          echo "=== 环境测试 ==="
+          echo "用户: $(whoami)"
+          echo "主机: $(hostname)"
+          echo "时间: $(date)"
+          echo "目录: $(pwd)"
+          ls -la /home/TimeCapsule/ || true
+          sudo -n systemctl status nginx --no-pager -l | head -3 && echo "Nginx 权限 OK" || echo "Nginx 权限测试失败"
+          echo "环境测试完成"
+        '
   allow_failure: true
 
 # 生产部署，使用 Miniconda 镜像
