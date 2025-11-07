@@ -341,7 +341,6 @@ build:docker:
         -o StrictHostKeyChecking=no \
         -o ConnectTimeout=5 \
         $DEPLOY_USER@$DEPLOY_SERVER "echo 'Connection OK'"
-    - chmod 600 ~/.ssh/id_ed25519
     - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
     - git config --global user.name "GitLab CI"
     - git config --global user.email "ci@timecapsule.local"
