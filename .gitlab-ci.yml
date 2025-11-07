@@ -2,11 +2,11 @@
 # G10-码到成功队 - 时光胶囊项目
 
 stages:
-  - lint           # 代码质量检查
-  - test           # 单元/集成测试
-  - security       # 安全扫描（可选）
-  - build          # 构建/产物
-  - deploy         # 部署（可选）
+  - lint # 代码质量检查
+  - test # 单元/集成测试
+  - security # 安全扫描（可选）
+  - build # 构建/产物
+  - deploy # 部署（可选）
 
 .default_before_script: &default_before_script
   - python --version
@@ -18,7 +18,6 @@ stages:
   - conda config --set channel_priority flexible
   - conda clean --all
   - python -m pip install -U pip -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=100
-
 
 # 全局变量
 variables:
@@ -42,9 +41,9 @@ lint:python:
   stage: lint
   image: python:3.11
   before_script:
-    - pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple 
+    - pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
     - python -m pip install -U pip -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=100
-    - pip install click 
+    - pip install click
     - pip install flake8 black isort
   script:
     # 后端 Python 代码检查
@@ -60,12 +59,12 @@ lint:python:
 
 lint:frontend:
   stage: lint
-  image: 
+  image:
     name: node:20-bullseye
     pull_policy: if-not-present
   variables:
     GIT_STRATEGY: clone
-    GIT_CLEAN_FLAGS: none  # ← 禁用git clean
+    GIT_CLEAN_FLAGS: none # ← 禁用git clean
     FF_USE_NEW_BASH_EVAL: "true"
   before_script:
     - cd frontend
@@ -86,7 +85,7 @@ lint:frontend:
 
 test:backend:
   stage: test
-  image: 
+  image:
     name: continuumio/miniconda3:latest
     pull_policy: if-not-present
 
@@ -120,7 +119,7 @@ test:backend:
 # 其他分支的简化测试（不生成覆盖率）
 test:backend:quick:
   stage: test
-  image: 
+  image:
     name: continuumio/miniconda3:latest
     pull_policy: if-not-present
 
@@ -137,7 +136,7 @@ test:backend:quick:
 # 后端 API 启动冒烟测试（可选 不阻塞）
 test:backend:api:
   stage: test
-  image: 
+  image:
     name: continuumio/miniconda3:latest
     pull_policy: if-not-present
   before_script:
@@ -158,12 +157,12 @@ test:backend:api:
 # 前端测试（Vitest）
 test:frontend:
   stage: test
-  image: 
+  image:
     name: node:20-bullseye
     pull_policy: if-not-present
   variables:
-    GIT_STRATEGY: clone      # 总是完全克隆
-    GIT_CLEAN_FLAGS: -ffdx   # 强制清理所有文件
+    GIT_STRATEGY: clone # 总是完全克隆
+    GIT_CLEAN_FLAGS: -ffdx # 强制清理所有文件
   before_script:
     - cd frontend
     - npm ci
@@ -185,11 +184,11 @@ test:frontend:
 
 security:secret-detection:
   stage: security
-  image: 
+  image:
     name: python:3.11
     pull_policy: if-not-present
   script:
-    - pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple 
+    - pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
     - python -m pip install -U pip -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=100
     - pip install detect-secrets
     - detect-secrets scan --baseline .secrets.baseline || true
@@ -201,11 +200,11 @@ security:secret-detection:
 
 security:dependency-check:
   stage: security
-  image: 
+  image:
     name: python:3.11
     pull_policy: if-not-present
   before_script:
-    - pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple 
+    - pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
     - python -m pip install -U pip -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=100
     - pip install safety
     # 基于 requirements.txt 进行依赖检查（避免在 CI 中完整创建 conda 环境）
@@ -221,11 +220,11 @@ security:dependency-check:
 
 security:sast:
   stage: security
-  image: 
+  image:
     name: python:3.11
     pull_policy: if-not-present
   before_script:
-    - pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple 
+    - pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
     - python -m pip install -U pip -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=100
     - pip install bandit
   script:
@@ -249,7 +248,7 @@ security:sast:
 
 build:backend:validate:
   stage: build
-  image: 
+  image:
     name: continuumio/miniconda3:latest
     pull_policy: if-not-present
   before_script:
@@ -264,7 +263,7 @@ build:backend:validate:
 
 build:frontend:
   stage: build
-  image: 
+  image:
     name: node:20-bullseye
     pull_policy: if-not-present
   before_script:
@@ -281,11 +280,19 @@ build:frontend:
 
 build:docker:
   stage: build
-  image: 
+  image:
     name: docker:27
     pull_policy: if-not-present
   services:
-    - /docker:27-dind
+    - name: docker:27-dind
+      alias: docker
+      command: ["--tls=false", "--host=tcp://0.0.0.0:2375"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_DRIVER: overlay2
+    DOCKER_DAEMON_OPTIONS: "--insecure-registry=docker:2375"
+    DOCKER_REGISTRY_MIRROR: "https://823f7578c5ba482fbcfcff047463e7b6.mirror.swr.myhuaweicloud.com"
   script:
     - echo "Building backend Docker image..."
     - |
@@ -311,7 +318,7 @@ build:docker:
 
 .deploy_base: &deploy_base
   stage: deploy
-  image: 
+  image:
     name: alpine
     pull_policy: if-not-present
   before_script:
