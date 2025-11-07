@@ -323,8 +323,11 @@ build:docker:
 .deploy_base: &deploy_base
   stage: deploy
   before_script:
-    - echo "All dependencies installed successfully!"
+    - echo "Using Tsinghua Alpine mirror..." 
+    - sed -i 's#https://dl-cdn.alpinelinux.org/alpine#https://mirrors.tuna.tsinghua.edu.cn/alpine#g' /etc/apk/repositories 
+    - apk update
     - apk add --no-cache openssh-client sshpass git curl
+    - echo "All dependencies installed successfully!"
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     # 写入私钥
@@ -343,7 +346,9 @@ build:docker:
 # 测试部署，轻量 Alpine
 deploy:test:
   <<: *deploy_base
-  image: alpine
+  image: 
+    name: alpine 
+    pull_policy: if-not-present
   script:
     - echo "Testing remote environment..."
     - sshpass -p "$DEPLOY_PASSWORD" ssh $DEPLOY_USER@$DEPLOY_SERVER '
