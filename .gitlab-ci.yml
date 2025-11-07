@@ -364,6 +364,9 @@ deploy:test:
 
 # 生产部署，使用 Miniconda 镜像
 deploy:production:
+  stage: deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"
   image: continuumio/miniconda3:latest
   script:
     - echo "Start production deploy with Docker backend..."
