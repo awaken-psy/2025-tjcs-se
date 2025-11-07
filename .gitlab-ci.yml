@@ -325,11 +325,6 @@ build:docker:
 .deploy_base: &deploy_base
   stage: deploy
   before_script:
-    - echo "Using Tsinghua Alpine mirror..." 
-    - sed -i 's#https://dl-cdn.alpinelinux.org/alpine#https://mirrors.tuna.tsinghua.edu.cn/alpine#g' /etc/apk/repositories 
-    - apk update
-    - apk add --no-cache openssh-client sshpass git curl
-    - echo "All dependencies installed successfully!"
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     # 写入私钥
@@ -351,6 +346,12 @@ deploy:test:
   image: 
     name: alpine 
     pull_policy: if-not-present
+  before_script:    
+    - echo "Using Tsinghua Alpine mirror..." 
+    - sed -i 's#https://dl-cdn.alpinelinux.org/alpine#https://mirrors.tuna.tsinghua.edu.cn/alpine#g' /etc/apk/repositories 
+    - apk update
+    - apk add --no-cache openssh-client sshpass git curl
+    - echo "All dependencies installed successfully!"
   script:
     - echo "Testing remote environment..."
     - sshpass -p "$DEPLOY_PASSWORD" ssh $DEPLOY_USER@$DEPLOY_SERVER '
@@ -365,7 +366,6 @@ deploy:test:
 
 # 生产部署，使用 Miniconda 镜像
 deploy:production:
-  <<: *deploy_base
   image: continuumio/miniconda3:latest
   script:
     - echo "Start production deploy with Docker backend..."
