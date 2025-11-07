@@ -395,7 +395,7 @@ deploy:production:
           # 如果不是 git 仓库则 clone
           if [ ! -d .git ]; then
             echo '首次部署：正在 clone 仓库...'
-            git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/tj-cs-swe/CS10102302-2025/group15/timecapsule.git .
+            git clone git@gitlab.com:tj-cs-swe/CS10102302-2025/group15/timecapsule.git .
           fi
 
           git config --global --add safe.directory $PROJECT_PATH
