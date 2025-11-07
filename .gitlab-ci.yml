@@ -330,15 +330,16 @@ build:docker:
     - apk update
     - apk add --no-cache openssh-client git curl
     - echo "All dependencies installed successfully!"
-    - apk add --no-cache openssh-client git curl
+    - apk add --no-cache openssh-client sshpass git curl
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     # 写入私钥（需在 CI/CD 变量中配置 SSH_PRIVATE_KEY、DEPLOY_SERVER、DEPLOY_USER、PROJECT_PATH）
     - |
-      {
-        echo "$SSH_PRIVATE_KEY" 
-      } > ~/.ssh/id_rsa
-    - chmod 600 ~/.ssh/id_rsa
+      sshpass -p "$DEPLOY_PASSWORD" ssh \
+        -o StrictHostKeyChecking=no \
+        -o ConnectTimeout=5 \
+        $DEPLOY_USER@$DEPLOY_SERVER "echo 'Connection OK'"
+    - chmod 600 ~/.ssh/id_ed25519
     - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
     - git config --global user.name "GitLab CI"
     - git config --global user.email "ci@timecapsule.local"
