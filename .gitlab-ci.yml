@@ -278,24 +278,25 @@ build:frontend:
     paths:
       - frontend/dist/
     expire_in: 1 week
-
 build:docker:
   stage: build
-  image: 
+  image:
     name: docker:27
     pull_policy: if-not-present
   services:
-  - name: docker:27-dind
-    alias: docker
+    - name: docker:27-dind
+      alias: docker
+      command: ["--tls=false", "--host=tcp://0.0.0.0:2375"]
   variables:
-    DOCKER_HOST: "tcp://docker:2375"
+    DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
     DOCKER_DRIVER: overlay2
+    DOCKER_DAEMON_OPTIONS: "--insecure-registry=docker:2375"
   script:
     - echo "Building backend Docker image..."
     - |
       cat > Dockerfile <<EOF
-      FROM /continuumio/miniconda3:latest
+      FROM continuumio/miniconda3:latest
       WORKDIR /app
       COPY backend/environment.yml ./environment.yml
       RUN conda env create -f environment.yml -n timecapsule
@@ -304,6 +305,7 @@ build:docker:
       EXPOSE 8000
       CMD ["conda", "run", "-n", "timecapsule", "python", "app/main.py"]
       EOF
+    - docker info  # ✅ 测试是否能连上 daemon
     - docker build -t timecapsule-backend:$CI_COMMIT_SHORT_SHA .
     - echo "Docker image built successfully"
   rules:
