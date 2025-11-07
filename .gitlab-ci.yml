@@ -351,7 +351,11 @@ deploy:connection-test:
   <<: *deploy_base
   script:
     - echo "Testing SSH connectivity..."
-    - timeout 10s ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_SERVER "echo 'Connection OK'"
+    - sshpass -p "$DEPLOY_PASSWORD" ssh \
+        -o StrictHostKeyChecking=no \
+        -o ConnectTimeout=5 \
+        $DEPLOY_USER@$DEPLOY_SERVER "
+      echo 'Connection OK'"
   allow_failure: false
 
 # 环境探测（非必须）
@@ -360,7 +364,10 @@ deploy:test:
   script:
     - echo "Testing remote environment..."
     - |
-      ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_SERVER '
+      sshpass -p "$DEPLOY_PASSWORD" ssh \
+      -o StrictHostKeyChecking=no \
+      -o ConnectTimeout=5 \
+      $DEPLOY_USER@$DEPLOY_SERVER "
         echo "=== 环境测试 ==="
         echo "用户: $(whoami)"
         echo "主机: $(hostname)"
@@ -378,7 +385,10 @@ deploy:production:
   script:
     - echo "Start production deploy..."
     - |
-      ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_SERVER "
+      sshpass -p "$DEPLOY_PASSWORD" ssh \
+      -o StrictHostKeyChecking=no \
+      -o ConnectTimeout=5 \
+      $DEPLOY_USER@$DEPLOY_SERVER "
         set -e
         echo '=== 开始部署 ==='
         cd $PROJECT_PATH
