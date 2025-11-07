@@ -395,6 +395,13 @@ deploy:production:
         echo '=== 开始部署 ==='
         mkdir -p $PROJECT_PATH
         cd $PROJECT_PATH
+        
+        # 如果不是 git 仓库则 clone
+        if [ ! -d .git ]; then
+          echo '首次部署：正在 clone 仓库...'
+          git clone $CI_REPOSITORY_URL .   # 注意这里的点表示克隆到当前目录
+        fi
+
         git config --global --add safe.directory $PROJECT_PATH
         git fetch origin
         git checkout -f $CI_COMMIT_REF_NAME
