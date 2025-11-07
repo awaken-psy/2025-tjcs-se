@@ -39,6 +39,7 @@ cache:
     - .cache/pip
     - backend/.pytest_cache
     - frontend/node_modules
+    - frontend/.npm/
 
 # ============================================
 # 代码质量检查 (Lint)
@@ -75,8 +76,9 @@ lint:frontend:
     FF_USE_NEW_BASH_EVAL: "true"
   before_script:
     - cd frontend
+    - npm config set registry https://registry.npmmirror.com
     - rm -rf node_modules .cache dist
-    - npm ci
+    - npm ci --prefer-offline --no-audit
   script:
     - npm run lint || true
   allow_failure: true
