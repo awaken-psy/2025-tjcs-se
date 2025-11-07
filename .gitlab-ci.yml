@@ -319,20 +319,8 @@ build:docker:
 # 部署 (Deploy)
 # ============================================
 
-# 基础 deploy 配置（Alpine 测试用）
 .deploy_base: &deploy_base
   stage: deploy
-  before_script:
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    - git config --global user.name "GitLab CI"
-    - git config --global user.email "ci@timecapsule.local"
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"
-
-# 测试部署，轻量 Alpine
-deploy:test:
-  <<: *deploy_base
   image:
     name: alpine
     pull_policy: if-not-present
@@ -340,8 +328,11 @@ deploy:test:
     - echo "Using Tsinghua Alpine mirror..."
     - sed -i 's#https://dl-cdn.alpinelinux.org/alpine#https://mirrors.tuna.tsinghua.edu.cn/alpine#g' /etc/apk/repositories
     - apk update
+    - echo "All dependencies installed successfully!"
     - apk add --no-cache openssh-client sshpass git curl
-    # 写入私钥
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    # 写入私钥（需在 CI/CD 变量中配置 SSH_PRIVATE_KEY、DEPLOY_SERVER、DEPLOY_USER、PROJECT_PATH）
     - |
       sshpass -p "$DEPLOY_PASSWORD" ssh \
         -o StrictHostKeyChecking=no \
@@ -349,7 +340,26 @@ deploy:test:
         $DEPLOY_USER@$DEPLOY_SERVER "
       echo 'Connection OK'"
     - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
-    - echo "All dependencies installed successfully!"
+    - git config --global user.name "GitLab CI"
+    - git config --global user.email "ci@timecapsule.local"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"
+
+# 基础连接测试
+deploy:connection-test:
+  <<: *deploy_base
+  script:
+    - echo "Testing SSH connectivity..."
+    - |
+      sshpass -p "$DEPLOY_PASSWORD" ssh \
+        -o StrictHostKeyChecking=no \
+        -o ConnectTimeout=5 \
+        "${DEPLOY_USER}@${DEPLOY_SERVER}" 'echo "Connection OK"'
+  allow_failure: false
+
+# 环境探测（非必须）
+deploy:test:
+  <<: *deploy_base
   script:
     - echo "Testing remote environment..."
     - |
@@ -368,51 +378,37 @@ deploy:test:
         '
   allow_failure: true
 
-# 生产部署，使用 Miniconda 镜像
+# 生产部署（示例，按需调整）
 deploy:production:
-  stage: deploy
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"
-  image: continuumio/miniconda3:latest
-  before_script:
-    - echo "Installing deployment dependencies..."
-    - apt-get update && apt-get install -y sshpass
-    - echo "Dependencies installed successfully"
+  <<: *deploy_base
   script:
-    - echo "Start production deploy with Docker backend..."
-    - |      
+    - echo "Start production deploy..."
+    - |
       sshpass -p "$DEPLOY_PASSWORD" ssh \
-        -o StrictHostKeyChecking=no \
-        -o ConnectTimeout=5 \
-        $DEPLOY_USER@$DEPLOY_SERVER "
-          set -e
-          echo '=== 开始部署 ==='
-          mkdir -p $PROJECT_PATH
-          cd $PROJECT_PATH
+      -o StrictHostKeyChecking=no \
+      -o ConnectTimeout=5 \
+      $DEPLOY_USER@$DEPLOY_SERVER "
+        set -e
+        echo '=== 开始部署 ==='
+        mkdir -p $PROJECT_PATH
+        cd $PROJECT_PATH
 
-          # 如果不是 git 仓库则 clone
-          if [ ! -d .git ]; then
-            echo '首次部署：正在 clone 仓库...'
-            git clone git@gitlab.com:tj-cs-swe/CS10102302-2025/group15/timecapsule.git .
-          fi
+        # 如果不是 git 仓库则 clone
+        if [ ! -d .git ]; then
+          echo '首次部署：正在 clone 仓库...'
+          git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/tj-cs-swe/CS10102302-2025/group15/timecapsule.git 
+        fi
 
-          git config --global --add safe.directory $PROJECT_PATH
-          git fetch origin
-          git checkout -f $CI_COMMIT_REF_NAME
-          git reset --hard origin/$CI_COMMIT_REF_NAME
-          sudo -n chown -R www-data:mujica $PROJECT_PATH || true
-          sudo -n find $PROJECT_PATH -type d -exec chmod 775 {} \\; || true
-          sudo -n find $PROJECT_PATH -type f -exec chmod 664 {} \\; || true
-          sudo -n systemctl reload nginx || true
-
-          # 构建 Docker 后端
-          cd $PROJECT_PATH
-          docker build -t timecapsule-backend:$CI_COMMIT_SHORT_SHA ./backend
-          docker rm -f timecapsule-backend || true
-          docker run -d --name timecapsule-backend -p 8000:8000 timecapsule-backend:$CI_COMMIT_SHORT_SHA
-
-          echo '=== 部署完成 ==='
-        "
+        git config --global --add safe.directory $PROJECT_PATH
+        git fetch origin
+        git checkout -f $CI_COMMIT_REF_NAME
+        git reset --hard origin/$CI_COMMIT_REF_NAME
+        sudo -n chown -R www-data:mujica $PROJECT_PATH || true
+        sudo -n find $PROJECT_PATH -type d -exec chmod 775 {} \\; || true
+        sudo -n find $PROJECT_PATH -type f -exec chmod 664 {} \\; || true
+        sudo -n systemctl reload nginx || true
+        echo '=== 部署完成 ==='
+      "
   environment:
     name: production
     url: http://$DEPLOY_SERVER
