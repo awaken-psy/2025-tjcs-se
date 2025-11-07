@@ -286,13 +286,16 @@ build:docker:
   services:
     - name: docker:27-dind
       alias: docker
-      command: ["--tls=false", "--host=tcp://0.0.0.0:2375"]
+      command: 
+      - "--tls=false"
+      - "--host=tcp://0.0.0.0:2375"
+      - "--registry-mirror=https://823f7578c5ba482fbcfcff047463e7b6.mirror.swr.myhuaweicloud.com"
+      - "--insecure-registry=registry.gitlab.com"
   variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
     DOCKER_DRIVER: overlay2
     DOCKER_DAEMON_OPTIONS: "--insecure-registry=docker:2375"
-    DOCKER_REGISTRY_MIRROR: "https://823f7578c5ba482fbcfcff047463e7b6.mirror.swr.myhuaweicloud.com"
   script:
     - echo "Building backend Docker image..."
     - |
