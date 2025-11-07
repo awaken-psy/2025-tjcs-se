@@ -338,9 +338,7 @@ build:docker:
     # 写入私钥（需在 CI/CD 变量中配置 SSH_PRIVATE_KEY、DEPLOY_SERVER、DEPLOY_USER、PROJECT_PATH）
     - |
       {
-        echo "-----BEGIN OPENSSH PRIVATE KEY-----"
-        echo "$SSH_PRIVATE_KEY" | grep -v "PRIVATE KEY"
-        echo "-----END OPENSSH PRIVATE KEY-----"
+        echo "$SSH_PRIVATE_KEY" 
       } > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
     - ssh-keyscan -H "$DEPLOY_SERVER" >> ~/.ssh/known_hosts
