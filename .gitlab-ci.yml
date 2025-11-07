@@ -286,11 +286,11 @@ build:docker:
   services:
     - name: docker:27-dind
       alias: docker
-      command: 
-      - "--tls=false"
-      - "--host=tcp://0.0.0.0:2375"
-      - "--registry-mirror=https://823f7578c5ba482fbcfcff047463e7b6.mirror.swr.myhuaweicloud.com"
-      - "--insecure-registry=registry.gitlab.com"
+      command:
+        - "--tls=false"
+        - "--host=tcp://0.0.0.0:2375"
+        - "--registry-mirror=https://823f7578c5ba482fbcfcff047463e7b6.mirror.swr.myhuaweicloud.com"
+        - "--insecure-registry=registry.gitlab.com"
   variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
@@ -319,20 +319,15 @@ build:docker:
 # 部署 (Deploy)
 # ============================================
 
+# 基础 deploy 配置（Alpine 测试用）
 .deploy_base: &deploy_base
   stage: deploy
-  image:
-    name: alpine
-    pull_policy: if-not-present
   before_script:
-    - echo "Using Tsinghua Alpine mirror..."
-    - sed -i 's#https://dl-cdn.alpinelinux.org/alpine#https://mirrors.tuna.tsinghua.edu.cn/alpine#g' /etc/apk/repositories
-    - apk update
     - echo "All dependencies installed successfully!"
     - apk add --no-cache openssh-client sshpass git curl
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
-    # 写入私钥（需在 CI/CD 变量中配置 SSH_PRIVATE_KEY、DEPLOY_SERVER、DEPLOY_USER、PROJECT_PATH）
+    # 写入私钥
     - |
       sshpass -p "$DEPLOY_PASSWORD" ssh \
         -o StrictHostKeyChecking=no \
@@ -345,75 +340,61 @@ build:docker:
   rules:
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"
 
-# 基础连接测试
-deploy:connection-test:
-  <<: *deploy_base
-  script:
-    - echo "Testing SSH connectivity..."
-    - |
-      sshpass -p "$DEPLOY_PASSWORD" ssh \
-        -o StrictHostKeyChecking=no \
-        -o ConnectTimeout=5 \
-        "${DEPLOY_USER}@${DEPLOY_SERVER}" 'echo "Connection OK"'
-  allow_failure: false
-
-# 环境探测（非必须）
+# 测试部署，轻量 Alpine
 deploy:test:
   <<: *deploy_base
+  image: alpine
   script:
     - echo "Testing remote environment..."
+    - sshpass -p "$DEPLOY_PASSWORD" ssh $DEPLOY_USER@$DEPLOY_SERVER '
+      echo "=== 环境测试 ==="
+      whoami
+      hostname
+      date
+      ls -la /home/TimeCapsule/ || true
+      sudo -n systemctl status nginx --no-pager -l | head -3 || echo "Nginx 权限测试失败"
+      '
+  allow_failure: true
+
+# 生产部署，使用 Miniconda 镜像
+deploy:production:
+  <<: *deploy_base
+  image: continuumio/miniconda3:latest
+  script:
+    - echo "Start production deploy with Docker backend..."
     - |
       sshpass -p "$DEPLOY_PASSWORD" ssh \
         -o StrictHostKeyChecking=no \
         -o ConnectTimeout=5 \
-        $DEPLOY_USER@$DEPLOY_SERVER '
-          echo "=== 环境测试 ==="
-          echo "用户: $(whoami)"
-          echo "主机: $(hostname)"
-          echo "时间: $(date)"
-          echo "目录: $(pwd)"
-          ls -la /home/TimeCapsule/ || true
-          sudo -n systemctl status nginx --no-pager -l | head -3 && echo "Nginx 权限 OK" || echo "Nginx 权限测试失败"
-          echo "环境测试完成"
-        '
-  allow_failure: true
+        $DEPLOY_USER@$DEPLOY_SERVER "
+          set -e
+          echo '=== 开始部署 ==='
+          mkdir -p $PROJECT_PATH
+          cd $PROJECT_PATH
 
+          # 如果不是 git 仓库则 clone
+          if [ ! -d .git ]; then
+            echo '首次部署：正在 clone 仓库...'
+            git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/tj-cs-swe/CS10102302-2025/group15/timecapsule.git .
+          fi
 
-# 生产部署（示例，按需调整）
-deploy:production:
-  <<: *deploy_base
-  script:
-    - echo "Start production deploy..."
-    - |
-      sshpass -p "$DEPLOY_PASSWORD" ssh \
-      -o StrictHostKeyChecking=no \
-      -o ConnectTimeout=5 \
-      $DEPLOY_USER@$DEPLOY_SERVER "
-        set -e
-        echo '=== 开始部署 ==='
-        mkdir -p $PROJECT_PATH
-        cd $PROJECT_PATH
+          git config --global --add safe.directory $PROJECT_PATH
+          git fetch origin
+          git checkout -f $CI_COMMIT_REF_NAME
+          git reset --hard origin/$CI_COMMIT_REF_NAME
+          sudo -n chown -R www-data:mujica $PROJECT_PATH || true
+          sudo -n find $PROJECT_PATH -type d -exec chmod 775 {} \\; || true
+          sudo -n find $PROJECT_PATH -type f -exec chmod 664 {} \\; || true
+          sudo -n systemctl reload nginx || true
 
-        # 如果不是 git 仓库则 clone
-        if [ ! -d .git ]; then
-          echo '首次部署：正在 clone 仓库...'
-          git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/tj-cs-swe/CS10102302-2025/group15/timecapsule.git .   # 注意这里的点表示克隆到当前目录
-        fi
+          # 构建 Docker 后端
+          cd $PROJECT_PATH
+          docker build -t timecapsule-backend:$CI_COMMIT_SHORT_SHA ./backend
+          docker rm -f timecapsule-backend || true
+          docker run -d --name timecapsule-backend -p 8000:8000 timecapsule-backend:$CI_COMMIT_SHORT_SHA
 
-        git config --global --add safe.directory $PROJECT_PATH
-        git fetch origin
-        git checkout -f $CI_COMMIT_REF_NAME
-        git reset --hard origin/$CI_COMMIT_REF_NAME
-        sudo -n chown -R www-data:mujica $PROJECT_PATH || true
-        sudo -n find $PROJECT_PATH -type d -exec chmod 775 {} \\; || true
-        sudo -n find $PROJECT_PATH -type f -exec chmod 664 {} \\; || true
-        sudo -n systemctl reload nginx || true
-
-        # 启动后端服务
-        cd $PROJECT_PATH
-        nohup ./backend/python3 main.py &  # 后台运行
-        echo '=== 部署完成 ==='
-      "
+          echo '=== 部署完成 ==='
+        "
   environment:
     name: production
     url: http://$DEPLOY_SERVER
