@@ -466,29 +466,29 @@ deploy:production:
         server_name _;
 
         # 后端 API 代理
-        location /api/ {
-            proxy_pass http://timecapsule-backend:8000/api/;
-            proxy_set_header Host \$host;
-            proxy_set_header X-Real-IP \$remote_addr;
+        location /api {
+          proxy_pass http://http://123.60.47.101:8000;
+          proxy_set_header Host \$host;
+          proxy_set_header X-Real-IP \$remote_addr;
         }
 
         location /health {
-          proxy_pass http://timecapsule-backend:8000/health;
+          proxy_pass http://http://123.60.47.101:8000;
           proxy_set_header Host $host;
           proxy_set_header X-Real-IP $remote_addr;
         }
 
         location /docs {
-          proxy_pass http://timecapsule-backend:8000/docs;
+          proxy_pass http://http://123.60.47.101:8000;
           proxy_set_header Host $host;
           proxy_set_header X-Real-IP $remote_addr;
         }
 
         # 前端静态文件
         location / {
-            root /usr/share/nginx/html;
-            index index.html;
-            try_files \$uri \$uri/ /index.html;
+          root /usr/share/nginx/html;
+          index index.html;
+          try_files \$uri \$uri/ /index.html;
         }
       }
       EOF
