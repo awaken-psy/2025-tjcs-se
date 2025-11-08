@@ -417,8 +417,7 @@ deploy:production:
       cd $PROJECT_PATH/backend
 
       # 生成 Dockerfile（如果项目未包含）
-      if [ ! -f Dockerfile ]; then
-      echo '未检测到 Dockerfile，自动生成中...'
+      echo '生成最新 backend Dockerfile中...'
       cat > Dockerfile << DOCKERFILE_EOF
       FROM python:3.11
       WORKDIR /app
@@ -428,7 +427,7 @@ deploy:production:
       EXPOSE 8000
       CMD ["python", "app/main.py"]
       DOCKERFILE_EOF
-      fi
+      
 
       docker build -t timecapsule-backend:$CI_COMMIT_SHORT_SHA .
 
@@ -438,7 +437,6 @@ deploy:production:
       echo '=== 🐳 构建前端 Docker 镜像 ==='
       cd $PROJECT_PATH/frontend
 
-      if [ ! -f Dockerfile ]; then
       cat > Dockerfile << DOCKERFILE_EOF
       # ==========================
       # Stage 1: Build Vue app
@@ -460,6 +458,7 @@ deploy:production:
       # 拷贝前端构建结果
       COPY --from=build /app/dist /usr/share/nginx/html
       # ✅ 直接在 Dockerfile 内写入 nginx.conf
+      echo '生成最新 frontend Dockerfile中...'
       RUN cat << 'NGINX_EOF' > /etc/nginx/conf.d/default.conf
       server {
       listen 80;
@@ -499,24 +498,25 @@ deploy:production:
       EXPOSE 80
       CMD ["nginx", "-g", "daemon off;"]
       DOCKERFILE_EOF
-      fi
+
       docker build -t timecapsule-frontend:$CI_COMMIT_SHORT_SHA .
 
       # --------------------------
       # 运行 Docker 容器
       # --------------------------
 
+      echo "=== 建立局域网 ==="
       docker network create timecapsule-net || true
       
       echo '=== 🧩 启动后端容器 ==='
       if [ -n "$(docker ps -a -q -f name=timecapsule-backend)" ]; then
         echo 'timecapsule-backend exist, stop remove and restart'
-        docker stop timecapsule-backend
-        docker rm -f timecapsule-backend
+        sudo docker stop timecapsule-backend
+        sudo docker rm -f timecapsule-backend
       fi
 
       # remove forcely
-      # docker rm -f timecapsule-backend 2>/dev/null || true
+      docker rm -f timecapsule-backend 2>/dev/null || true
 
       docker run -d \
         --name timecapsule-backend \
@@ -527,12 +527,12 @@ deploy:production:
       echo '=== 🧩 启动前端容器 ==='
       if [ -n "$(docker ps -a -q -f name=timecapsule-frontend)" ]; then
         echo 'timecapsule-frontend exist, stop remove and restart'
-        docker stop timecapsule-frontend
-        docker rm -f timecapsule-frontend
+        sudo docker stop timecapsule-frontend
+        sudo docker rm -f timecapsule-frontend
       fi
 
       # remove forcely
-      # docker rm -f timecapsule-frontend 2>/dev/null || true
+      docker rm -f timecapsule-frontend 2>/dev/null || true
 
       docker run -d \
         --name timecapsule-frontend \
