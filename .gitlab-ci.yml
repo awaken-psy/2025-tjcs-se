@@ -437,8 +437,10 @@ deploy:production:
       # 运行 Docker 容器
       # --------------------------
       echo '=== 🧩 启动后端容器 ==='
-      docker stop timecapsule-backend || true
-      docker rm timecapsule-backend || true
+      if [ $(docker ps -a -q -f name=timecapsule-backend) ]; then
+        docker stop timecapsule-backend
+        docker rm timecapsule-backend
+      fi
 
       docker run -d \
         --name timecapsule-backend \
@@ -476,12 +478,15 @@ deploy:production:
       # 运行 Docker 容器
       # --------------------------
       echo '=== 🧩 启动前端容器 ==='
-      docker stop timecapsule-frontend || true
-      docker rm timecapsule-frontend || true
+      if [ $(docker ps -a -q -f name=timecapsule-frontend) ]; then
+        docker stop timecapsule-frontend
+        docker rm timecapsule-frontend
+      fi
       docker run -d --name timecapsule-frontend -p 80:80 timecapsule-frontend:$CI_COMMIT_SHORT_SHA
 
       echo '=== ✅ 部署完成 ==='
       docker ps -a | grep timecapsule-backend
+      docker ps -a | grep timecapsule-frontend
       REMOTE_SCRIPT
 
   environment:
