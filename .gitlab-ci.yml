@@ -437,7 +437,7 @@ deploy:production:
       # 运行 Docker 容器
       # --------------------------
       echo '=== 🧩 启动后端容器 ==='
-      if [-n $(docker ps -a -q -f name=timecapsule-backend) ]; then
+      if [ -n $(docker ps -a -q -f name=timecapsule-backend) ]; then
         echo 'timecapsule-backend exist, stop remove and restart'
         docker stop timecapsule-backend
         docker rm timecapsule-backend
@@ -479,7 +479,7 @@ deploy:production:
       # 运行 Docker 容器
       # --------------------------
       echo '=== 🧩 启动前端容器 ==='
-      if [-n $(docker ps -a -q -f name=timecapsule-frontend) ]; then
+      if [ -n $(docker ps -a -q -f name=timecapsule-frontend) ]; then
         echo 'timecapsule-frontend exist, stop remove and restart'
         docker stop timecapsule-frontend
         docker rm timecapsule-frontend
