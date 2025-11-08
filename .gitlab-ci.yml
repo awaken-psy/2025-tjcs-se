@@ -511,11 +511,16 @@ deploy:production:
       echo '=== 🧩 启动后端容器 ==='      
       BACKEND_CONTAINER=$(docker ps -a -q -f name=timecapsule-backend)
       echo "当前容器ID: $BACKEND_CONTAINER"
+      echo "调试 - 变量长度: ${#FRONTEND_CONTAINER}"
+      echo "调试 - 变量内容: |$FRONTEND_CONTAINER|"
+      echo "调试 - 命令退出码: $?"
 
       if [ -n "$BACKEND_CONTAINER" ]; then
         echo 'timecapsule-backend exist, stop remove and restart'
         sudo docker stop timecapsule-backend
         sudo docker rm -f timecapsule-backend
+      else
+        echo "调试 - IF-frontend条件不成立"
       fi
 
       # remove forcely
@@ -530,10 +535,16 @@ deploy:production:
       echo '=== 🧩 启动前端容器 ==='
       FRONTEND_CONTAINER=$(docker ps -a -q -f name=timecapsule-frontend)
       echo "当前容器ID: $FRONTEND_CONTAINER"
+      echo "调试 - 变量长度: ${#FRONTEND_CONTAINER}"
+      echo "调试 - 变量内容: |$FRONTEND_CONTAINER|"
+      echo "调试 - 命令退出码: $?"
+
       if [ -n "$FRONTEND_CONTAINER" ]; then
         echo 'timecapsule-frontend exist, stop remove and restart'
         sudo docker stop timecapsule-frontend
         sudo docker rm -f timecapsule-frontend
+      else
+        echo "调试 - IF-backend条件不成立"
       fi
 
       # remove forcely
