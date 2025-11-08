@@ -466,19 +466,19 @@ deploy:production:
 
       # 后端 API 代理
       location /api {
-        proxy_pass http://http://123.60.47.101:8000;
+        proxy_pass http://timecapsule-backend:8000;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
       }
 
       location /health {
-        proxy_pass http://http://123.60.47.101:8000;
+        proxy_pass http://timecapsule-backend:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
       }
 
       location /docs {
-        proxy_pass http://http://123.60.47.101:8000;
+        proxy_pass http://timecapsule-backend:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
       }
