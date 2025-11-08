@@ -422,15 +422,12 @@ deploy:production:
         # 生成 Dockerfile（如果项目未包含）
         if [ ! -f Dockerfile ]; then
           echo '未检测到 Dockerfile，自动生成中...'
-          cat > Dockerfile << 'DOCKERFILE_EOF'
+          cat > Dockerfile << DOCKERFILE_EOF
           FROM python:3.11
-
           WORKDIR /app
           COPY . /app
-
           # 使用清华源加速安装
           RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
-
           EXPOSE 8000
           CMD ["python", "app/main.py"]
           DOCKERFILE_EOF
