@@ -149,7 +149,7 @@ deploy:production:
       echo "    listen 80;" >> ./nginx_conf/default.conf
       echo "    server_name _;" >> ./nginx_conf/default.conf
       echo "    location /api {" >> ./nginx_conf/default.conf
-      echo "        proxy_pass http://$BACKEND_IP:8000;" >> ./nginx_conf/default.conf
+      echo "        proxy_pass http://$BACKEND_IP:8000/api;" >> ./nginx_conf/default.conf
       echo '        proxy_set_header Host $host;' >> ./nginx_conf/default.conf
       echo '        proxy_set_header X-Real-IP $remote_addr;' >> ./nginx_conf/default.conf
       echo '    }' >> ./nginx_conf/default.conf
@@ -160,6 +160,16 @@ deploy:production:
       echo '    }' >> ./nginx_conf/default.conf
       echo "    location /health {" >> ./nginx_conf/default.conf
       echo "        proxy_pass http://$BACKEND_IP:8000/health;" >> ./nginx_conf/default.conf
+      echo '        proxy_set_header Host $host;' >> ./nginx_conf/default.conf
+      echo '        proxy_set_header X-Real-IP $remote_addr;' >> ./nginx_conf/default.conf
+      echo '    }' >> ./nginx_conf/default.conf
+      echo "    location /openapi.json {" >> ./nginx_conf/default.conf
+      echo "        proxy_pass http://$BACKEND_IP:8000/openapi.json;" >> ./nginx_conf/default.conf
+      echo '        proxy_set_header Host $host;' >> ./nginx_conf/default.conf
+      echo '        proxy_set_header X-Real-IP $remote_addr;' >> ./nginx_conf/default.conf
+      echo '    }' >> ./nginx_conf/default.conf
+      echo "    location /redoc {" >> ./nginx_conf/default.conf
+      echo "        proxy_pass http://$BACKEND_IP:8000/redoc;" >> ./nginx_conf/default.conf
       echo '        proxy_set_header Host $host;' >> ./nginx_conf/default.conf
       echo '        proxy_set_header X-Real-IP $remote_addr;' >> ./nginx_conf/default.conf
       echo '    }' >> ./nginx_conf/default.conf
