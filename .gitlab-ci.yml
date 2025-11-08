@@ -505,7 +505,7 @@ deploy:production:
       docker run -d \
         --name timecapsule-backend \
         -p 8000:8000 \
-        -v $PROJECT_PATH/backend:/app \
+        --network timecapsule-net \
         timecapsule-backend:$CI_COMMIT_SHORT_SHA
         
       echo '=== 🧩 启动前端容器 ==='
@@ -514,7 +514,12 @@ deploy:production:
         docker stop timecapsule-frontend
         docker rm timecapsule-frontend
       fi
-      docker run -d --name timecapsule-frontend -p 80:80 timecapsule-frontend:$CI_COMMIT_SHORT_SHA
+
+      docker run -d \
+        --name timecapsule-frontend \
+        -p 80:80 \
+        --network timecapsule-net \
+        timecapsule-frontend:$CI_COMMIT_SHORT_SHA
 
       echo '=== ✅ 部署完成 ==='
       docker ps -a | grep timecapsule-backend
