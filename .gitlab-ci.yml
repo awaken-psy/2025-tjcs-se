@@ -100,15 +100,13 @@ deploy:production:
 
       # 生成 Dockerfile（如果项目未包含）
       echo '生成最新 backend Dockerfile中...'
-      cat > Dockerfile <<- 'DOCKERFILE_EOF'
-      FROM python:3.11 
-      WORKDIR /app 
-      COPY . /app 
+      echo "FROM python:3.11" >> Dockerfile
+      echo "WORKDIR /app" >> Dockerfile
+      echo "COPY . /app" >> Dockerfile
       # 使用清华源加速安装
-      RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt 
-      EXPOSE 8000 
-      CMD ["python", "app/main.py"] 
-      DOCKERFILE_EOF     
+      echo "RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt" >> Dockerfile 
+      echo "EXPOSE 8000" >> Dockerfile
+      echo "CMD ["python", "app/main.py"]" >> Dockerfile
 
       docker build -t timecapsule-backend:$CI_COMMIT_SHORT_SHA .
 
