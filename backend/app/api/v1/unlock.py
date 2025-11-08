@@ -5,15 +5,9 @@ from fastapi import APIRouter, HTTPException, Query, Path
 from typing import Optional, List
 from datetime import datetime
 
-<<<<<<< HEAD:app/api/v1/unlock.py
 from api.v1.model.request import UnlockCheckRequest, UnlockCapsuleRequest
 from models.core.condition import Location
 from api.v1.model.response import (
-=======
-from models.net.request import UnlockCheckRequest, UnlockCapsuleRequest
-from models.core.condition import Location
-from models.net.response import (
->>>>>>> main:backend/app/api/v1/unlock.py
     UnlockCheckResponse,
     UnlockCapsuleResponse,
     ErrorResponse,
