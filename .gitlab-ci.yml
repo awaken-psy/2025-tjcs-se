@@ -106,7 +106,7 @@ deploy:production:
       # 使用清华源加速安装
       echo 'RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt' >> Dockerfile 
       echo 'EXPOSE 8000' >> Dockerfile
-      echo 'CMD ["python", "app/main.py"]'' >> Dockerfile
+      echo 'CMD ["python", "app/main.py"]' >> Dockerfile
 
       docker build -t timecapsule-backend:$CI_COMMIT_SHORT_SHA .
 
