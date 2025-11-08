@@ -139,25 +139,25 @@ deploy:production:
       echo 'CMD ["nginx", "-g", "daemon off;"]' >> Dockerfile
       
       mkdir -p ./nginx_conf
-      echo "server {" > ./nginx_conf/default.conf
-      echo "    listen 80;" >> ./nginx_conf/default.conf
-      echo "    server_name _;" >> ./nginx_conf/default.conf
-      echo "    location /api {" >> ./nginx_conf/default.conf
-      echo "        proxy_pass timecapsule-backend:8000;" >> ./nginx_conf/default.conf
-      echo "        proxy_set_header Host \$host;" >> ./nginx_conf/default.conf
-      echo "        proxy_set_header X-Real-IP \$remote_addr;" >> ./nginx_conf/default.conf
-      echo "    }" >> ./nginx_conf/default.conf
-      echo "    location / {" >> ./nginx_conf/default.conf
-      echo "        root /usr/share/nginx/html;" >> ./nginx_conf/default.conf
-      echo "        index index.html;" >> ./nginx_conf/default.conf
-      echo "        try_files \$uri \$uri/ /index.html;" >> ./nginx_conf/default.conf
-      echo "    }" >> ./nginx_conf/default.conf
-      echo "    access_log /dev/stdout;" >> ./nginx_conf/default.conf
-      echo "    error_log /dev/stderr;" >> ./nginx_conf/default.conf
-      echo "}" >> ./nginx_conf/default.conf
+      echo 'server {' > ./nginx_conf/default.conf
+      echo '    listen 80;' >> ./nginx_conf/default.conf
+      echo '    server_name _;' >> ./nginx_conf/default.conf
+      echo '    location /api {' >> ./nginx_conf/default.conf
+      echo '        proxy_pass timecapsule-backend:8000;' >> ./nginx_conf/default.conf
+      echo '        proxy_set_header Host \$host;' >> ./nginx_conf/default.conf
+      echo '        proxy_set_header X-Real-IP \$remote_addr;' >> ./nginx_conf/default.conf
+      echo '    }' >> ./nginx_conf/default.conf
+      echo '    location / {' >> ./nginx_conf/default.conf
+      echo '        root /usr/share/nginx/html;' >> ./nginx_conf/default.conf
+      echo '        index index.html;' >> ./nginx_conf/default.conf
+      echo '        try_files \$uri \$uri/ /index.html;' >> ./nginx_conf/default.conf
+      echo '    }' >> ./nginx_conf/default.conf
+      echo '    access_log /dev/stdout;' >> ./nginx_conf/default.conf
+      echo '    error_log /dev/stderr;' >> ./nginx_conf/default.conf
+      echo '}' >> ./nginx_conf/default.conf
 
       # 修改 Dockerfile 复制配置
-      echo "COPY nginx_conf/default.conf /etc/nginx/conf.d/default.conf" >> Dockerfile
+      echo 'COPY nginx_conf/default.conf /etc/nginx/conf.d/default.conf' >> Dockerfile
 
       docker build -t timecapsule-frontend:$CI_COMMIT_SHORT_SHA .
 
