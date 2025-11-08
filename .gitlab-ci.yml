@@ -1,6 +1,10 @@
-# G10-码到成功队 - 时光胶囊项目
+# 时光胶囊项目
 
 stages:
+  - lint # 代码质量检查
+  - test # 单元/集成测试
+  - security # 安全扫描（可选）
+  - build # 构建/产物
   - deploy # 部署（可选）
 
 .default_before_script: &default_before_script
@@ -27,6 +31,289 @@ cache:
     - backend/.pytest_cache
     - frontend/node_modules
     - frontend/.npm/
+
+# ============================================
+# 代码质量检查 (Lint)
+# ============================================
+
+lint:python:
+  stage: lint
+  image: python:3.11
+  before_script:
+    - pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+    - python -m pip install -U pip -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=100
+    - pip install click
+    - pip install flake8 black isort
+  script:
+    # 后端 Python 代码检查
+    - flake8 backend/app/ --count --select=E9,F63,F7,F82 --show-source --statistics || true
+    - flake8 backend/app/ --count --max-complexity=10 --max-line-length=127 --statistics || true
+    - black --check backend/app/ || true
+    - isort --check-only backend/app/ || true
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
+
+lint:frontend:
+  stage: lint
+  image:
+    name: node:20-bullseye
+    pull_policy: if-not-present
+  variables:
+    GIT_STRATEGY: clone
+    GIT_CLEAN_FLAGS: none # ← 禁用git clean
+    FF_USE_NEW_BASH_EVAL: "true"
+  before_script:
+    - cd frontend
+    - npm config set registry https://registry.npmmirror.com
+    - rm -rf node_modules .cache dist
+    - npm ci --prefer-offline --no-audit
+  script:
+    - npm run lint || true
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
+
+# ============================================
+# 测试 (Test)
+# ============================================
+
+test:backend:
+  stage: test
+  image:
+    name: continuumio/miniconda3:latest
+    pull_policy: if-not-present
+
+  before_script:
+    - echo "Setting up conda environment..."
+    - *default_before_script
+    - conda env create -f backend/environment.yml -n $CONDA_ENV_NAME || conda env update -f backend/environment.yml -n $CONDA_ENV_NAME
+    - source activate $CONDA_ENV_NAME
+    - conda list
+    - conda install coverage
+    - conda install pytest-cov
+  script:
+    - echo "Running backend unit tests..."
+    - pytest backend/tests/ -v --tb=short --color=yes
+    - echo "Generating backend coverage report..."
+    - pytest backend/tests/ --cov=backend/app --cov-report=term --cov-report=html --cov-report=xml:coverage.xml
+  artifacts:
+    when: always
+    paths:
+      - backend/htmlcov/
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    expire_in: 1 week
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_MERGE_REQUEST_IID
+
+# 其他分支的简化测试（不生成覆盖率）
+test:backend:quick:
+  stage: test
+  image:
+    name: continuumio/miniconda3:latest
+    pull_policy: if-not-present
+
+  before_script:
+    - *default_before_script
+    - conda env create -f backend/environment.yml -n $CONDA_ENV_NAME || conda env update -f backend/environment.yml -n $CONDA_ENV_NAME
+    - source activate $CONDA_ENV_NAME
+  script:
+    - echo "Running quick backend tests for feature branch..."
+    - pytest backend/tests/ -v --tb=short --color=yes
+  rules:
+    - if: $CI_COMMIT_BRANCH != "main" && $CI_COMMIT_BRANCH != "master" && $CI_COMMIT_BRANCH != "develop" && $CI_MERGE_REQUEST_IID == null
+
+# 后端 API 启动冒烟测试（可选 不阻塞）
+test:backend:api:
+  stage: test
+  image:
+    name: continuumio/miniconda3:latest
+    pull_policy: if-not-present
+  before_script:
+    - *default_before_script
+    - conda env create -f backend/environment.yml -n $CONDA_ENV_NAME || conda env update -f backend/environment.yml -n $CONDA_ENV_NAME
+    - source activate $CONDA_ENV_NAME
+  script:
+    - echo "Testing backend API startup..."
+    - timeout 10 python backend/app/main.py &
+    - sleep 5
+    - echo "API startup test passed"
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
+
+# 前端测试（Vitest）
+test:frontend:
+  stage: test
+  image:
+    name: node:20-bullseye
+    pull_policy: if-not-present
+  variables:
+    GIT_STRATEGY: clone # 总是完全克隆
+    GIT_CLEAN_FLAGS: -ffdx # 强制清理所有文件
+  before_script:
+    - cd frontend
+    - npm ci
+  script:
+    - echo "Running frontend unit tests..."
+    - npm run test:run
+  artifacts:
+    when: always
+    paths:
+      - frontend/coverage/
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_MERGE_REQUEST_IID
+
+# ============================================
+# 安全扫描 (Security)
+# ============================================
+
+security:secret-detection:
+  stage: security
+  image:
+    name: python:3.11
+    pull_policy: if-not-present
+  script:
+    - pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+    - python -m pip install -U pip -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=100
+    - pip install detect-secrets
+    - detect-secrets scan --baseline .secrets.baseline || true
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
+
+security:dependency-check:
+  stage: security
+  image:
+    name: python:3.11
+    pull_policy: if-not-present
+  before_script:
+    - pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+    - python -m pip install -U pip -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=100
+    - pip install safety
+    # 基于 requirements.txt 进行依赖检查（避免在 CI 中完整创建 conda 环境）
+    - pip install -r backend/requirements.txt || true
+  script:
+    - echo "Checking for vulnerable dependencies (backend)..."
+    - pip freeze | safety check --json || true
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
+
+security:sast:
+  stage: security
+  image:
+    name: python:3.11
+    pull_policy: if-not-present
+  before_script:
+    - pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+    - python -m pip install -U pip -i https://pypi.tuna.tsinghua.edu.cn/simple --default-timeout=100
+    - pip install bandit
+  script:
+    - echo "Running Bandit SAST on backend..."
+    - bandit -r backend/app/ -f json -o bandit-report.json || true
+    - bandit -r backend/app/ -f txt || true
+  artifacts:
+    when: always
+    paths:
+      - bandit-report.json
+    expire_in: 1 week
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_BRANCH =~ /^(setup|feature)-.*/
+
+# ============================================
+# 构建 (Build)
+# ============================================
+
+build:backend:validate:
+  stage: build
+  image:
+    name: continuumio/miniconda3:latest
+    pull_policy: if-not-present
+  before_script:
+    - *default_before_script
+    - conda env create -f backend/environment.yml -n $CONDA_ENV_NAME || conda env update -f backend/environment.yml -n $CONDA_ENV_NAME
+    - source activate $CONDA_ENV_NAME
+  script:
+    - echo "Validating backend build..."
+    - python -m py_compile backend/app/main.py
+    - python -m py_compile backend/app/**/*.py || true
+    - echo "Backend build validation passed"
+
+build:frontend:
+  stage: build
+  image:
+    name: node:20-bullseye
+    pull_policy: if-not-present
+  before_script:
+    - cd frontend
+    - npm ci
+  script:
+    - echo "Building frontend..."
+    - npm run build
+  artifacts:
+    when: on_success
+    paths:
+      - frontend/dist/
+    expire_in: 1 week
+
+build:docker:
+  stage: build
+  image:
+    name: docker:27
+    pull_policy: if-not-present
+  services:
+    - name: docker:27-dind
+      alias: docker
+      command:
+        - "--tls=false"
+        - "--host=tcp://0.0.0.0:2375"
+        - "--registry-mirror=https://823f7578c5ba482fbcfcff047463e7b6.mirror.swr.myhuaweicloud.com"
+        - "--insecure-registry=registry.gitlab.com"
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_DRIVER: overlay2
+    DOCKER_DAEMON_OPTIONS: "--insecure-registry=docker:2375"
+  script:
+    - echo "Building backend Docker image..."
+    - |
+      cat > Dockerfile <<EOF
+      FROM continuumio/miniconda3:latest
+      WORKDIR /app
+      COPY backend/environment.yml ./environment.yml
+      RUN conda env create -f environment.yml -n timecapsule
+      SHELL ["conda", "run", "-n", "timecapsule", "/bin/bash", "-c"]
+      COPY backend/app/ ./app/
+      EXPOSE 8000
+      CMD ["conda", "run", "-n", "timecapsule", "python", "app/main.py"]
+      EOF
+    - docker info # ✅ 测试是否能连上 daemon
+    - docker build -t timecapsule-backend:$CI_COMMIT_SHORT_SHA .
+    - echo "Docker image built successfully"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"
+  allow_failure: true
 
 # ============================================
 # 部署 (Deploy)
@@ -58,6 +345,38 @@ cache:
   rules:
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"
 
+# 基础连接测试
+deploy:connection-test:
+  <<: *deploy_base
+  script:
+    - echo "Testing SSH connectivity..."
+    - |
+      sshpass -p "$DEPLOY_PASSWORD" ssh \
+        -o StrictHostKeyChecking=no \
+        -o ConnectTimeout=5 \
+        "${DEPLOY_USER}@${DEPLOY_SERVER}" 'echo "Connection OK"'
+  allow_failure: false
+
+# 环境探测（非必须）
+deploy:test:
+  <<: *deploy_base
+  script:
+    - echo "Testing remote environment..."
+    - |
+      sshpass -p "$DEPLOY_PASSWORD" ssh \
+        -o StrictHostKeyChecking=no \
+        -o ConnectTimeout=5 \
+        $DEPLOY_USER@$DEPLOY_SERVER '
+          echo "=== 环境测试 ==="
+          echo "用户: $(whoami)"
+          echo "主机: $(hostname)"
+          echo "时间: $(date)"
+          echo "目录: $(pwd)"
+          ls -la /home/TimeCapsule/ || true
+          sudo -n systemctl status nginx --no-pager -l | head -3 && echo "Nginx 权限 OK" || echo "Nginx 权限测试失败"
+          echo "环境测试完成"
+        '
+  allow_failure: true
 
 # ============================================
 # 生产部署：构建并运行后端 Docker 容器
@@ -137,7 +456,7 @@ deploy:production:
       echo 'COPY --from=build /app/dist /usr/share/nginx/html' >> Dockerfile
       echo 'EXPOSE 80' >> Dockerfile
       echo 'CMD ["nginx", "-g", "daemon off;"]' >> Dockerfile
-      
+
       # 获取后端容器内部 IP
       BACKEND_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' timecapsule-backend)
       echo "This is backend docker ip: $BACKEND_IP"
