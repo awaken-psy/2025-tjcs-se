@@ -438,7 +438,7 @@ deploy:production:
       # --------------------------
       # 运行 Docker 容器
       # --------------------------
-      echo '=== 🧩 启动容器 ==='
+      echo '=== 🧩 启动后端容器 ==='
       docker stop timecapsule-backend || true
       docker rm timecapsule-backend || true
 
@@ -447,6 +447,40 @@ deploy:production:
         -p 8000:8000 \
         -v $PROJECT_PATH/backend:/app \
         timecapsule-backend:$CI_COMMIT_SHORT_SHA
+
+
+      # --------------------------
+      # 构建前端 Docker 镜像
+      # --------------------------
+      echo '=== 🐳 构建前端 Docker 镜像 ==='
+      cd $PROJECT_PATH/frontend
+
+      if [ ! -f Dockerfile ]; then
+      cat > Dockerfile << DOCKERFILE_EOF
+      # Stage 1: Build Vue app
+      FROM node:20-bullseye AS build
+      WORKDIR /app
+      COPY package*.json ./
+      RUN npm ci --prefer-offline
+      COPY . .
+      RUN npm run build
+
+      # Stage 2: Serve with Nginx
+      FROM nginx:alpine
+      RUN rm -rf /usr/share/nginx/html/*
+      COPY --from=build /app/dist /usr/share/nginx/html
+      EXPOSE 80
+      CMD ["nginx", "-g", "daemon off;"]
+      DOCKERFILE_EOF
+      fi
+
+      # --------------------------
+      # 运行 Docker 容器
+      # --------------------------
+      echo '=== 🧩 启动前端容器 ==='
+      docker stop timecapsule-frontend || true
+      docker rm timecapsule-frontend || true
+      docker run -d --name timecapsule-frontend -p 80:80 timecapsule-frontend:$CI_COMMIT_SHORT_SHA
 
       echo '=== ✅ 部署完成 ==='
       docker ps -a | grep timecapsule-backend
