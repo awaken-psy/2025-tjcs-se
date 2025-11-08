@@ -388,7 +388,7 @@ deploy:production:
       sshpass -p "$DEPLOY_PASSWORD" ssh \
       -o StrictHostKeyChecking=no \
       -o ConnectTimeout=5 \
-      $DEPLOY_USER@$DEPLOY_SERVER << REMOTE_SCRIPT
+      $DEPLOY_USER@$DEPLOY_SERVER "CI_COMMIT_SHORT_SHA='$CI_COMMIT_SHORT_SHA' CI_COMMIT_REF_NAME='$CI_COMMIT_REF_NAME' PROJECT_PATH='$PROJECT_PATH' bash -s" <<'REMOTE_SCRIPT'
       set -e
       echo '=== 🧱 部署开始 ==='
       mkdir -p $PROJECT_PATH
@@ -426,8 +426,7 @@ deploy:production:
       RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
       EXPOSE 8000
       CMD ["python", "app/main.py"]
-      DOCKERFILE_EOF
-      
+      DOCKERFILE_EOF     
 
       docker build -t timecapsule-backend:$CI_COMMIT_SHORT_SHA .
 
@@ -437,7 +436,7 @@ deploy:production:
       echo '=== 🐳 构建前端 Docker 镜像 ==='
       cd $PROJECT_PATH/frontend
 
-      cat > Dockerfile << DOCKERFILE_EOF
+      cat > Dockerfile << 'DOCKERFILE_EOF'
       # ==========================
       # Stage 1: Build Vue app
       # ==========================
