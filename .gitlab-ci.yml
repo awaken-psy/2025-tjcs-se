@@ -403,7 +403,7 @@ deploy:production:
         # --------------------------
         if [ ! -d .git ]; then
           echo '首次部署：正在 clone 仓库...'
-          git clone https://${GIT_USER}:${GIT_TOKEN}@gitlab.com/tj-cs-swe/CS10102302-2025/group15/timecapsule.git .
+          git clone git@gitlab.com:tj-cs-swe/CS10102302-2025/group15/timecapsule.git .
         fi
 
         git config --global --add safe.directory $PROJECT_PATH
@@ -458,10 +458,4 @@ deploy:production:
   environment:
     name: production
     url: http://$DEPLOY_SERVER:8000
-  when: manual
-
-
-  environment:
-    name: production
-    url: http://$DEPLOY_SERVER
   when: manual
