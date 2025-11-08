@@ -460,46 +460,46 @@ deploy:production:
       # 拷贝前端构建结果
       COPY --from=build /app/dist /usr/share/nginx/html
       # ✅ 直接在 Dockerfile 内写入 nginx.conf
-      RUN cat << EOF > /etc/nginx/conf.d/default.conf
+      RUN cat << 'NGINX_EOF' > /etc/nginx/conf.d/default.conf
       server {
-        listen 80;
-        server_name _;
+      listen 80;
+      server_name _;
 
-        # 后端 API 代理
-        location /api {
-          proxy_pass http://http://123.60.47.101:8000;
-          proxy_set_header Host \$host;
-          proxy_set_header X-Real-IP \$remote_addr;
-        }
-
-        location /health {
-          proxy_pass http://http://123.60.47.101:8000;
-          proxy_set_header Host $host;
-          proxy_set_header X-Real-IP $remote_addr;
-        }
-
-        location /docs {
-          proxy_pass http://http://123.60.47.101:8000;
-          proxy_set_header Host $host;
-          proxy_set_header X-Real-IP $remote_addr;
-        }
-
-        # 前端静态文件
-        location / {
-          root /usr/share/nginx/html;
-          index index.html;
-          try_files \$uri \$uri/ /index.html;
-        }
-
-        access_log /dev/stdout;
-        error_log /dev/stderr;
+      # 后端 API 代理
+      location /api {
+        proxy_pass http://http://123.60.47.101:8000;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
       }
-      EOF
+
+      location /health {
+        proxy_pass http://http://123.60.47.101:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+      }
+
+      location /docs {
+        proxy_pass http://http://123.60.47.101:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+      }
+
+      # 前端静态文件
+      location / {
+        root /usr/share/nginx/html;
+        index index.html;
+        try_files \$uri \$uri/ /index.html;
+      }
+
+      access_log /dev/stdout;
+      error_log /dev/stderr;
+      }
+      NGINX_EOF
+
       EXPOSE 80
       CMD ["nginx", "-g", "daemon off;"]
       DOCKERFILE_EOF
       fi
-
       docker build -t timecapsule-frontend:$CI_COMMIT_SHORT_SHA .
 
       # --------------------------
@@ -512,11 +512,11 @@ deploy:production:
       if [ -n "$(docker ps -a -q -f name=timecapsule-backend)" ]; then
         echo 'timecapsule-backend exist, stop remove and restart'
         docker stop timecapsule-backend
-        docker rm timecapsule-backend
+        docker rm -f timecapsule-backend
       fi
 
       # remove forcely
-      docker rm -f timecapsule-backend 2>/dev/null || true
+      # docker rm -f timecapsule-backend 2>/dev/null || true
 
       docker run -d \
         --name timecapsule-backend \
@@ -528,11 +528,11 @@ deploy:production:
       if [ -n "$(docker ps -a -q -f name=timecapsule-frontend)" ]; then
         echo 'timecapsule-frontend exist, stop remove and restart'
         docker stop timecapsule-frontend
-        docker rm timecapsule-frontend
+        docker rm -f timecapsule-frontend
       fi
 
       # remove forcely
-      docker rm -f timecapsule-frontend 2>/dev/null || true
+      # docker rm -f timecapsule-frontend 2>/dev/null || true
 
       docker run -d \
         --name timecapsule-frontend \
