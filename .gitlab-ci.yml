@@ -153,6 +153,16 @@ deploy:production:
       echo '        proxy_set_header Host $host;' >> ./nginx_conf/default.conf
       echo '        proxy_set_header X-Real-IP $remote_addr;' >> ./nginx_conf/default.conf
       echo '    }' >> ./nginx_conf/default.conf
+      echo "    location /docs {" >> ./nginx_conf/default.conf
+      echo "        proxy_pass http://$BACKEND_IP:8000;" >> ./nginx_conf/default.conf
+      echo '        proxy_set_header Host $host;' >> ./nginx_conf/default.conf
+      echo '        proxy_set_header X-Real-IP $remote_addr;' >> ./nginx_conf/default.conf
+      echo '    }' >> ./nginx_conf/default.conf
+      echo "    location /health {" >> ./nginx_conf/default.conf
+      echo "        proxy_pass http://$BACKEND_IP:8000;" >> ./nginx_conf/default.conf
+      echo '        proxy_set_header Host $host;' >> ./nginx_conf/default.conf
+      echo '        proxy_set_header X-Real-IP $remote_addr;' >> ./nginx_conf/default.conf
+      echo '    }' >> ./nginx_conf/default.conf
       echo '    location / {' >> ./nginx_conf/default.conf
       echo '        root /usr/share/nginx/html;' >> ./nginx_conf/default.conf
       echo '        index index.html;' >> ./nginx_conf/default.conf
