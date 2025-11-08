@@ -476,8 +476,8 @@ deploy:production:
       CMD ["nginx", "-g", "daemon off;"]
       DOCKERFILE_EOF
       fi
-      
-      docker build -t timecapsule-backend:$CI_COMMIT_SHORT_SHA .
+
+      docker build -t timecapsule-frontend:$CI_COMMIT_SHORT_SHA .
 
       # --------------------------
       # 运行 Docker 容器
