@@ -100,7 +100,7 @@ deploy:production:
 
       # 生成 Dockerfile（如果项目未包含）
       echo '生成最新 backend Dockerfile中...'
-      echo "FROM python:3.11" >> Dockerfile
+      echo "FROM python:3.11" > Dockerfile
       echo "WORKDIR /app" >> Dockerfile
       echo "COPY . /app" >> Dockerfile
       # 使用清华源加速安装
@@ -116,63 +116,61 @@ deploy:production:
       echo '=== 🐳 构建前端 Docker 镜像 ==='
       cd $PROJECT_PATH/frontend
 
-      cat > Dockerfile <<- 'DOCKERFILE_EOF'
       # ==========================
       # Stage 1: Build Vue app
       # ==========================
-      FROM node:20-bullseye AS build
-      WORKDIR /app
-      COPY package*.json ./
-      RUN npm ci --prefer-offline
-      COPY . .
-      RUN npm run build
+      echo "FROM node:20-bullseye AS build" > Dockerfile
+      echo "WORKDIR /app" >> Dockerfile
+      echo "COPY package*.json ./" >> Dockerfile
+      echo "RUN npm ci --prefer-offline" >> Dockerfile
+      echo "COPY . ." >> Dockerfile
+      echo "RUN npm run build" >> Dockerfile
 
       # ==========================
       # Stage 2: Serve with Nginx
       # ==========================
-      FROM nginx:alpine
+      echo "FROM nginx:alpine" >> Dockerfile
 
       # 清理原始静态文件
-      RUN rm -rf /usr/share/nginx/html/*
+      echo "RUN rm -rf /usr/share/nginx/html/*" >> Dockerfile
       # 拷贝前端构建结果
-      COPY --from=build /app/dist /usr/share/nginx/html
+      echo "COPY --from=build /app/dist /usr/share/nginx/html" >> Dockerfile
       # ✅ 直接在 Dockerfile 内写入 nginx.conf
-      RUN echo '生成最新 frontend Dockerfile中...'
-      RUN cat << 'NGINX_EOF' > /etc/nginx/conf.d/default.conf
-      server {
-      listen 80;
-      server_name _;
+      echo "RUN echo '生成最新 frontend Dockerfile中...'" >> Dockerfile
+      echo "RUN cat << 'NGINX_EOF' > /etc/nginx/conf.d/default.conf" >> Dockerfile
+      echo "server {" >> Dockerfile
+      echo "listen 80;" >> Dockerfile
+      echo "server_name _;" >> Dockerfile
 
       # 后端 API 代理
-      location /api {
-        proxy_pass timecapsule-backend:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-      }
+      echo "location /api {" >> Dockerfile
+      echo "  proxy_pass timecapsule-backend:8000;" >> Dockerfile
+      echo "  proxy_set_header Host $host;" >> Dockerfile
+      echo "  proxy_set_header X-Real-IP $remote_addr;" >> Dockerfile
+      echo "}" >> Dockerfile
 
-      location /health {
-        proxy_pass timecapsule-backend:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-      }
+      echo "location /health {" >> Dockerfile
+      echo "  proxy_pass timecapsule-backend:8000;" >> Dockerfile
+      echo "  proxy_set_header Host $host;" >> Dockerfile
+      echo "  proxy_set_header X-Real-IP $remote_addr;" >> Dockerfile
+      echo "}" >> Dockerfile
 
-      location /docs {
-        proxy_pass timecapsule-backend:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-      }
+      echo "location /docs {" >> Dockerfile
+      echo "  proxy_pass timecapsule-backend:8000;" >> Dockerfile
+      echo "  proxy_set_header Host $host;" >> Dockerfile
+      echo "  proxy_set_header X-Real-IP $remote_addr;" >> Dockerfile
+      echo "}" >> Dockerfile
 
       # 前端静态文件
-      location / {
-        root /usr/share/nginx/html;
-        index index.html;
-        try_files $uri $uri/ /index.html;
-      }
+      echo "location / {" >> Dockerfile
+      echo "  root /usr/share/nginx/html;" >> Dockerfile
+      echo "  index index.html;" >> Dockerfile
+      echo "  try_files $uri $uri/ /index.html;" >> Dockerfile
+      echo "}" >> Dockerfile
 
-      access_log /dev/stdout;
-      error_log /dev/stderr;
-      }
-      NGINX_EOF
+      echo "access_log /dev/stdout;" >> Dockerfile
+      echo "error_log /dev/stderr;" >> Dockerfile
+      echo "}" >> Dockerfile
 
       EXPOSE 80
       CMD ["nginx", "-g", "daemon off;"]
