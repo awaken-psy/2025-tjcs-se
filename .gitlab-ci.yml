@@ -58,38 +58,6 @@ cache:
   rules:
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"
 
-# 基础连接测试
-deploy:connection-test:
-  <<: *deploy_base
-  script:
-    - echo "Testing SSH connectivity..."
-    - |
-      sshpass -p "$DEPLOY_PASSWORD" ssh \
-        -o StrictHostKeyChecking=no \
-        -o ConnectTimeout=5 \
-        "${DEPLOY_USER}@${DEPLOY_SERVER}" 'echo "Connection OK"'
-  allow_failure: false
-
-# 环境探测（非必须）
-deploy:test:
-  <<: *deploy_base
-  script:
-    - echo "Testing remote environment..."
-    - |
-      sshpass -p "$DEPLOY_PASSWORD" ssh \
-        -o StrictHostKeyChecking=no \
-        -o ConnectTimeout=5 \
-        $DEPLOY_USER@$DEPLOY_SERVER '
-          echo "=== 环境测试 ==="
-          echo "用户: $(whoami)"
-          echo "主机: $(hostname)"
-          echo "时间: $(date)"
-          echo "目录: $(pwd)"
-          ls -la /home/TimeCapsule/ || true
-          sudo -n systemctl status nginx --no-pager -l | head -3 && echo "Nginx 权限 OK" || echo "Nginx 权限测试失败"
-          echo "环境测试完成"
-        '
-  allow_failure: true
 
 # ============================================
 # 生产部署：构建并运行后端 Docker 容器
@@ -133,13 +101,13 @@ deploy:production:
       # 生成 Dockerfile（如果项目未包含）
       echo '生成最新 backend Dockerfile中...'
       cat > Dockerfile << 'DOCKERFILE_EOF'
-      FROM python:3.11
-      WORKDIR /app
-      COPY . /app
+      FROM python:3.11 \
+      WORKDIR /app \
+      COPY . /app \
       # 使用清华源加速安装
-      RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
-      EXPOSE 8000
-      CMD ["python", "app/main.py"]
+      RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt \
+      EXPOSE 8000 \
+      CMD ["python", "app/main.py"] \
       DOCKERFILE_EOF     
 
       docker build -t timecapsule-backend:$CI_COMMIT_SHORT_SHA .
