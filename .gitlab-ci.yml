@@ -380,7 +380,6 @@ deploy:test:
         '
   allow_failure: true
 
-
 # ============================================
 # 生产部署：构建并运行后端 Docker 容器
 # ============================================
@@ -392,7 +391,7 @@ deploy:production:
       sshpass -p "$DEPLOY_PASSWORD" ssh \
       -o StrictHostKeyChecking=no \
       -o ConnectTimeout=5 \
-      $DEPLOY_USER@$DEPLOY_SERVER "
+      $DEPLOY_USER@$DEPLOY_SERVER << 'REMOTE_SCRIPT'
         set -e
         echo '=== 🧱 部署开始 ==='
         mkdir -p $PROJECT_PATH
@@ -423,7 +422,7 @@ deploy:production:
         # 生成 Dockerfile（如果项目未包含）
         if [ ! -f Dockerfile ]; then
           echo '未检测到 Dockerfile，自动生成中...'
-          cat > Dockerfile <<'EOF'
+          cat > Dockerfile << 'DOCKERFILE_EOF'
           FROM python:3.11
 
           WORKDIR /app
@@ -434,7 +433,7 @@ deploy:production:
 
           EXPOSE 8000
           CMD ["python", "app/main.py"]
-          EOF
+          DOCKERFILE_EOF
         fi
 
         docker build -t timecapsule-backend:$CI_COMMIT_SHORT_SHA .
@@ -454,9 +453,9 @@ deploy:production:
 
         echo '=== ✅ 部署完成 ==='
         docker ps -a | grep timecapsule-backend
-      "
+      REMOTE_SCRIPT
 
   environment:
     name: production
-    url: http://$DEPLOY_SERVER:8000
+    url: http://$DEPLOY_SERVER
   when: manual
