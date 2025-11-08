@@ -474,9 +474,21 @@ deploy:production:
 
         # 后端 API 代理
         location /api/ {
-            proxy_pass http://timecapsule-backend:8000/;
+            proxy_pass http://timecapsule-backend:8000/api;
             proxy_set_header Host \$host;
             proxy_set_header X-Real-IP \$remote_addr;
+        }
+
+        location /health {
+          proxy_pass http://timecapsule-backend:8000/health;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+        }
+
+        location /docs {
+          proxy_pass http://timecapsule-backend:8000/docs;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
         }
       }
       EOF
@@ -500,6 +512,9 @@ deploy:production:
         docker rm timecapsule-backend
       fi
 
+      # remove forcely
+      docker rm -f timecapsule-backend 2>/dev/null || true
+
       docker run -d \
         --name timecapsule-backend \
         -p 8000:8000 \
@@ -512,6 +527,9 @@ deploy:production:
         docker stop timecapsule-frontend
         docker rm timecapsule-frontend
       fi
+
+      # remove forcely
+      docker rm -f timecapsule-frontend 2>/dev/null || true
 
       docker run -d \
         --name timecapsule-frontend \
