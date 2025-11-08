@@ -390,64 +390,64 @@ deploy:production:
       -o StrictHostKeyChecking=no \
       -o ConnectTimeout=5 \
       $DEPLOY_USER@$DEPLOY_SERVER << REMOTE_SCRIPT
-        set -e
-        echo '=== 🧱 部署开始 ==='
-        mkdir -p $PROJECT_PATH
-        cd $PROJECT_PATH
+      set -e
+      echo '=== 🧱 部署开始 ==='
+      mkdir -p $PROJECT_PATH
+      cd $PROJECT_PATH
 
-        # --------------------------
-        # Git 同步项目代码
-        # --------------------------
-        if [ ! -d .git ]; then
-          echo '首次部署：正在 clone 仓库...'
-          git clone git@gitlab.com:tj-cs-swe/CS10102302-2025/group15/timecapsule.git .
-        fi
+      # --------------------------
+      # Git 同步项目代码
+      # --------------------------
+      if [ ! -d .git ]; then
+        echo '首次部署：正在 clone 仓库...'
+        git clone git@gitlab.com:tj-cs-swe/CS10102302-2025/group15/timecapsule.git .
+      fi
 
-        git config --global --add safe.directory $PROJECT_PATH
-        git remote set-url origin git@gitlab.com:tj-cs-swe/CS10102302-2025/group15/timecapsule.git
-        git fetch origin
-        git checkout -f $CI_COMMIT_REF_NAME
-        git reset --hard origin/$CI_COMMIT_REF_NAME
+      git config --global --add safe.directory $PROJECT_PATH
+      git remote set-url origin git@gitlab.com:tj-cs-swe/CS10102302-2025/group15/timecapsule.git
+      git fetch origin
+      git checkout -f $CI_COMMIT_REF_NAME
+      git reset --hard origin/$CI_COMMIT_REF_NAME
 
-        echo '=== ✅ 代码同步完成 ==='
+      echo '=== ✅ 代码同步完成 ==='
 
-        # --------------------------
-        # 构建 Docker 镜像
-        # --------------------------
-        echo '=== 🐳 开始构建后端 Docker 镜像 ==='
-        cd $PROJECT_PATH/backend
+      # --------------------------
+      # 构建 Docker 镜像
+      # --------------------------
+      echo '=== 🐳 开始构建后端 Docker 镜像 ==='
+      cd $PROJECT_PATH/backend
 
-        # 生成 Dockerfile（如果项目未包含）
-        if [ ! -f Dockerfile ]; then
-          echo '未检测到 Dockerfile，自动生成中...'
-          cat > Dockerfile << DOCKERFILE_EOF
-          FROM python:3.11
-          WORKDIR /app
-          COPY . /app
-          # 使用清华源加速安装
-          RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
-          EXPOSE 8000
-          CMD ["python", "app/main.py"]
-          DOCKERFILE_EOF
-        fi
+      # 生成 Dockerfile（如果项目未包含）
+      if [ ! -f Dockerfile ]; then
+      echo '未检测到 Dockerfile，自动生成中...'
+      cat > Dockerfile << DOCKERFILE_EOF
+      FROM python:3.11
+      WORKDIR /app
+      COPY . /app
+      # 使用清华源加速安装
+      RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
+      EXPOSE 8000
+      CMD ["python", "app/main.py"]
+      DOCKERFILE_EOF
+      fi
 
-        docker build -t timecapsule-backend:$CI_COMMIT_SHORT_SHA .
+      docker build -t timecapsule-backend:$CI_COMMIT_SHORT_SHA .
 
-        # --------------------------
-        # 运行 Docker 容器
-        # --------------------------
-        echo '=== 🧩 启动容器 ==='
-        docker stop timecapsule-backend || true
-        docker rm timecapsule-backend || true
+      # --------------------------
+      # 运行 Docker 容器
+      # --------------------------
+      echo '=== 🧩 启动容器 ==='
+      docker stop timecapsule-backend || true
+      docker rm timecapsule-backend || true
 
-        docker run -d \
-          --name timecapsule-backend \
-          -p 8000:8000 \
-          -v $PROJECT_PATH/backend:/app \
-          timecapsule-backend:$CI_COMMIT_SHORT_SHA
+      docker run -d \
+        --name timecapsule-backend \
+        -p 8000:8000 \
+        -v $PROJECT_PATH/backend:/app \
+        timecapsule-backend:$CI_COMMIT_SHORT_SHA
 
-        echo '=== ✅ 部署完成 ==='
-        docker ps -a | grep timecapsule-backend
+      echo '=== ✅ 部署完成 ==='
+      docker ps -a | grep timecapsule-backend
       REMOTE_SCRIPT
 
   environment:
