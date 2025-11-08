@@ -509,7 +509,7 @@ deploy:production:
       docker network create timecapsule-net || true
       
       echo '=== 🧩 启动后端容器 ==='
-      if [ -n "$(docker ps -a -q -f name=timecapsule-backend)" ]; then
+      if [ -n "$(sudo docker ps -a -q -f name=timecapsule-backend)" ]; then
         echo 'timecapsule-backend exist, stop remove and restart'
         sudo docker stop timecapsule-backend
         sudo docker rm -f timecapsule-backend
@@ -525,7 +525,7 @@ deploy:production:
         timecapsule-backend:$CI_COMMIT_SHORT_SHA
         
       echo '=== 🧩 启动前端容器 ==='
-      if [ -n "$(docker ps -a -q -f name=timecapsule-frontend)" ]; then
+      if [ -n "$(sudo docker ps -a -q -f name=timecapsule-frontend)" ]; then
         echo 'timecapsule-frontend exist, stop remove and restart'
         sudo docker stop timecapsule-frontend
         sudo docker rm -f timecapsule-frontend
