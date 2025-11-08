@@ -407,6 +407,7 @@ deploy:production:
         fi
 
         git config --global --add safe.directory $PROJECT_PATH
+        git remote set-url origin git@gitlab.com:tj-cs-swe/CS10102302-2025/group15/timecapsule.git
         git fetch origin
         git checkout -f $CI_COMMIT_REF_NAME
         git reset --hard origin/$CI_COMMIT_REF_NAME
