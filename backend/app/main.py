@@ -23,7 +23,8 @@ app = FastAPI(
     description="基于地理位置与时间触发的校园记忆数字化平台",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"  # OpenAPI JSON 的访问路径（默认就是 /openapi.json）
 )
 
 # # 全局异常处理
