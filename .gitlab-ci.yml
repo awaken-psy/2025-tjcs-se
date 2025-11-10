@@ -413,6 +413,7 @@ deploy:production:
       echo 'COPY . /app' >> Dockerfile
       # 使用清华源加速安装
       echo 'RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt' >> Dockerfile 
+      echo 'RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple mysql-connector-python' >> Dockerfile 
       echo 'EXPOSE 8000' >> Dockerfile
       echo 'CMD ["python", "app/main.py"]' >> Dockerfile
 
