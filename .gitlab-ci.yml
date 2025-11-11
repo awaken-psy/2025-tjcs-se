@@ -52,7 +52,7 @@ lint:python:
     - isort --check-only backend/app/ || true
   allow_failure: true
   rules:
-    - if: $CI_COMMIT_BRANCH  # 所有分支的commit都运行
+    - if: $CI_PIPELINE_SOURCE == "push"  # 每次 push 触发
 
 lint:frontend:
   stage: lint
@@ -72,7 +72,7 @@ lint:frontend:
     - npm run lint || true
   allow_failure: true
   rules:
-    - if: $CI_COMMIT_BRANCH  # 所有分支的commit都运行
+    - if: $CI_PIPELINE_SOURCE == "push"  # 每次 push 触发
 
 # ============================================
 # 测试 (Test)
