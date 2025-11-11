@@ -240,13 +240,17 @@ class JWTHandler:
         Returns:
             (是否有效, 解码后的 payload, 错误信息) 元组
         """
-        valid, payload, error = JWTHandler.verify_token(token)
+        valid, payload_dict, error = JWTHandler.verify_token(token)
         if not valid:
             return False, None, error
         
+        # 检查token_type是否为access
+        if payload_dict.get("token_type") != JWTConfig.TokenType.TOKEN_TYPE_ACCESS:
+            return False, None, "令牌类型错误，需要访问令牌"
+        
         # 从字典中解析 payload
         try:
-            payload = AccessTokenPayload.model_validate(payload)
+            payload = AccessTokenPayload.model_validate(payload_dict)
         except ValidationError:
             return False, None, "Access Token字段解析失败"
         
@@ -263,13 +267,17 @@ class JWTHandler:
         Returns:
             (是否有效, 解码后的 payload, 错误信息) 元组
         """
-        valid, payload, error = JWTHandler.verify_token(token)
+        valid, payload_dict, error = JWTHandler.verify_token(token)
         if not valid:
             return False, None, error
         
+        # 检查token_type是否为refresh
+        if payload_dict.get("token_type") != JWTConfig.TokenType.TOKEN_TYPE_REFRESH:
+            return False, None, "令牌类型错误，需要刷新令牌"
+        
         # 从字典中解析 payload
         try:
-            payload = RefreshTokenPayload.model_validate(payload)
+            payload = RefreshTokenPayload.model_validate(payload_dict)
         except ValidationError:
             return False, None, "Refresh Token字段解析失败"
         
