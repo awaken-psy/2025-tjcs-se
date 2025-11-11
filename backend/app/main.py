@@ -5,9 +5,12 @@ import os
 import sys
 
 current_path = os.path.abspath(__file__)
-root_path = os.path.dirname(current_path)
-if root_path not in sys.path:
-    sys.path.append(root_path)
+app_dir = os.path.dirname(current_path)
+backend_dir = os.path.dirname(app_dir)
+if app_dir not in sys.path:
+    sys.path.append(app_dir)
+if backend_dir not in sys.path:
+    sys.path.append(backend_dir)
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -88,7 +91,7 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
+        host="127.0.0.1",
         port=8000,
         reload=True
     )

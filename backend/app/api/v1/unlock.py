@@ -1,21 +1,23 @@
 """
 解锁相关 API 路由
 """
-from fastapi import APIRouter, HTTPException, Query, Path
+from fastapi import APIRouter, HTTPException, Query, Path, Depends
 from typing import Optional, List
 from datetime import datetime
 
-from models.net.request import UnlockCheckRequest, UnlockCapsuleRequest
+from api.v1.model.request import UnlockCheckRequest, UnlockCapsuleRequest
 from models.core.condition import Location
-from models.net.response import (
+from api.v1.model.response import (
     UnlockCheckResponse,
     UnlockCapsuleResponse,
     ErrorResponse,
     SimpleCapsuleInfo,
     DetailedCapsuleInfo
 )
+from auth.dependencies import login_required
 from models.core.capsule import CapsuleStatus, Visibility
 from models.core.condition import UnlockConditions
+from models.core.user import RegisteredUser
 
 router = APIRouter(prefix="/unlock", tags=["unlock"])
 
@@ -26,7 +28,9 @@ router = APIRouter(prefix="/unlock", tags=["unlock"])
     summary="检查可解锁胶囊",
     description="根据用户位置和时间检查可以解锁的胶囊列表"
 )
-async def check_unlockable_capsules(request: UnlockCheckRequest):
+async def check_unlockable_capsules(
+    request: UnlockCheckRequest,
+    user:RegisteredUser = Depends(login_required)):
     """检查可解锁胶囊"""
     try:
 
@@ -70,7 +74,10 @@ async def check_unlockable_capsules(request: UnlockCheckRequest):
     summary="解锁胶囊",
     description="解锁指定的胶囊"
 )
-async def unlock_capsule(request: UnlockCapsuleRequest):
+async def unlock_capsule(
+    request: UnlockCapsuleRequest,
+    user:RegisteredUser = Depends(login_required)
+    ):
     """解锁胶囊"""
     try:
 
