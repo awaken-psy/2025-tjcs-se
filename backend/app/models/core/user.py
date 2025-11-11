@@ -3,6 +3,7 @@
 """
 from enum import Enum
 from typing import Set, List, Optional, Union
+# from pydantic import BaseModel, Field
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -78,13 +79,12 @@ class RolePermissionMap:
     def get_role_permissions(role: UserRole) -> Set[Permission]:
         """获取角色对应的权限集合"""
         if role == UserRole.GUEST:
-            return RolePermissionMap.GUEST_PERMISSIONS
+            return RolePermissionMap.GUEST_PERMISSIONS.copy()
         elif role == UserRole.USER:
-            return RolePermissionMap.USER_PERMISSIONS
+            return RolePermissionMap.USER_PERMISSIONS.copy()
         elif role == UserRole.ADMIN:
-            return RolePermissionMap.ADMIN_PERMISSIONS
+            return RolePermissionMap.ADMIN_PERMISSIONS.copy()
         return set()
-
 
 @dataclass
 class BaseUser:
@@ -93,7 +93,7 @@ class BaseUser:
     username: str  # 用户名
     role: UserRole  # 用户角色
     permissions: Set[Permission] = field(default_factory=set)  # 用户权限集合
-    created_at: datetime = field(default_factory=datetime.now)  # 创建时间
+    created_at: datetime = field(default_factory=datetime.now) # 创建时间（该用户对象在内存中创建的时间，而非数据库中创建的时间）
     
     def has_permission(self, permission: Permission) -> bool:
         """检查用户是否拥有指定权限"""

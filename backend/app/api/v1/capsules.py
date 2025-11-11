@@ -1,15 +1,18 @@
 """
 胶囊相关 API 路由
 """
-from fastapi import APIRouter, HTTPException, Query, Path
+from fastapi import APIRouter, HTTPException, Query, Path, Depends
 from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel, Field
 from models.core.condition import Location, UnlockConditions
 from models.core.capsule import CapsuleStatus, Visibility
+from models.core.user import RegisteredUser
+from auth.dependencies import login_required
 
 from api.v1.model.request import CapsuleCreateRequest, CapsuleUpdateRequest
 from api.v1.model.response import CapsuleCreatedResponse, CapsuleListResponse, CapsuleDetailResponse, CapsuleUpdateResponse, ErrorResponse, CapsuleDeleteResponse
+
 
 router = APIRouter(prefix="/capsules", tags=["capsules"])
 
@@ -20,7 +23,7 @@ router = APIRouter(prefix="/capsules", tags=["capsules"])
     summary="创建时光胶囊",
     description="创建新的时光胶囊，支持多媒体内容和多种解锁条件"
 )
-async def create_capsule(request: CapsuleCreateRequest):
+async def create_capsule(request: CapsuleCreateRequest, user: RegisteredUser = Depends(login_required)):
     """创建胶囊"""
     try:
         # TODO: 实现实际的胶囊创建逻辑
@@ -48,6 +51,7 @@ async def create_capsule(request: CapsuleCreateRequest):
 async def get_capsules(
     page: int = Query(1, ge=1, description="页码"),
     limit: int = Query(20, ge=1, le=100, description="每页数量"),
+    user: RegisteredUser = Depends(login_required)
 ):
     """获取可查看的胶囊列表"""
     try:
@@ -92,7 +96,8 @@ async def get_capsules(
     description="获取单个胶囊的详细信息"
 )
 async def get_capsule_detail(
-    capsule_id: str = Path(..., description="胶囊ID")
+    capsule_id: str = Path(..., description="胶囊ID"),
+    user: RegisteredUser = Depends(login_required)
 ):
     """获取胶囊详情"""
     try:
@@ -159,7 +164,8 @@ async def get_capsule_detail(
 )
 async def update_capsule(
     request: CapsuleUpdateRequest,
-    capsule_id: str = Path(..., description="胶囊ID")
+    capsule_id: str = Path(..., description="胶囊ID"),
+    user: RegisteredUser = Depends(login_required)
 ):
     """更新胶囊信息"""
     try:
@@ -211,10 +217,11 @@ async def update_capsule(
     "/{capsule_id}",
     response_model=CapsuleDeleteResponse,
     summary="删除胶囊",
-    description="删除胶囊"
+    description="删除胶囊",
 )
 async def delete_capsule(
-    capsule_id: str = Path(..., description="胶囊ID")
+    capsule_id: str = Path(..., description="胶囊ID"),
+    user: RegisteredUser = Depends(login_required)
 ):
     """删除胶囊"""
     try:

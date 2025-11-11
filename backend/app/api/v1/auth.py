@@ -6,10 +6,10 @@ from typing import Optional, List
 from pydantic import BaseModel, Field
 from datetime import datetime
 from auth.jwt_handler import JWTHandler, JWTConfig
-from auth.dependencies import AuthenticationDependencies, PermissionChecker
-from auth.permission_manager import PermissionManager
-from models.core.user import Permission, UserRole, BaseUser
-from services.user_service import UserService
+# from auth.dependencies import AuthenticationDependencies, PermissionChecker
+# from auth.permission_manager import PermissionManager
+from models.core.user import Permission, UserRole, BaseUser, UserFactory
+# from services.user_service import UserService
 
 
 # 请求和响应模型
@@ -85,7 +85,10 @@ async def login(request: TokenRequest):
     # TODO: 实现实际的密码验证逻辑
     # 这里临时使用 UserService 中的测试用户
     
-    user = UserService.get_user_by_username(request.username)
+    user = UserFactory.create_authenticated_user(
+        "test_1",
+        request.username,
+    )
     if not user:
         raise HTTPException(
             status_code=401,
