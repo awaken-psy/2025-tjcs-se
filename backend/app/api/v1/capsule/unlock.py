@@ -5,9 +5,9 @@ from fastapi import APIRouter, HTTPException, Query, Path, Depends
 from typing import Optional, List
 from datetime import datetime
 
-from model.request import UnlockCheckRequest, UnlockCapsuleRequest
-from domain.condition import Location
-from model.response import (
+from app.model.capsule_model import UnlockCheckRequest, UnlockCapsuleRequest
+from utils.location import Location
+from app.model.capsule_model import (
     UnlockCheckResponse,
     UnlockCapsuleResponse,
     SimpleCapsuleInfo,

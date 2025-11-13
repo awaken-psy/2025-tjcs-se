@@ -10,8 +10,8 @@ from domain.capsule import CapsuleStatus, Visibility
 from domain.user import RegisteredUser
 from auth.dependencies import login_required
 
-from model.request import CapsuleCreateRequest, CapsuleUpdateRequest
-from model.response import CapsuleCreatedResponse, CapsuleListResponse, CapsuleDetailResponse, CapsuleUpdateResponse, ErrorResponse, CapsuleDeleteResponse
+from model.capsule_model import CapsuleCreateRequest, CapsuleUpdateRequest
+from model.capsule_model import CapsuleCreatedResponse, CapsuleListResponse, CapsuleDetailResponse, CapsuleUpdateResponse, ErrorResponse, CapsuleDeleteResponse
 
 from ..routes import capsule_router as router
 
