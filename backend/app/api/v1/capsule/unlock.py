@@ -10,7 +10,6 @@ from domain.condition import Location
 from model.response import (
     UnlockCheckResponse,
     UnlockCapsuleResponse,
-    ErrorResponse,
     SimpleCapsuleInfo,
     DetailedCapsuleInfo
 )
