@@ -18,7 +18,7 @@ from domain.capsule import CapsuleStatus, Visibility
 from domain.condition import UnlockConditions
 from domain.user import RegisteredUser
 
-router = APIRouter(prefix="/unlock", tags=["unlock"])
+from ..routes import unlock_router as router
 
 
 @router.post(

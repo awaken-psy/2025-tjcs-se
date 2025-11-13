@@ -4,8 +4,7 @@
 import __init__
 from fastapi import FastAPI
 
-from api.v1.capsules import router as capsules_router
-from api.v1.unlock import router as unlock_router
+from api.v1 import auth_router, capsule_router, event_router, hub_router, map_router, user_router
 
 # 创建 FastAPI 应用实例
 app = FastAPI(
@@ -19,8 +18,12 @@ app = FastAPI(
 
 
 # 注册 API 路由
-app.include_router(capsules_router, prefix="/api/v1")
-app.include_router(unlock_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(capsule_router, prefix="/api/v1")
+app.include_router(event_router, prefix="/api/v1")
+app.include_router(hub_router, prefix="/api/v1")
+app.include_router(map_router, prefix="/api/v1")
+app.include_router(user_router, prefix="/api/v1")
 
 # 根路径
 @app.get("/")

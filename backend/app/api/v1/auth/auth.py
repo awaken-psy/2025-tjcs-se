@@ -1,13 +1,14 @@
 """
 认证和用户管理 API 路由
 """
-from fastapi import APIRouter, HTTPException, Depends
-from typing import Optional, List
+from fastapi import HTTPException
+from typing import Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
-from auth.jwt_handler import JWTHandler, JWTConfig
-from domain.user import Permission, UserRole, BaseUser, UserFactory
 
+from auth.jwt_handler import JWTHandler, JWTConfig
+from domain.user import UserRole, BaseUser, UserFactory
+from ..routes import auth_router as router
 
 # 请求和响应模型
 class TokenRequest(BaseModel):
@@ -56,10 +57,6 @@ class UserInfoResponse(BaseModel):
             last_login=getattr(user, 'last_login', None),
             admin_level=getattr(user, 'admin_level', None)
         )
-
-
-# 创建路由器
-router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
 @router.post(

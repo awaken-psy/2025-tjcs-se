@@ -13,8 +13,7 @@ from auth.dependencies import login_required
 from model.request import CapsuleCreateRequest, CapsuleUpdateRequest
 from model.response import CapsuleCreatedResponse, CapsuleListResponse, CapsuleDetailResponse, CapsuleUpdateResponse, ErrorResponse, CapsuleDeleteResponse
 
-
-router = APIRouter(prefix="/capsules", tags=["capsules"])
+from ..routes import capsule_router as router
 
 
 @router.post(
