@@ -2,7 +2,7 @@ from fastapi import Depends, Header
 from fastapi import HTTPException
 from typing import Optional, Union
 from app.auth.jwt_handler import JWTHandler, AccessTokenPayload, RefreshTokenPayload
-from app.models.core.user import UserFactory, UserRole, BaseUser, AuthenticatedUser, AdminUser
+from app.domain.user import UserFactory, UserRole, BaseUser, AuthenticatedUser, AdminUser
 
 def get_user_from_token(authorization:str) -> BaseUser:
     parts = authorization.split()

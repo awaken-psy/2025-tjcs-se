@@ -5,16 +5,15 @@ from fastapi import APIRouter, HTTPException, Query, Path, Depends
 from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel, Field
-from models.core.condition import Location, UnlockConditions
-from models.core.capsule import CapsuleStatus, Visibility
-from models.core.user import RegisteredUser
+from domain.condition import Location, UnlockConditions
+from domain.capsule import CapsuleStatus, Visibility
+from domain.user import RegisteredUser
 from auth.dependencies import login_required
 
-from api.v1.model.request import CapsuleCreateRequest, CapsuleUpdateRequest
-from api.v1.model.response import CapsuleCreatedResponse, CapsuleListResponse, CapsuleDetailResponse, CapsuleUpdateResponse, ErrorResponse, CapsuleDeleteResponse
+from model.capsule_model import CapsuleCreateRequest, CapsuleUpdateRequest
+from model.capsule_model import CapsuleCreatedResponse, CapsuleListResponse, CapsuleDetailResponse, CapsuleUpdateResponse, ErrorResponse, CapsuleDeleteResponse
 
-
-router = APIRouter(prefix="/capsules", tags=["capsules"])
+from ..routes import capsule_router as router
 
 
 @router.post(

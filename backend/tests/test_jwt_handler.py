@@ -10,7 +10,7 @@ from app.auth.jwt_handler import (
     JWTHandler, JWTConfig,
     AccessTokenPayload, RefreshTokenPayload
 )
-from app.models.core.user import (
+from app.domain.user import (
     UserRole, Permission, 
     BaseUser, AuthenticatedUser, AdminUser, UserFactory
 )

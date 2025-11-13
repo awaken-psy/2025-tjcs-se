@@ -49,6 +49,9 @@ build/
 *.code-workspace
 .history/
 
+# trae
+.trae/
+
 # Jupyter Notebook
 .ipynb_checkpoints/
 */.ipynb_checkpoints/*

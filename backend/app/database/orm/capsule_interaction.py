@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from models.database.config import Base
+from database.orm.config import Base
 
 class CapsuleInteraction(Base):
     """胶囊交互记录"""

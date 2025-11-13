@@ -86,11 +86,11 @@ def get_db():
 def create_tables():
     """创建所有表"""
     # 导入所有模型以确保它们被注册
-    from app.models.database.user import User, UserFriend
-    from app.models.database.capsule import Capsule, CapsuleMedia
-    from app.models.database.unlock_condition import UnlockCondition
-    from app.models.database.unlock_record import UnlockRecord, UnlockAttempt
-    from app.models.database.capsule_interaction import CapsuleInteraction
+    from database.orm.user import User, UserFriend
+    from database.orm.capsule import Capsule, CapsuleMedia
+    from database.orm.unlock_condition import UnlockCondition
+    from database.orm.unlock_record import UnlockRecord, UnlockAttempt
+    from database.orm.capsule_interaction import CapsuleInteraction
 
     Base.metadata.create_all(bind=engine)
     print("所有数据库表创建完成")
