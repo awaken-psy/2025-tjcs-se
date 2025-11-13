@@ -2,7 +2,7 @@ from typing import List, Optional, Dict, Any
 
 from pydantic import BaseModel, Field
 from datetime import datetime
-from models.core.condition import Location
+from utils.location import Location
 
 # 响应模型
 class BaseResponse(BaseModel):

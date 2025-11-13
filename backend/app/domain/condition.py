@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 from enum import Enum
 from abc import ABC, abstractmethod
+from utils.location import Location
 import math
 
 
@@ -60,12 +61,6 @@ class PeriodicUnlockCondition(BaseModel, TimeCondition):
         # 这里简化实现，实际应该根据周期类型计算
         return False
 
-
-class Location(BaseModel):
-    """地理位置"""
-    latitude: float = Field(..., ge=-90, le=90, description="纬度")
-    longitude: float = Field(..., ge=-180, le=180, description="经度")
-    address: Optional[str] = Field(None, min_length=1, max_length=1024, description="详细地址")
 
 
 class LocationBasedCondition(BaseModel):

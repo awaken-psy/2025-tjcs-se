@@ -5,9 +5,9 @@ import jwt
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional, Tuple, List, Union
 from enum import Enum
-from models.core.user import UserRole, Permission
+from domain.user import UserRole, Permission
 from pydantic import BaseModel, Field, ValidationError
-from models.core.user import UserRole, Permission, AccessUser, AuthenticatedUser, AdminUser, BaseUser
+from domain.user import UserRole, Permission, AccessUser, AuthenticatedUser, AdminUser, BaseUser
 
 
 class JWTConfig:
@@ -241,7 +241,7 @@ class JWTHandler:
             (是否有效, 解码后的 payload, 错误信息) 元组
         """
         valid, payload_dict, error = JWTHandler.verify_token(token)
-        if not valid:
+        if not valid or payload_dict is None:
             return False, None, error
         
         # 检查token_type是否为access
@@ -268,7 +268,7 @@ class JWTHandler:
             (是否有效, 解码后的 payload, 错误信息) 元组
         """
         valid, payload_dict, error = JWTHandler.verify_token(token)
-        if not valid:
+        if not valid or payload_dict is None:
             return False, None, error
         
         # 检查token_type是否为refresh

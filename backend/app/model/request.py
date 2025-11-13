@@ -1,8 +1,8 @@
 
 # 请求模型
 from typing import List, Optional, Dict
-from models.core.condition import Location, UnlockConditions
-from models.core.capsule import Visibility
+from domain.condition import Location, UnlockConditions
+from domain.capsule import Visibility
 
 from pydantic import BaseModel, Field
 

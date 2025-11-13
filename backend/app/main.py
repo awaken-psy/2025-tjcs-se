@@ -1,24 +1,11 @@
 """
 时光胶囊·校园 - FastAPI 应用入口
 """
-import os
-import sys
+import __init__
+from fastapi import FastAPI
 
-current_path = os.path.abspath(__file__)
-app_dir = os.path.dirname(current_path)
-backend_dir = os.path.dirname(app_dir)
-if app_dir not in sys.path:
-    sys.path.append(app_dir)
-if backend_dir not in sys.path:
-    sys.path.append(backend_dir)
-
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
 from api.v1.capsules import router as capsules_router
 from api.v1.unlock import router as unlock_router
-
-
 
 # 创建 FastAPI 应用实例
 app = FastAPI(
@@ -29,38 +16,6 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json"  # OpenAPI JSON 的访问路径（默认就是 /openapi.json）
 )
-
-# # 全局异常处理
-# @app.exception_handler(HTTPException)
-# async def http_exception_handler(request: Request, exc: HTTPException):
-#     """HTTP 异常处理"""
-#     return JSONResponse(
-#         status_code=exc.status_code,
-#         content={
-#             "success": False,
-#             "error": {
-#                 "code": exc.status_code,
-#                 "message": exc.detail,
-#                 "details": str(exc.detail)
-#             }
-#         }
-#     )
-
-
-# @app.exception_handler(Exception)
-# async def general_exception_handler(request: Request, exc: Exception):
-#     """通用异常处理"""
-#     return JSONResponse(
-#         status_code=500,
-#         content={
-#             "success": False,
-#             "error": {
-#                 "code": "INTERNAL_SERVER_ERROR",
-#                 "message": "服务器内部错误",
-#                 "details": str(exc)
-#             }
-#         }
-#     )
 
 
 # 注册 API 路由

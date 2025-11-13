@@ -5,7 +5,7 @@ from datetime import datetime
 
 from sqlalchemy.sql.sqltypes import Boolean
 
-from app.models.database.config import Base
+from database.orm.config import Base
 
 class UnlockCondition(Base):
     """解锁条件主模型"""

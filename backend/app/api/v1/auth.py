@@ -8,7 +8,7 @@ from datetime import datetime
 from auth.jwt_handler import JWTHandler, JWTConfig
 # from auth.dependencies import AuthenticationDependencies, PermissionChecker
 # from auth.permission_manager import PermissionManager
-from models.core.user import Permission, UserRole, BaseUser, UserFactory
+from domain.user import Permission, UserRole, BaseUser, UserFactory
 # from services.user_service import UserService
 
 

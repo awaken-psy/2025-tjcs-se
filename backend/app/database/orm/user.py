@@ -4,7 +4,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 from datetime import datetime
 
-from models.database.config import Base
+from database.orm.config import Base
 
 class User(Base):
     """用户模型"""
