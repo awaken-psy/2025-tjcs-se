@@ -49,6 +49,7 @@ build/
 *.code-workspace
 .history/
 
+
 # Jupyter Notebook
 .ipynb_checkpoints/
 */.ipynb_checkpoints/*
