@@ -12,7 +12,7 @@ export const createCapsule = async(data) => {
   if (!data.title || !data.content || !data.visibility) {
     throw new Error('标题、内容、可见性为必填项')
   }
-  
+
   // 构造后端需要的数据对象 - 严格匹配后端模型
   const payload = {
     title: data.title,
@@ -24,7 +24,7 @@ export const createCapsule = async(data) => {
     lng: data.lng || 0,
     createTime: data.createTime,
     updateTime: data.updateTime,
-    imageUrl: data.imageUrl || '',  // 只发送imageUrl，不发送image
+    imageUrl: data.imageUrl || '',  // 只发送imageUrl，不发送imag
     likes: data.likes || 0,
     views: data.views || 0
     // 注意：完全移除以下字段
@@ -32,9 +32,9 @@ export const createCapsule = async(data) => {
     // - status (后端自动设置)
     // - userId, userEmail, userName (后端自动获取)
   }
-  
+
   console.log('发送到后端的胶囊数据:', payload)
-  
+
   return await request({
     url: '/capsule/create',
     method: 'post',
