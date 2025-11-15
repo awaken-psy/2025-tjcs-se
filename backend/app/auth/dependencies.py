@@ -27,6 +27,11 @@ def login_required(authorization: str=Header()) -> Union[AuthenticatedUser, Admi
     if not isinstance(user, (AuthenticatedUser, AdminUser)):
         raise HTTPException(status_code=401, detail="User not authorized")
     return user
+
+def admin_required(user: Union[AuthenticatedUser, AdminUser]=Depends(login_required)) -> AdminUser:
+    if not isinstance(user, AdminUser):
+        raise HTTPException(status_code=403, detail="Admin required")
+    return user
     
 
 
