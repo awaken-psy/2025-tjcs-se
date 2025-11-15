@@ -6,7 +6,7 @@ Pydantic models for the Time Capsule API
 from .base import BaseResponse, Pagination
 
 # Authentication models
-from .auth import UserRegisterRequest, UserLoginRequest, UserAuthResponse
+from .auth import UserRegisterRequest, UserLoginRequest, UserAuthResponse, UserRefreshTokenResponse
 
 # Capsule models
 from .capsule import (
@@ -103,7 +103,7 @@ __all__ = [
     "BaseResponse", "Pagination",
 
     # Auth
-    "UserRegisterRequest", "UserLoginRequest", "UserAuthResponse",
+    "UserRegisterRequest", "UserLoginRequest", "UserAuthResponse","UserRefreshTokenResponse",
 
     # Capsule
     "Location", "UnlockConditions", "MediaFile", "Creator", "CapsuleStats",

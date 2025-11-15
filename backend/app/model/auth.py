@@ -24,4 +24,10 @@ class UserAuthResponse(BaseModel):
     email: EmailStr
     nickname: str
     token: str
+    refresh_token: str
     avatar: str | None = None
+
+class UserRefreshTokenResponse(BaseModel):
+    """用户刷新令牌请求响应"""
+    token: str
+    refresh_token: str

@@ -7,7 +7,8 @@ from app.model import (
     BaseResponse,
     UserRegisterRequest,
     UserLoginRequest,
-    UserAuthResponse
+    UserAuthResponse,
+    UserRefreshTokenResponse
 )
 
 router = APIRouter(prefix='/auth', tags=['Authorization'])
@@ -35,7 +36,7 @@ async def logout():
     pass
 
 
-@router.post("/refresh", response_model=BaseResponse[UserAuthResponse])
+@router.post("/refresh", response_model=BaseResponse[UserRefreshTokenResponse])
 async def refresh_token():
     """刷新令牌"""
     pass
