@@ -10,7 +10,7 @@ import request from '../utils/request.js'
  * @returns {Promise<Array>} 胶囊列表
  */
 // 获取我的胶囊列表（真实后端，参数userId可选，后端会自动识别当前用户）
-export const getMyCapsules = async(params = {}) => {
+export const getMyCapsules = async (params = {}) => {
   return await request({
     url: '/capsule/my',
     method: 'get',
@@ -19,14 +19,14 @@ export const getMyCapsules = async(params = {}) => {
 }
 
 // 壳子函数：创建胶囊，实际调用 mapApi.js 的 createCapsule
-import { createCapsule as mapCreateCapsule } from './mapApi.js'
+import { createCapsule as mapCreateCapsule } from './new/mapApi.js'
 
 /**
  * 创建新胶囊（壳子函数，复用mapApi.js的实现）
  * @param {Object} data
  * @returns {Promise<Object>}
  */
-export const createCapsule = async(data) => {
+export const createCapsule = async (data) => {
   // 如果mapApi.js中有createCapsule则直接调用，否则留空实现
   if (typeof mapCreateCapsule === 'function') {
     return await mapCreateCapsule(data)
@@ -42,7 +42,7 @@ export const createCapsule = async(data) => {
  * @returns {Promise<Object>}
  */
 // 编辑已有胶囊（真实后端，id为必填，其他字段按需传递）
-export const editCapsule = async(data) => {
+export const editCapsule = async (data) => {
   if (!data.id) throw new Error('缺少胶囊id')
   return await request({
     url: `/capsule/edit/${data.id}`,
@@ -56,7 +56,7 @@ export const editCapsule = async(data) => {
  * @param {String|Number} capsuleId
  * @returns {Promise<Object>}
  */
-export const deleteCapsule = async(capsuleId) => {
+export const deleteCapsule = async (capsuleId) => {
   return await request({
     url: `/capsule/delete/${capsuleId}`,
     method: 'post'
@@ -68,7 +68,7 @@ export const deleteCapsule = async(capsuleId) => {
  * @param {File} file
  * @returns {Promise<Object>}
  */
-export const uploadCapsuleImage = async(file) => {
+export const uploadCapsuleImage = async (file) => {
   const formData = new FormData()
   formData.append('img', file)
   return await request({

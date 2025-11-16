@@ -190,25 +190,23 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
 import CapsuleForm from '@/components/CapsuleForm.vue'
+import { computed, onMounted, ref } from 'vue'
 const showCapsuleForm = ref(false)
 
 // 引入胶囊创建API - 使用 capsuleApi.js 中的函数
-import { createCapsule } from '@/api/capsuleApi.js'
 
-import { useRouter } from 'vue-router'
 import { formatRelative } from '@/utils/formatTime.js'
+import { useRouter } from 'vue-router'
 // 复用共用组件
 import AppHeader from '@/components/AppHeader.vue'
 import MapContainer from '@/components/MapContainer.vue'
 // 引入页面专属API
-import { 
-  getCapsuleMarkers, 
-  getHeatmapData, 
-  getUserLocation, 
-  reportCapsuleLocation
-} from '@/api/mapApi.js'
+import {
+  getCapsuleMarkers,
+  getHeatmapData,
+  getUserLocation
+} from '@/api/new/mapApi.js'
 
 /**
  * 页面作用：

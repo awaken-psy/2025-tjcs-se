@@ -6,7 +6,10 @@ import axios from 'axios'
 const request = axios.create({
   //baseURL: '/api', // 统一前缀，所有API都走/api
   baseURL:'https://m1.apifoxmock.com/m1/7397469-7130026-default',
-  timeout: 10000
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
 })
 
 // 请求拦截器（可全局注入token、统一header等）

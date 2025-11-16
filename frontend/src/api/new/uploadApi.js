@@ -25,3 +25,4 @@ export const uploadFile = (file, type = '') => {
     data: formData
   })
 }
+

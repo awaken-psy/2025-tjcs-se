@@ -1,5 +1,6 @@
-// src/api/userApi.js
+// src/api/usersApi.js
 // 用户相关API接口
+
 
 import request from '@/utils/request'
 
@@ -26,20 +27,17 @@ export const updateCurrentUser = (userData) => {
   return request({
     url: '/users/me',
     method: 'put',
-    headers: {
-      'Content-Type': 'application/json'
-    },
     data: userData
   })
 }
 
 /**
- * 获取用户访问历史
+ * 获取用户历史记录
  * @param {Object} params - 查询参数
  * @param {number} params.page - 页码
  * @param {number} params.page_size - 每页数量
  * @param {string} params.sort - 排序方式
- * @param {string} params.type - 历史类型 (view/like/comment等)
+ * @param {string} params.type - 记录类型
  * @returns {Promise}
  */
 export const getUserHistory = (params = {}) => {

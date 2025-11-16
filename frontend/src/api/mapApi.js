@@ -1,13 +1,13 @@
 // src/api/mapApi.js
 // 地图页接口封装：胶囊地理数据、热力图、定位、上报位置
-import request from '../utils/request.js'
+import request from '../../utils/request.js'
 
 /**
  * 获取校园胶囊地理标记数据（含经纬度、可见性等）
  * @param {Object} params - { lat, lng, range }
  * @returns {Promise<Array>} 胶囊地理数据列表
  */
-export const getCapsuleMarkers = async(params = { lat: 39.9005, lng: 116.302, range: 1000 }) => {
+export const getCapsuleMarkers = async (params = { lat: 39.9005, lng: 116.302, range: 1000 }) => {
   try {
     // 后端接口：/map/capsule-markers
     const data = await request({
@@ -91,7 +91,7 @@ export const getCapsuleMarkers = async(params = { lat: 39.9005, lng: 116.302, ra
  * 获取校园热力图数据（用于展示胶囊分布密度）
  * @returns {Promise<Array>} 热力图数据（格式：[[lng, lat, count], ...]）
  */
-export const getHeatmapData = async() => {
+export const getHeatmapData = async () => {
   try {
     const data = await request({
       url: '/map/heatmap-data',
@@ -116,7 +116,7 @@ export const getHeatmapData = async() => {
  * 获取用户当前位置的精确经纬度（可选后端辅助定位）
  * @returns {Promise<Object>} 用户位置（lat, lng）
  */
-export const getUserLocation = async() => {
+export const getUserLocation = async () => {
   try {
     const data = await request({
       url: '/map/user-location',
@@ -137,7 +137,7 @@ export const getUserLocation = async() => {
  * @param {Object} data - { capsuleId, lat, lng }
  * @returns {Promise<Object>} 上报结果
  */
-export const reportCapsuleLocation = async(data) => {
+export const reportCapsuleLocation = async (data) => {
   try {
     const result = await request({
       url: '/map/report-location',
@@ -165,7 +165,7 @@ export const reportCapsuleLocation = async(data) => {
  * @param {Object} data - 胶囊表单数据
  * @returns {Promise<Object>} 创建结果
  */
-export const createCapsule = async(data) => {
+export const createCapsule = async (data) => {
   // 只校验必填项
   if (!data.title || !data.content || !data.visibility) {
     throw new Error('标题、内容、可见性为必填项')

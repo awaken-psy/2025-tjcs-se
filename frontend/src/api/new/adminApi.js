@@ -1,5 +1,5 @@
-// src/api/capsulePermissionApi.js
-// 胶囊权限相关API接口
+// src/api/adminApi.js
+// 管理后台相关API接口
 
 import request from '@/utils/request'
 
@@ -20,34 +20,29 @@ export const getPendingCapsules = (params = {}) => {
 }
 
 /**
- * 审核胶囊（批准或拒绝）
+ * 审核胶囊
  * @param {string} capsuleId - 胶囊ID
- * @param {string} action - 审核操作 (approve/reject)
- * @param {string} reason - 审核原因/备注
+ * @param {Object} reviewData - 审核数据
+ * @param {string} reviewData.action - 审核动作 (approve/reject)
+ * @param {string} reviewData.reason - 拒绝原因
  * @returns {Promise}
  */
-export const reviewCapsule = (capsuleId, action, reason = '') => {
+export const reviewCapsule = (capsuleId, reviewData) => {
   return request({
     url: `/admin/capsules/${capsuleId}/review`,
     method: 'post',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    data: {
-      action,
-      reason
-    }
+    data: reviewData
   })
 }
 
 /**
  * 获取举报列表
  * @param {Object} params - 查询参数
- * @param {string} params.status - 举报状态 (pending/processed)
+ * @param {string} params.status - 举报状态
  * @param {number} params.page - 页码
  * @param {number} params.page_size - 每页数量
- * @param {string} params.target_type - 举报目标类型 (capsule/user/comment等)
- * @param {string} params.reason - 举报原因筛选
+ * @param {string} params.target_type - 目标类型
+ * @param {string} params.reason - 举报原因
  * @returns {Promise}
  */
 export const getReports = (params = {}) => {
