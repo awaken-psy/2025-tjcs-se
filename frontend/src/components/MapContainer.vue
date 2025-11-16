@@ -1,9 +1,9 @@
 <template>
   <div class="map-container">
-    <!-- 地图主体 -->
+    <!-- 高德地图容器 -->
     <div 
       ref="mapRef" 
-      class="map-dom"
+      class="amap-container"
       :style="{ height: mapHeight }"
     >
       <!-- 通知栏 -->
@@ -25,267 +25,6 @@
           ✕
         </button>
       </div>
-
-      <!-- 地图SVG -->
-      <svg
-        class="map-svg"
-        :viewBox="svgViewBox"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <!-- 渐变背景 -->
-        <defs>
-          <linearGradient
-            id="map-bg"
-            x1="0%"
-            y1="0%"
-            x2="100%"
-            y2="100%"
-          >
-            <stop
-              offset="0%"
-              stop-color="#e6f2ff"
-            />
-            <stop
-              offset="50%"
-              stop-color="#f0f7ff"
-            />
-            <stop
-              offset="100%"
-              stop-color="#e6f2ff"
-            />
-          </linearGradient>
-          
-          <!-- 道路网格 -->
-          <pattern
-            id="road-grid"
-            width="80"
-            height="80"
-            patternUnits="userSpaceOnUse"
-          >
-            <rect
-              width="80"
-              height="80"
-              fill="#f8fafc"
-            />
-            <path
-              d="M40 0 L40 80"
-              stroke="#e2e8f0"
-              stroke-width="1.5"
-            />
-            <path
-              d="M0 40 L80 40"
-              stroke="#e2e8f0"
-              stroke-width="1.5"
-            />
-          </pattern>
-          
-          <!-- 标记样式 -->
-          <filter
-            id="marker-shadow"
-            x="-50%"
-            y="-50%"
-            width="200%"
-            height="200%"
-          >
-            <feDropShadow
-              dx="0"
-              dy="2"
-              stdDeviation="3"
-              flood-color="rgba(0,0,0,0.2)"
-            />
-          </filter>
-        </defs>
-
-        <!-- 地图背景 -->
-        <rect
-          width="1200"
-          height="800"
-          fill="url(#map-bg)"
-        />
-        
-        <!-- 道路网格 -->
-        <rect
-          width="1200"
-          height="800"
-          fill="url(#road-grid)"
-          opacity="0.4"
-        />
-        
-        <!-- 胶囊标记 -->
-        <g v-if="mapMarkers.length > 0">
-          <g
-            v-for="(marker, idx) in mapMarkers"
-            :key="idx"
-          >
-            <!-- 标记连接线 -->
-            <line 
-              v-if="userLocation && marker.distance"
-              :x1="userLocation.x" 
-              :y1="userLocation.y" 
-              :x2="marker.x" 
-              :y2="marker.y" 
-              stroke="#94a3b8" 
-              stroke-width="1" 
-              stroke-dasharray="4 4"
-              opacity="0.4"
-            />
-            
-            <!-- 标记主体 -->
-            <circle 
-              :cx="marker.x" 
-              :cy="marker.y" 
-              :r="marker.isActive ? 14 : 10"
-              :fill="getMarkerColor(marker.vis)"
-              stroke="#fff"
-              stroke-width="2"
-              filter="url(#marker-shadow)"
-              class="marker-circle"
-              @click="handleMarkerClick(marker.id)"
-            />
-            
-            <!-- 活跃标记光环 -->
-            <circle 
-              v-if="marker.isActive"
-              :cx="marker.x" 
-              :cy="marker.y" 
-              r="18"
-              :fill="getMarkerColor(marker.vis)"
-              opacity="0.3"
-              class="marker-halo"
-            />
-            
-            <!-- 距离标签 -->
-            <text 
-              v-if="marker.distance && marker.isActive"
-              :x="marker.x" 
-              :y="marker.y - 25" 
-              text-anchor="middle" 
-              fill="#475569" 
-              font-size="12" 
-              font-weight="500"
-              class="distance-label"
-            >
-              {{ marker.distance }}米
-            </text>
-            
-            <title>{{ marker.title }}</title>
-          </g>
-        </g>
-        <g v-else>
-          <text
-            x="600"
-            y="400"
-            text-anchor="middle"
-            fill="#64748b"
-            font-size="20"
-            font-weight="500"
-          >
-            暂无胶囊数据
-          </text>
-        </g>
-
-        <!-- 用户位置标记 -->
-        <g v-if="userLocation">
-          <!-- 位置脉冲效果 -->
-          <circle 
-            :cx="userLocation.x" 
-            :cy="userLocation.y" 
-            r="24"
-            fill="rgba(16, 185, 129, 0.15)"
-            class="user-pulse-1"
-          />
-          <circle 
-            :cx="userLocation.x" 
-            :cy="userLocation.y" 
-            r="18"
-            fill="rgba(16, 185, 129, 0.25)"
-            class="user-pulse-2"
-          />
-          
-          <!-- 用户位置主体 -->
-          <circle 
-            :cx="userLocation.x" 
-            :cy="userLocation.y" 
-            r="10"
-            fill="#10b981"
-            stroke="#fff"
-            stroke-width="3"
-            class="user-marker"
-          />
-          
-          <!-- 位置指示器 -->
-          <polygon 
-            :points="getUserPointerPoints(userLocation.x, userLocation.y)"
-            fill="#10b981"
-            class="user-pointer"
-          />
-        </g>
-
-        <!-- 比例尺 -->
-        <g
-          v-if="scaleInfo"
-          class="map-scale"
-        >
-          <rect 
-            :x="scaleInfo.x" 
-            :y="scaleInfo.y" 
-            :width="scaleInfo.width" 
-            :height="scaleInfo.height" 
-            rx="6" 
-            fill="#fff" 
-            fill-opacity="0.9"
-            stroke="#cbd5e1"
-            stroke-width="1"
-          />
-          <line 
-            :x1="scaleInfo.x+15" 
-            :y1="scaleInfo.y+scaleInfo.height-20" 
-            :x2="scaleInfo.x+15+scaleInfo.scalePx" 
-            :y2="scaleInfo.y+scaleInfo.height-20" 
-            stroke="#3b82f6" 
-            stroke-width="3" 
-            stroke-linecap="round"
-          />
-          <text 
-            :x="scaleInfo.x+15+scaleInfo.scalePx/2" 
-            :y="scaleInfo.y+scaleInfo.height-25" 
-            text-anchor="middle" 
-            fill="#3b82f6" 
-            font-size="12" 
-            font-weight="600"
-          >
-            {{ scaleInfo.label }}
-          </text>
-        </g>
-
-        <!-- 指南针 -->
-        <g
-          class="compass"
-          transform="translate(50, 50)"
-        >
-          <circle
-            cx="0"
-            cy="0"
-            r="25"
-            fill="#fff"
-            fill-opacity="0.9"
-            stroke="#cbd5e1"
-            stroke-width="1"
-          />
-          <path
-            d="M0 -15 L-5 10 L0 5 L5 10 Z"
-            fill="#ef4444"
-          />
-          <text
-            x="0"
-            y="25"
-            text-anchor="middle"
-            fill="#64748b"
-            font-size="12"
-            font-weight="600"
-          >N</text>
-        </g>
-      </svg>
     </div>
 
     <!-- 地图控制栏 -->
@@ -341,11 +80,41 @@
       <small>最后更新: {{ lastLocationUpdate }}</small>
     </div>
 
+    <!-- 用户位置信息面板 -->
+    <div 
+      v-if="userLocation && userLocation.lat !== 39.90923"
+      class="location-panel"
+    >
+      <div class="location-header">
+        <i class="fas fa-map-marker-alt location-icon" />
+        <h4 class="location-title">
+          我的位置
+        </h4>
+        <button
+          class="location-close"
+          @click="clearUserLocation"
+        >
+          ✕
+        </button>
+      </div>
+      <div class="location-body">
+        <div class="location-coords">
+          <span>经度: {{ userLocation.lng.toFixed(6) }}</span>
+          <span>纬度: {{ userLocation.lat.toFixed(6) }}</span>
+        </div>
+        <div 
+          v-if="userLocation.accuracy"
+          class="location-accuracy"
+        >
+          <i class="fas fa-bullseye" /> 精度: ±{{ Math.round(userLocation.accuracy) }}米
+        </div>
+      </div>
+    </div>
+
     <!-- 胶囊信息面板 -->
     <div 
       v-if="activeMarker"
       class="marker-panel"
-      :style="getPanelPosition(activeMarker)"
     >
       <div class="panel-header">
         <h4 class="panel-title">
@@ -403,6 +172,7 @@
 
 <script setup>
 import { ref, onMounted, watch, onUnmounted } from 'vue'
+import { getCurrentLocation } from '@/utils/locationService'
 
 const props = defineProps({
   capsuleData: {
@@ -422,45 +192,28 @@ const props = defineProps({
 
 const emit = defineEmits(['view-capsule', 'nav-capsule', 'map-ready'])
 
-// 地图DOM引用
+// 地图引用
 const mapRef = ref(null)
+let map = null
 
 // 状态管理
 const isMapLoaded = ref(false)
 const isLoading = ref(false)
 const isLocating = ref(false)
-const mapMarkers = ref([])
 const userLocation = ref(null)
-const svgViewBox = ref('0 0 1200 800')
-const scaleInfo = ref(null)
 const activeMarker = ref(null)
-const locationPermission = ref('prompt') // 'granted', 'denied', 'prompt'
+const locationPermission = ref('prompt')
 const realTimeTracking = ref(false)
 const lastLocationUpdate = ref(null)
-const watchId = ref(null)
+const locationTimer = ref(null)
 const showNotification = ref(false)
 const notificationText = ref('')
 const notificationIcon = ref('')
 
-// 改进的位置获取函数
-const getCurrentPosition = () => {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error('浏览器不支持地理位置API'))
-      return
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      resolve,
-      reject,
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
-    )
-  })
-}
+// 标记管理
+const markers = ref([])
+let userLocationMarker = null
+let locationPulseLayer = null
 
 // 显示通知
 const showStatusNotification = (text, icon = 'fa-info-circle') => {
@@ -468,43 +221,55 @@ const showStatusNotification = (text, icon = 'fa-info-circle') => {
   notificationIcon.value = icon
   showNotification.value = true
   
-  // 5秒后自动隐藏
   setTimeout(() => {
     showNotification.value = false
   }, 5000)
 }
 
-// 隐藏通知
 const hideNotification = () => {
   showNotification.value = false
 }
 
 // 初始化地图
-const initMap = async() => {
+const initMap = () => {
+  // 等待高德地图API加载完成
+  if (typeof AMap === 'undefined') {
+    console.error('高德地图API未加载')
+    showStatusNotification('地图加载失败，请刷新页面', 'fa-exclamation-circle')
+    return
+  }
+
   isLoading.value = true
+  
   try {
-    // 检查位置权限状态
-    await checkPermissionStatus()
+    // 使用默认中心点（北京）
+    const defaultCenter = [116.397428, 39.90923]
     
-    // 尝试获取当前位置
-    if (locationPermission.value === 'granted') {
-      await locateAndRender()
-      showStatusNotification('位置权限已授权', 'fa-check-circle')
-    } else {
-      // 使用默认位置
-      userLocation.value = { lat: 39.9042, lng: 116.4074, x: 600, y: 400 } // 北京中心
-      renderMapMarkers()
-      showStatusNotification('使用默认位置', 'fa-map-marker-alt')
+    // 初始化地图实例
+    map = new AMap.Map(mapRef.value, {
+      zoom: 10,
+      center: defaultCenter,
+      viewMode: '2D',
+      mapStyle: 'amap://styles/normal'
+    })
+
+    // 添加地图控件
+    if (AMap.Scale) {
+      map.addControl(new AMap.Scale())
+    }
+    if (AMap.ToolBar) {
+      map.addControl(new AMap.ToolBar())
     }
     
+    // 检查位置权限并尝试定位
+    checkPermissionStatus()
+    
     isMapLoaded.value = true
-    emit('map-ready', null)
+    emit('map-ready', map)
+    showStatusNotification('地图加载成功', 'fa-check-circle')
   } catch (error) {
     console.error('地图初始化失败:', error)
-    // 使用默认位置
-    userLocation.value = { lat: 39.9042, lng: 116.4074, x: 600, y: 400 }
-    renderMapMarkers()
-    showStatusNotification('地图加载完成', 'fa-map')
+    showStatusNotification('地图初始化失败', 'fa-exclamation-circle')
   } finally {
     isLoading.value = false
   }
@@ -523,8 +288,7 @@ const checkPermissionStatus = async() => {
     
     result.onchange = () => {
       locationPermission.value = result.state
-      if (result.state === 'granted' && !realTimeTracking.value) {
-        startRealTimeTracking()
+      if (result.state === 'granted') {
         showStatusNotification('位置权限已授权', 'fa-check-circle')
       } else if (result.state === 'denied') {
         stopRealTimeTracking()
@@ -537,95 +301,275 @@ const checkPermissionStatus = async() => {
   }
 }
 
-// 定位并渲染地图
-const locateAndRender = async() => {
+// 定位用户
+const handleLocate = () => {
+  if (locationPermission.value === 'denied') {
+    showStatusNotification('位置权限已被拒绝，请在浏览器设置中启用位置权限', 'fa-exclamation-triangle')
+    return
+  }
+  
+  locateUser()
+}
+
+// 执行定位 - 使用新的定位服务
+// 执行定位 - 直接使用高德地图定位
+const locateUser = async() => {
   isLocating.value = true
+  
   try {
-    const position = await getCurrentPosition()
-    const lat = position.coords.latitude
-    const lng = position.coords.longitude
+    const location = await getCurrentLocation()
     
-    userLocation.value = {
-      lat,
-      lng,
-      x: 600,
-      y: 400
+    if (location.success) {
+      userLocation.value = {
+        lng: location.longitude,
+        lat: location.latitude,
+        accuracy: location.accuracy,
+        source: location.source
+      }
+      
+      updateUserLocationMarker()
+      renderCapsuleMarkers()
+      updateLastLocationTime()
+      
+      showStatusNotification('定位成功！', 'fa-crosshairs')
+      
+      if (locationPermission.value === 'granted' && !realTimeTracking.value) {
+        realTimeTracking.value = true
+        startRealTimeTracking()
+      }
+    } else {
+      throw new Error(location.error || '定位失败')
     }
-    
-    renderMapMarkers()
-    updateLastLocationTime()
-    
-    // 如果权限已授予但未开启实时追踪，自动开启
-    if (locationPermission.value === 'granted' && !realTimeTracking.value) {
-      realTimeTracking.value = true
-      startRealTimeTracking()
-    }
-    
-    showStatusNotification('定位成功', 'fa-check-circle')
   } catch (error) {
     console.error('定位失败:', error)
-    // 使用默认位置
-    userLocation.value = { lat: 39.9042, lng: 116.4074, x: 600, y: 400 }
-    renderMapMarkers()
+    userLocation.value = { lng: 116.397428, lat: 39.90923, source: '默认位置' }
+    updateUserLocationMarker()
+    renderCapsuleMarkers()
     
-    if (error.code === 1) {
-      locationPermission.value = 'denied'
-      showStatusNotification('位置权限被拒绝', 'fa-exclamation-circle')
-    } else {
-      showStatusNotification('定位失败，使用默认位置', 'fa-map-marker-alt')
-    }
+    showStatusNotification('定位失败，使用默认位置', 'fa-map-marker-alt')
   } finally {
     isLocating.value = false
   }
 }
 
-// 开始实时位置追踪
-const startRealTimeTracking = () => {
-  if (!navigator.geolocation || locationPermission.value !== 'granted') {
-    return
+// 清除用户位置
+const clearUserLocation = () => {
+  userLocation.value = null
+  removeUserLocationMarker()
+}
+
+// 移除用户位置标记
+const removeUserLocationMarker = () => {
+  if (userLocationMarker) {
+    map.remove(userLocationMarker)
+    userLocationMarker = null
   }
+  if (locationPulseLayer) {
+    map.remove(locationPulseLayer)
+    locationPulseLayer = null
+  }
+}
 
-  stopRealTimeTracking() // 先停止之前的监听
+// 更新用户位置标记 - 显著显示
+const updateUserLocationMarker = () => {
+  // 清除现有用户位置标记
+  removeUserLocationMarker()
+  
+  if (userLocation.value && map) {
+    // 创建显著的脉冲圆环效果
+    locationPulseLayer = new AMap.Circle({
+      center: [userLocation.value.lng, userLocation.value.lat],
+      radius: userLocation.value.accuracy || 50, // 使用定位精度作为半径
+      strokeColor: '#1890ff',
+      strokeWeight: 2,
+      strokeOpacity: 0.6,
+      fillColor: '#1890ff',
+      fillOpacity: 0.2,
+      zIndex: 50
+    })
+    map.add(locationPulseLayer)
+    
+    // 创建显著的用户位置标记
+    userLocationMarker = new AMap.Marker({
+      position: [userLocation.value.lng, userLocation.value.lat],
+      // 使用自定义图标 - 更显著的定位图标
+      content: createUserLocationIcon(),
+      offset: new AMap.Pixel(-20, -20),
+      zIndex: 100
+    })
+    
+    userLocationMarker.isUserLocation = true
+    map.add(userLocationMarker)
+    
+    // 创建精度圆（如果精度信息可用）
+    if (userLocation.value.accuracy) {
+      const accuracyCircle = new AMap.Circle({
+        center: [userLocation.value.lng, userLocation.value.lat],
+        radius: userLocation.value.accuracy,
+        strokeColor: '#52c41a',
+        strokeWeight: 1,
+        strokeOpacity: 0.4,
+        fillColor: '#52c41a',
+        fillOpacity: 0.1,
+        zIndex: 30
+      })
+      map.add(accuracyCircle)
+      markers.value.push(accuracyCircle)
+    }
+    
+    // 定位到用户位置并适当缩放
+    map.setCenter([userLocation.value.lng, userLocation.value.lat])
+    map.setZoom(15) // 放大到更近的级别
+    
+    // 添加脉冲动画
+    startPulseAnimation()
+  }
+}
+// 创建美观且中心对齐的用户位置图标
+const createUserLocationIcon = () => {
+  // 优化点：箭头完全居中、添加渐变质感、增强视觉层次
+  return `
+    <div class="user-location-marker">
+      <div class="location-pulse-1"></div>
+      <div class="location-pulse-2"></div>
+      <div class="location-center-arrow">
+        <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <!-- 外层渐变圆环：增强立体感 -->
+          <circle cx="12" cy="12" r="10" stroke="white" stroke-width="3" fill="none" />
+          <!-- 内层渐变圆：从深蓝到浅蓝，更有质感 -->
+          <defs>
+            <radialGradient id="locationGradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+              <stop offset="0%" stop-color="#3b82f6" />
+              <stop offset="100%" stop-color="#1890ff" />
+            </radialGradient>
+          </defs>
+          <circle cx="12" cy="12" r="8" fill="url(#locationGradient)" />
+          <!-- 完全居中的箭头：顶点、中心点、底边均对齐圆心（12,12） -->
+          <polygon 
+            points="12,8 15,14 13,14 13,17 11,17 11,14 9,14" 
+            fill="#fff" 
+            stroke="#2563eb" 
+            stroke-width="1"
+            stroke-linejoin="round"
+          />
+          <!-- 中心亮点：提升精致感 -->
+          <circle cx="12" cy="12" r="1.5" fill="white" opacity="0.8" />
+        </svg>
+      </div>
+    </div>
+  `
+}
 
-  watchId.value = navigator.geolocation.watchPosition(
-    (position) => {
-      const lat = position.coords.latitude
-      const lng = position.coords.longitude
-      
-      userLocation.value = {
-        lat,
-        lng,
-        x: 600,
-        y: 400
-      }
-      
-      renderMapMarkers()
-      updateLastLocationTime()
-    },
-    (error) => {
-      console.error('实时位置更新失败:', error)
-      if (error.code === 1) {
-        locationPermission.value = 'denied'
-        stopRealTimeTracking()
-        showStatusNotification('位置权限被拒绝', 'fa-exclamation-circle')
-      }
+// 开始脉冲动画
+const startPulseAnimation = () => {
+  // 动画通过CSS实现
+}
+
+// 渲染胶囊标记
+const renderCapsuleMarkers = () => {
+  if (!map) return
+  
+  // 清除现有胶囊标记
+  markers.value.filter(m => !m.isUserLocation).forEach(marker => {
+    map.remove(marker)
+  })
+  
+  // 使用默认数据渲染标记
+  const defaultCapsules = [
+    {
+      id: 1,
+      lng: 116.397428,
+      lat: 39.90923,
+      title: '示例胶囊1',
+      desc: '这是一个示例胶囊的描述信息',
+      vis: 'public',
+      views: 100,
+      time: new Date(),
+      tags: ['示例', '测试']
     },
     {
-      enableHighAccuracy: true,
-      timeout: 5000,
-      maximumAge: 1000 // 1秒更新一次
+      id: 2,
+      lng: 116.407428,
+      lat: 39.91923,
+      title: '示例胶囊2',
+      desc: '另一个示例胶囊的描述',
+      vis: 'friend',
+      views: 50,
+      time: new Date(),
+      tags: ['测试']
     }
-  )
+  ]
+  
+  const capsules = props.capsuleData.length > 0 ? props.capsuleData : defaultCapsules
+  
+  capsules.forEach(capsule => {
+    const marker = createCapsuleMarker(capsule)
+    if (marker) {
+      map.add(marker)
+      markers.value.push(marker)
+    }
+  })
+}
 
+// 创建胶囊标记
+const createCapsuleMarker = (capsule) => {
+  if (typeof AMap === 'undefined') return null
+  
+  // 根据可见性设置不同的图标
+  let iconUrl = 'https://webapi.amap.com/theme/v1.3/markers/n/mark_b.png' // 默认蓝色
+  if (capsule.vis === 'friend') {
+    iconUrl = 'https://webapi.amap.com/theme/v1.3/markers/n/mark_g.png' // 绿色
+  } else if (capsule.vis === 'private') {
+    iconUrl = 'https://webapi.amap.com/theme/v1.3/markers/n/mark_r.png' // 红色
+  }
+  
+  const marker = new AMap.Marker({
+    position: [capsule.lng, capsule.lat],
+    icon: iconUrl,
+    offset: new AMap.Pixel(-12, -12),
+    extData: capsule // 将胶囊数据存储在标记中
+  })
+  
+  // 添加点击事件
+  marker.on('click', () => {
+    handleMarkerClick(capsule)
+  })
+  
+  return marker
+}
+
+// 开始实时位置追踪
+const startRealTimeTracking = () => {
+  stopRealTimeTracking() // 先停止之前的定时器
+  
+  // 每10秒更新一次位置
+  locationTimer.value = setInterval(async() => {
+    if (locationPermission.value === 'granted') {
+      try {
+        const location = await getCurrentLocation()
+        if (location.success) {
+          userLocation.value = {
+            lng: location.longitude,
+            lat: location.latitude
+          }
+          updateUserLocationMarker()
+          updateLastLocationTime()
+        }
+      } catch (error) {
+        console.error('实时位置更新失败:', error)
+      }
+    }
+  }, 10000) // 10秒
+  
   realTimeTracking.value = true
   showStatusNotification('实时追踪已开启', 'fa-satellite-dish')
 }
 
 // 停止实时位置追踪
 const stopRealTimeTracking = () => {
-  if (watchId.value !== null) {
-    navigator.geolocation.clearWatch(watchId.value)
-    watchId.value = null
+  if (locationTimer.value) {
+    clearInterval(locationTimer.value)
+    locationTimer.value = null
   }
   realTimeTracking.value = false
   showStatusNotification('实时追踪已关闭', 'fa-satellite')
@@ -650,66 +594,37 @@ const updateLastLocationTime = () => {
   lastLocationUpdate.value = now.toLocaleTimeString('zh-CN')
 }
 
-// 渲染地图标记
-const renderMapMarkers = () => {
-  if (!userLocation.value) return
-
-  const userLat = userLocation.value.lat
-  const userLng = userLocation.value.lng
-  
-  // 计算所有胶囊到用户的最大距离
-  let maxD = 1000
-  const dists = props.capsuleData.map(c => getDistance(userLat, userLng, c.lat, c.lng))
-  if (dists.length > 0) {
-    maxD = Math.max(...dists, 100)
+// 地图缩放
+const zoomIn = () => {
+  if (map) {
+    map.zoomIn()
   }
+}
 
-  // 画布参数
-  const centerX = 600, centerY = 400, maxRadius = 280
-  
-  // 计算比例尺
-  const pxPerMeter = maxRadius / maxD
-  let scaleLen = 100
-  if (maxD > 500) scaleLen = 500
-  else if (maxD > 200) scaleLen = 200
-  
-  const scalePx = Math.round(scaleLen * pxPerMeter)
-  scaleInfo.value = {
-    x: 950, y: 720, width: 200, height: 40,
-    scalePx,
-    label: `${scaleLen}米`
+const zoomOut = () => {
+  if (map) {
+    map.zoomOut()
   }
+}
 
-  // 标记渲染
-  const markers = props.capsuleData.map(capsule => {
-    const d = getDistance(userLat, userLng, capsule.lat, capsule.lng)
-    const angle = getBearing(userLat, userLng, capsule.lat, capsule.lng)
-    const r = Math.min(d, maxD) / maxD * maxRadius
-    const rad = (angle - 90) * Math.PI / 180
-    const x = centerX + r * Math.cos(rad)
-    const y = centerY + r * Math.sin(rad)
-    
-    return {
-      id: capsule.id,
-      title: capsule.title,
-      desc: capsule.desc,
-      time: capsule.time,
-      vis: capsule.vis,
-      views: capsule.views,
-      tags: capsule.tags,
-      x,
-      y,
-      isActive: false,
-      distance: Math.round(d),
-      angle: Math.round(angle)
-    }
-  })
+// 标记点击处理
+const handleMarkerClick = (capsule) => {
+  activeMarker.value = capsule
   
-  mapMarkers.value = markers
+  // 计算距离（如果用户位置存在）
+  if (userLocation.value) {
+    const distance = calculateDistance(
+      userLocation.value.lng,
+      userLocation.value.lat,
+      capsule.lng,
+      capsule.lat
+    )
+    activeMarker.value.distance = Math.round(distance)
+  }
 }
 
 // 计算两点间距离（米）
-const getDistance = (lat1, lng1, lat2, lng2) => {
+const calculateDistance = (lng1, lat1, lng2, lat2) => {
   const R = 6371000
   const toRad = deg => deg * Math.PI / 180
   const dLat = toRad(lat2 - lat1)
@@ -718,104 +633,12 @@ const getDistance = (lat1, lng1, lat2, lng2) => {
   return 2 * R * Math.asin(Math.sqrt(a))
 }
 
-// 计算方位角
-const getBearing = (lat1, lng1, lat2, lng2) => {
-  const toRad = deg => deg * Math.PI / 180
-  const toDeg = rad => rad * 180 / Math.PI
-  const dLng = toRad(lng2 - lng1)
-  const y = Math.sin(dLng) * Math.cos(toRad(lat2))
-  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLng)
-  let brng = Math.atan2(y, x)
-  brng = toDeg(brng)
-  return (brng + 360) % 360
-}
-
-// 获取用户位置指示器三角形点
-const getUserPointerPoints = (x, y) => {
-  return `${x},${y-12} ${x-6},${y+8} ${x+6},${y+8}`
-}
-
-// 获取面板位置（避免超出边界）
-const getPanelPosition = (marker) => {
-  const panelWidth = 280
-  const panelHeight = 180
-  let left = marker.x + 20
-  let top = marker.y
-  
-  // 检查右边界
-  if (left + panelWidth > 1200) {
-    left = marker.x - panelWidth - 20
-  }
-  
-  // 检查下边界
-  if (top + panelHeight > 800) {
-    top = marker.y - panelHeight
-  }
-  
-  return { left: `${left}px`, top: `${top}px` }
-}
-
-// 标记点击处理
-const handleMarkerClick = (markerId) => {
-  const marker = mapMarkers.value.find(m => m.id === markerId)
-  if (!marker) return
-  
-  mapMarkers.value = mapMarkers.value.map(m => ({
-    ...m,
-    isActive: m.id === markerId
-  }))
-  activeMarker.value = marker
-}
-
 // 关闭标记面板
 const closeMarkerPanel = () => {
   activeMarker.value = null
-  mapMarkers.value = mapMarkers.value.map(m => ({ ...m, isActive: false }))
-}
-
-// 用户定位
-const handleLocate = async() => {
-  if (locationPermission.value === 'denied') {
-    showStatusNotification('位置权限已被拒绝，请在浏览器设置中启用位置权限', 'fa-exclamation-triangle')
-    return
-  }
-  
-  await locateAndRender()
-}
-
-// 地图缩放
-const zoomIn = () => {
-  const svg = mapRef.value?.querySelector('.map-svg')
-  if (svg) {
-    const currentScale = parseFloat(svg.style.transform.replace('scale(', '')) || 1
-    if (currentScale < 2) {
-      svg.style.transform = `scale(${currentScale + 0.2})`
-      svg.style.transformOrigin = 'center'
-    }
-  }
-}
-
-const zoomOut = () => {
-  const svg = mapRef.value?.querySelector('.map-svg')
-  if (svg) {
-    const currentScale = parseFloat(svg.style.transform.replace('scale(', '')) || 1
-    if (currentScale > 0.5) {
-      svg.style.transform = `scale(${currentScale - 0.2})`
-      svg.style.transformOrigin = 'center'
-    }
-  }
 }
 
 // 辅助函数
-const getMarkerColor = (vis) => {
-  switch (vis) {
-  case 'public': return '#4ade80'
-  case 'friend': return '#60a5fa'
-  case 'private': return '#f97316'
-  default: return '#94a3b8'
-  }
-}
-
 const getVisText = (vis) => {
   switch (vis) {
   case 'public': return '校园公开'
@@ -848,29 +671,45 @@ const handleViewCapsule = (capsuleId) => {
 
 const handleNavToCapsule = (capsuleId) => {
   emit('nav-capsule', capsuleId)
-  const marker = mapMarkers.value.find(m => m.id === capsuleId)
-  if (marker) {
-    const svg = mapRef.value?.querySelector('.map-svg')
-    if (svg) {
-      svg.style.transform = `translate(${(600 - marker.x)}px, ${(400 - marker.y)}px)`
-    }
+  const marker = markers.value.find(m => m.extData?.id === capsuleId)
+  if (marker && map) {
+    map.setCenter(marker.getPosition())
+    map.setZoom(15)
   }
 }
 
 // 监听胶囊数据变化
-watch(() => props.capsuleData, (newVal) => {
+watch(() => props.capsuleData, () => {
   if (isMapLoaded.value) {
-    renderMapMarkers()
+    renderCapsuleMarkers()
   }
 }, { deep: true })
 
 // 组件挂载和卸载
 onMounted(() => {
-  initMap()
+  // 等待高德地图API加载完成
+  const checkAMap = setInterval(() => {
+    if (window.AMap) {
+      clearInterval(checkAMap)
+      initMap()
+    }
+  }, 100)
+  
+  // 10秒后超时
+  setTimeout(() => {
+    clearInterval(checkAMap)
+    if (!window.AMap) {
+      console.error('高德地图API加载超时')
+      showStatusNotification('地图加载超时，请刷新页面', 'fa-exclamation-circle')
+    }
+  }, 10000)
 })
 
 onUnmounted(() => {
   stopRealTimeTracking()
+  if (map) {
+    map.destroy()
+  }
 })
 </script>
 
@@ -883,20 +722,9 @@ onUnmounted(() => {
   box-shadow: var(--shadow);
 }
 
-.map-dom {
+.amap-container {
   width: 100%;
   height: 100%;
-  background: #f8fafc;
-  display: flex;
-  align-items: stretch;
-  justify-content: stretch;
-}
-
-.map-svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-  transition: all 0.3s ease;
 }
 
 /* 通知栏 */
@@ -953,60 +781,6 @@ onUnmounted(() => {
     transform: translateX(0);
     opacity: 1;
   }
-}
-
-/* 标记样式 */
-.marker-circle {
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.marker-circle:hover {
-  r: 12;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
-}
-
-.marker-halo {
-  animation: haloPulse 2s ease-in-out infinite;
-}
-
-@keyframes haloPulse {
-  0%, 100% { r: 18; opacity: 0.3; }
-  50% { r: 22; opacity: 0.1; }
-}
-
-.distance-label {
-  font-size: 12px;
-  font-weight: 500;
-  fill: #475569;
-}
-
-/* 用户位置标记 */
-.user-marker {
-  z-index: 5;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-}
-
-.user-pulse-1 {
-  animation: userPulse1 3s ease-in-out infinite;
-}
-
-.user-pulse-2 {
-  animation: userPulse2 3s ease-in-out infinite;
-}
-
-.user-pointer {
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
-}
-
-@keyframes userPulse1 {
-  0%, 100% { r: 24; opacity: 0.15; }
-  50% { r: 28; opacity: 0.1; }
-}
-
-@keyframes userPulse2 {
-  0%, 100% { r: 18; opacity: 0.25; }
-  50% { r: 22; opacity: 0.15; }
 }
 
 /* 地图控制栏 */
@@ -1088,9 +862,94 @@ onUnmounted(() => {
   margin-left: 8px;
 }
 
+/* 用户位置信息面板 */
+.location-panel {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 280px;
+  background: white;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xl);
+  padding: 16px;
+  z-index: 20;
+  border: 1px solid rgba(24, 144, 255, 0.3);
+  backdrop-filter: blur(8px);
+  animation: slideInLeft 0.3s ease-out;
+}
+
+.location-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.location-icon {
+  color: #1890ff;
+  font-size: 16px;
+}
+
+.location-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  color: #1890ff;
+  flex: 1;
+}
+
+.location-close {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.location-close:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1e293b;
+}
+
+.location-body {
+  font-size: 13px;
+}
+
+.location-coords {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  color: #475569;
+}
+
+.location-accuracy {
+  color: #52c41a;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 /* 标记信息面板 */
 .marker-panel {
   position: absolute;
+  top: 20px;
+  right: 20px;
   width: 300px;
   background: white;
   border-radius: var(--radius);
@@ -1230,5 +1089,123 @@ onUnmounted(() => {
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   --radius: 12px;
   --radius-sm: 8px;
+}
+
+/* 用户位置标记样式 */
+.user-location-marker {
+  position: relative;
+  width: 40px;
+  height: 40px;
+}
+
+.location-center-arrow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.location-pulse-1,
+.location-pulse-2 {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid #1890ff;
+  border-radius: 50%;
+  animation: locationPulse 2s ease-out infinite;
+}
+
+.location-pulse-1 {
+  width: 40px;
+  height: 40px;
+  animation-delay: 0s;
+}
+
+.location-pulse-2 {
+  width: 60px;
+  height: 60px;
+  animation-delay: 1s;
+}
+
+@keyframes locationPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0.8;
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(1.4);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.4);
+    opacity: 0;
+  }
+}
+/* 用户位置标记样式 - 确保中心对齐+美化 */
+.user-location-marker {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center; /* 外层容器居中 */
+}
+
+.location-center-arrow {
+  position: relative;
+  z-index: 10;
+  /* 确保SVG本身无偏移 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 优化脉冲动画与图标协调 */
+.location-pulse-1,
+.location-pulse-2 {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: locationPulse 2s ease-out infinite;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.location-pulse-1 {
+  width: 40px;
+  height: 40px;
+  animation-delay: 0s;
+}
+
+.location-pulse-2 {
+  width: 60px;
+  height: 60px;
+  animation-delay: 1s;
+}
+
+@keyframes locationPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0.8;
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(1.6);
+    opacity: 0;
+    box-shadow: 0 0 0 15px rgba(59, 130, 246, 0);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.6);
+    opacity: 0;
+  }
 }
 </style>
