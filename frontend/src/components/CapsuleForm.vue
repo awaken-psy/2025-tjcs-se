@@ -351,7 +351,7 @@
 
 <script setup>
 import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
-import { createCapsule } from '../api/new/mapApi.js'
+import { createCapsule } from '../api/mapApi.js'
 
 // Props
 const props = defineProps({
