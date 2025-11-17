@@ -5,13 +5,15 @@ import __init__
 from fastapi import FastAPI
 
 from api.v1 import (
+    admin_router,
     auth_router,
     capsule_router,
     unlock_router,
-    event_router,
-    hub_router,
-    map_router,
-    user_router
+    interaction_router,
+    user_router,
+    friend_router,
+    upload_router,
+    report_router
 )
 
 # 创建 FastAPI 应用实例
@@ -26,13 +28,17 @@ app = FastAPI(
 
 
 # 注册 API 路由
+app.include_router(admin_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(capsule_router, prefix="/api/v1")
 app.include_router(unlock_router, prefix="/api/v1")
-app.include_router(event_router, prefix="/api/v1")
-app.include_router(hub_router, prefix="/api/v1")
-app.include_router(map_router, prefix="/api/v1")
+app.include_router(interaction_router, prefix="/api/v1")
 app.include_router(user_router, prefix="/api/v1")
+app.include_router(friend_router, prefix="/api/v1")
+app.include_router(upload_router, prefix="/api/v1")
+app.include_router(report_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
+
 
 # 根路径
 @app.get("/")
