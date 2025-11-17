@@ -282,17 +282,17 @@
         >
           <button 
             class="page-btn" 
-            :disabled="currentPage === 1 || isLoading"
+            :disabled="currentPage === 1 || isLoading || totalEvents === 0"
             @click="handlePageChange(currentPage - 1)"
           >
             <i class="fas fa-chevron-left" /> 上一页
           </button>
           <span class="page-info">
-            第 {{ currentPage }} 页 / 共 {{ Math.ceil(totalEvents / pageSize) }} 页（共 {{ totalEvents }} 个活动）
+            {{ pageInfo }}
           </span>
           <button 
             class="page-btn" 
-            :disabled="currentPage >= Math.ceil(totalEvents / pageSize) || isLoading"
+            :disabled="currentPage >= Math.ceil(totalEvents / pageSize) || isLoading || totalEvents === 0"
             @click="handlePageChange(currentPage + 1)"
           >
             下一页 <i class="fas fa-chevron-right" />
@@ -386,7 +386,7 @@
             </div>
             <div class="reg-deadline">
               <i class="fas fa-clock" />
-              报名截止时间：{{ formatStandard(currentEvent.registerDeadline) }}
+              报名截止时间：{{ currentEvent.formattedDeadline || '未设置' }}
             </div>
           </div>
         </div>
@@ -472,6 +472,7 @@
                 v-if="event.coverImg"
                 class="reg-img"
               >
+                <!--OPTIMIZE:没有对图片路径进行安全验证-->
                 <img
                   :src="event.coverImg"
                   alt="活动封面"
@@ -483,7 +484,7 @@
                   {{ event.name }}
                 </h4>
                 <div class="reg-meta">
-                  <span class="meta-item"><i class="fas fa-calendar" /> {{ formatStandard(event.time) }}</span>
+                  <span class="meta-item"><i class="fas fa-calendar" /> {{ event.formattedDate }}</span>
                   <span class="meta-item"><i class="fas fa-map-marker-alt" /> {{ event.location }}</span>
                   <span class="meta-item">
                     <EventStatusBadge 
@@ -494,7 +495,7 @@
                 </div>
                 <div class="reg-deadline">
                   <i class="fas fa-clock" />
-                  报名截止：{{ formatStandard(event.registerDeadline) }}
+                  报名截止：{{ event.formattedDeadline || '未设置' }}
                 </div>
               </div>
               <!-- 报名列表中的取消按钮 -->
@@ -518,6 +519,7 @@
               <div class="empty-icon-container">
                 <i class="fas fa-calendar-check empty-icon" />
               </div>
+              <!--TODO:加入报名活动相关内容-->
               <h4 class="empty-title">
                 暂无报名记录
               </h4>
@@ -526,7 +528,7 @@
               </p>
               <button
                 class="empty-action-btn"
-                @click="handleCloseMyReg"
+                @click="handleDiscoverEvents"
               >
                 <i class="fas fa-explore" /> 去发现活动
               </button>
@@ -539,21 +541,25 @@
 </template>
 
 <script setup>
-import EventMetaInfo from '../components/EventMetaInfo.vue'
-import { ref, onMounted, computed } from 'vue'
-import { formatStandard } from '@/utils/formatTime.js'
+import {
+  cancelRegister,
+  getCampusEvents,
+  getEventDetail,
+  getMyRegisteredEvents,
+  registerEvent
+} from '@/api/eventsApi.js'
 import AppHeader from '@/components/AppHeader.vue'
 import CapsuleCard from '@/components/CapsuleCard.vue'
+import EventRegButton from '@/components/EventRegButton.vue'
 import EventStatusBadge from '@/components/EventStatusBadge.vue'
 import RegStatsCard from '@/components/RegStatsCard.vue'
-import EventRegButton from '@/components/EventRegButton.vue'
-import { 
-  getCampusEvents, 
-  getEventDetail, 
-  registerEvent, 
-  cancelRegister, 
-  getMyRegisteredEvents 
-} from '@/api/eventsApi.js'
+import { formatRelative, formatStandard } from '@/utils/formatTime.js'
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import EventMetaInfo from '../components/EventMetaInfo.vue'
+
+// 路由实例
+const router = useRouter()
 
 // 原始数据
 const eventsList = ref([])
@@ -582,9 +588,11 @@ const regTab = ref('all')
 
 // 加载状态
 const isLoading = ref(false)
+// OPTIMIZE: 需要确保在所有可能的错误路径中都正确重置loading状态
 const isProcessing = ref({})
 
 // 静态数据
+// OPTIMIZE: 热门标签列表可考虑从后端获取
 const hotTags = ref(['毕业季', '文化节', '校友分享', '体育比赛', '讲座', '社团活动'])
 
 // 计算属性 - 修复：简化筛选逻辑，主要依赖后端筛选
@@ -593,6 +601,7 @@ const filteredEvents = computed(() => {
   if (!eventsList.value || eventsList.value.length === 0) return []
   
   // 前端只做简单的搜索筛选，其他筛选交给后端
+  // OPTIMIZE: 可能需要添加搜索防抖机制，避免频繁请求
   const keyword = filter.value.search.toLowerCase()
   if (!keyword) return eventsList.value
   
@@ -637,53 +646,112 @@ const isDeadlinePassed = computed(() => {
   return new Date(currentEvent.value.registerDeadline) < new Date()
 })
 
+const totalPages = computed(() => {
+  if (totalEvents.value === 0 || pageSize.value === 0) return 0
+  return Math.ceil(totalEvents.value / pageSize.value)
+})
+
+const pageInfo = computed(() => {
+  if (totalEvents.value === 0) {
+    return '暂无活动'
+  } else if (totalPages.value === 1) {
+    return `共 ${totalEvents.value} 个活动`
+  } else {
+    return `第 ${currentPage.value} 页 / 共 ${totalPages.value} 页（共 ${totalEvents.value} 个活动）`
+  }
+})
 // 页面初始化
 onMounted(async() => {
   await Promise.all([fetchEventsList(), fetchMyRegEvents()])
 })
 
 // API调用方法 - 修复：适配后端数据结构
-const fetchEventsList = async() => {
+// 统一的事件数据处理函数
+const processEventData = (event) => {
+  if (!event) return {}
+  
+  return {
+    ...event,
+    // 格式化时间字段
+    formattedDate: formatStandard(event.date),
+    relativeDate: formatRelative(event.date),
+    formattedCreatedAt: formatRelative(event.created_at),
+    formattedUpdatedAt: formatRelative(event.updated_at),
+    formattedDeadline: event.registerDeadline ? formatStandard(event.registerDeadline) : '未设置',
+    
+    // 设置默认值
+    tags: event.tags || [],
+    participant_count: event.participant_count || 0,
+    cover_img: event.cover_img || '/default-cover.jpg',
+    is_registered: event.is_registered || false,
+    
+    // 兼容前端其他组件可能需要的字段
+    name: event.name || '未命名活动',
+    description: event.description || '暂无描述',
+    location: event.location || '地点待定'
+  }
+}
+// 统一的API响应数据处理函数
+const processApiResponse = (result) => {
+  let list = []
+  let total = 0
+  
+  console.log('processApiResponse 输入:', result)
+
+  // 添加对直接数组的处理
+  if (Array.isArray(result)) {
+    // 输入直接是数组
+    list = result
+    total = result.length
+  }
+  // 添加对其他可能结构的处理
+  else if (result && typeof result === 'object') {
+    // 尝试从对象中提取列表数据
+    if (result.records) {
+      list = result.records || []
+      total = result.total || 0
+    } else if (result.list) {
+      list = result.list || []
+      total = result.total || 0
+    } else if (result.data && Array.isArray(result.data)) {
+      list = result.data || []
+      total = result.total || list.length
+    }
+    // 如果是单个对象，也包装成数组
+    else if (result.id || result.name) {
+      list = [result]
+      total = 1
+    }
+  }
+  
+  console.log('processApiResponse 输出:', { list, total })
+  return { list, total }
+}
+
+const fetchEventsList = async () => {
+    console.log('🚀 开始请求我的报名列表fetchEventsList', new Date().toISOString())
   isLoading.value = true
   try {
     const result = await getCampusEvents({
       page: currentPage.value,
       size: pageSize.value,
+      keyword: filter.value.search,
       status: filter.value.status,
       sort: filter.value.sort,
-      keyword: filter.value.search,
       startTime: filter.value.startTime,
       endTime: filter.value.endTime
     })
     
-    console.log('API返回数据:', result) // 调试用
+    console.log('API返回数据:', result)
     
-    // 适配不同的后端数据结构
-    let list = []
-    let total = 0
+    // 使用统一的响应处理函数
+    const { list, total } = processApiResponse(result)
     
-    if (result?.data?.records) {
-      // 结构: { data: { records: [], total: 0 } }
-      list = result.data.records || []
-      total = result.data.total || 0
-    } else if (result?.list) {
-      // 结构: { list: [], total: 0 }
-      list = result.list || []
-      total = result.total || 0
-    } else if (Array.isArray(result)) {
-      // 结构: []
-      list = result
-      total = result.length
-    } else if (result?.data) {
-      // 结构: { data: [] }
-      list = Array.isArray(result.data) ? result.data : []
-      total = list.length
-    }
-    
-    eventsList.value = list
+    // 使用统一的事件数据处理函数
+    eventsList.value = list.map(processEventData)
     totalEvents.value = total
     
-    console.log('处理后的活动数据:', eventsList.value) // 调试用
+    console.log('处理后的活动数据:', eventsList.value)
     
   } catch (error) {
     console.error('加载活动列表失败：', error)
@@ -694,30 +762,55 @@ const fetchEventsList = async() => {
   }
 }
 
-const fetchMyRegEvents = async() => {
+const fetchMyRegEvents = async () => {
+  console.log('🚀 开始请求我的报名列表fetchMyRegEvents', new Date().toISOString())
   try {
-    const result = await getMyRegisteredEvents()
-    console.log('我的报名API返回:', result) // 调试用
+    const result = await getMyRegisteredEvents({
+      page: currentPage.value,
+      size: pageSize.value
+    })
+    console.log('API调用成功，返回数据:', result)
     
-    // 适配不同的后端数据结构
-    let list = []
+    // 使用统一的响应处理函数
+    const { list, total } = processApiResponse(result)
     
-    if (result?.data?.records) {
-      list = result.data.records || []
-    } else if (result?.list) {
-      list = result.list || []
-    } else if (Array.isArray(result)) {
-      list = result
-    } else if (result?.data) {
-      list = Array.isArray(result.data) ? result.data : []
-    }
-    
-    myRegEvents.value = list
-    console.log('处理后的报名数据:', myRegEvents.value) // 调试用
+    // 对每个活动数据进行统一处理
+    myRegEvents.value = list.map(processEventData)
     
   } catch (error) {
-    console.error('加载我的报名列表失败：', error)
-    myRegEvents.value = []
+    console.error('API调用失败:', {
+      message: error.message,
+      code: error.code,
+      data: error.data,
+      fullResponse: error.fullResponse
+    })
+    
+    // 处理业务逻辑错误
+    if (error.code === 85) {
+      console.warn('业务逻辑错误85，但尝试使用返回的数据:', error.data)
+      
+      // 检查错误数据是否可用
+      if (error.data) {
+        // 根据你的API设计，error.data可能是一个对象或数组
+        let list = []
+        if (Array.isArray(error.data)) {
+          list = error.data
+        } else if (error.data && typeof error.data === 'object') {
+          list = [error.data]
+        }
+        
+        myRegEvents.value = list.map(processEventData)
+      } else {
+        myRegEvents.value = []
+      }
+    } else if (error.code === 401) {
+      console.error('未授权访问')
+      myRegEvents.value = []
+      // 跳转到登录页
+    } else {
+      console.error('其他错误')
+      myRegEvents.value = []
+    }
   }
 }
 
@@ -725,25 +818,25 @@ const fetchMyRegEvents = async() => {
 const adaptEventToCapsule = (event) => {
   if (!event) return {}
   
+  // 严格按照 CapsuleCard 组件的接口要求映射字段
   return {
     id: event.id || '',
     title: event.name || '未命名活动',
-    time: event.time || new Date().toISOString(),
-    vis: 'public',
-    desc: event.desc || '暂无描述',
+    time: event.date || new Date().toISOString(), // 使用原始的 ISO 时间字符串
+    vis: 'public', // 活动默认都是公开的
+    desc: event.description || '暂无描述',
     tags: event.tags || [],
-    likes: event.participantCount || 0,
-    views: (event.participantCount || 0) * 2,
-    img: event.coverImg || '',
+    likes: event.participant_count || 0, // 使用参与人数作为点赞数
+    views: (event.participant_count || 0) * 2, // 模拟浏览数
     location: event.location || '地点待定',
-    eventStatus: event.status || 'upcoming',
-    isRegistered: event.isRegistered || false,
-    registerDeadline: event.registerDeadline || event.time
+    img: event.cover_img || '' // 封面图片
+    // 注意：不要传递额外的字段如 eventStatus, isRegistered, registerDeadline
+    // 这些字段 CapsuleCard 组件不识别，会被忽略
   }
 }
-
 const isEventDisabled = (event) => {
   if (!event) return true
+  // OPTIMIZE: 缺少对"进行中"但已超过报名截止时间的活动状态判断
   return event.status === 'ended' || new Date(event.registerDeadline) < new Date()
 }
 
@@ -756,7 +849,7 @@ const getDisabledTip = (event) => {
 
 // 顶部导航相关方法
 const handleGoHub = () => {
-  alert('跳转至中枢页（后续替换为路由跳转）')
+  router.push({ name: 'HubViews' })
 }
 
 const handleSearch = (keyword) => {
@@ -767,6 +860,7 @@ const handleSearch = (keyword) => {
 
 const handleHeaderAction = (key) => {
   switch (key) {
+    //TODO:完善创建活动功能
   case 'create': alert('创建校园活动（后续对接活动创建表单）'); break
   case 'myReg': handleShowMyReg(); break
   case 'refresh': 
@@ -815,7 +909,8 @@ const handleViewEvent = async(eventId) => {
   isLoading.value = true
   try {
     const event = await getEventDetail(eventId)
-    currentEvent.value = event || {}
+    // 使用统一的事件数据处理函数
+    currentEvent.value = processEventData(event)
     showDetailModal.value = true
   } catch (error) {
     console.error(`查看活动(${eventId})详情失败：`, error)
@@ -848,6 +943,7 @@ const handleRegister = async(eventId) => {
     }
   } catch (error) {
     console.error(`报名活动(${eventId})失败：`, error)
+    //OPTIMIZE: 更友好的错误提示
     alert('报名失败，请稍后重试')
   } finally {
     isProcessing.value[eventId] = false
@@ -894,7 +990,16 @@ const handleClickRegTab = (tab) => {
   regTab.value = tab
   handleShowMyReg()
 }
+
+// “去发现活动”按钮点击处理，重定向到活动列表并关闭弹窗
+const handleDiscoverEvents = () => {
+  handleCloseMyReg()
+  resetDateFilter()
+  // 可选：滚动到页面顶部，确保用户看到活动列表
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
 </script>
+
 <style scoped>
 /* 全局样式重置与基础配置 */
 * {
@@ -1635,6 +1740,9 @@ const handleClickRegTab = (tab) => {
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   border: 1px solid transparent;
+  margin: 0 8px 12px 0;
+  white-space: nowrap;
+  display: inline-block;
 }
 
 .tag-item:hover {
@@ -1983,4 +2091,5 @@ const handleClickRegTab = (tab) => {
 .schedule-item {flex-direction: column;gap: 8px;}
 .schedule-time {min-width: auto;width: 100%;}
 .modal-actions {flex-direction: column;}
-.btn {width: 100%;padding: 12px 20px;}}</style>
+.btn {width: 100%;padding: 12px 20px;}}
+</style>

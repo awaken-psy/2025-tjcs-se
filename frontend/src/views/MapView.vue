@@ -804,3 +804,4 @@ const handleFocusCapsule = (capsuleId) => {
   }
 }
 </style>
+
