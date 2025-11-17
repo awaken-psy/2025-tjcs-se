@@ -5,7 +5,7 @@ import axios from 'axios'
 
 const request = axios.create({
   //baseURL: '/api', // 统一前缀，所有API都走/api
-  baseURL:'https://m1.apifoxmock.com/m1/7397469-7130026-default',
+  baseURL:'http://127.0.0.1:4523/m1/7397469-7130026-default',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -25,9 +25,12 @@ request.interceptors.request.use(config => {
   return config
 }, error => Promise.reject(error))
 
+
+
 // 响应拦截器（适配统一响应模型）
 request.interceptors.response.use(response => {
   const result = response.data
+  console.log('API响应原始数据:', result)
 
   // 检查是否为统一响应格式
   if (result && typeof result === 'object' && 'code' in result) {
@@ -35,10 +38,11 @@ request.interceptors.response.use(response => {
     if (result.code === 200) {
       return result.data  // 直接返回业务数据
     } else {
-      // 业务逻辑错误
+      // 业务逻辑错误 - 创建错误对象，包含完整响应信息
       const error = new Error(result.message || '请求失败')
       error.code = result.code
-      error.data = result.data
+      error.data = result.data // 保留数据，即使有错误
+      error.fullResponse = result // 保存完整响应对象
       return Promise.reject(error)
     }
   }
@@ -46,14 +50,49 @@ request.interceptors.response.use(response => {
   // 如果不是统一格式，保持原样返回（兼容性）
   return result
 }, error => {
-  // 网络错误或服务器错误
-  const errorMessage = error.response?.data?.message || error.message || '网络错误'
-  const errorCode = error.response?.status || 500
+  // 网络错误或服务器错误（HTTP状态码非2xx）
+  console.error('网络请求错误:', error)
+
+  let errorMessage = '网络错误'
+  let errorCode = 500
+  let errorData = null
+
+  if (error.response) {
+    // 服务器返回了错误状态码
+    const responseData = error.response.data
+
+    // 尝试从响应数据中提取错误信息
+    if (responseData && typeof responseData === 'object') {
+      // 如果响应数据已经是统一格式
+      if ('code' in responseData && 'message' in responseData) {
+        errorMessage = responseData.message
+        errorCode = responseData.code
+        errorData = responseData.data
+      } else {
+        // 其他格式的错误响应
+        errorMessage = responseData.message || responseData.error || `服务器错误 (${error.response.status})`
+        errorCode = error.response.status
+        errorData = responseData
+      }
+    } else {
+      errorMessage = `请求失败 (${error.response.status})`
+      errorCode = error.response.status
+    }
+  } else if (error.request) {
+    // 请求发出但没有收到响应
+    errorMessage = '网络连接失败，请检查网络设置'
+    errorCode = 'NETWORK_ERROR'
+  } else {
+    // 其他错误
+    errorMessage = error.message || '未知错误'
+  }
 
   const customError = new Error(errorMessage)
   customError.code = errorCode
-  customError.data = error.response?.data
+  customError.data = errorData
+  customError.originalError = error
 
+  console.error('请求拦截器捕获错误:', customError)
   return Promise.reject(customError)
 })
 

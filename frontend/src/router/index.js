@@ -10,7 +10,7 @@ import MapView from '@/views/MapView.vue'
 
 const routes = [
   {
-    path: '/activities',
+    path: '/events',
     name: 'Events',
     component: EventsView
   },
