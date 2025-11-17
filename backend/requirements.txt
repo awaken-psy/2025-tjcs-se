@@ -1,50 +1,50 @@
-# Project dependency list
-# Usage: pip install -r requirements.txt
+# 时光胶囊项目依赖列表
+# 使用 pip install -r requirements.txt 安装
 
-# Core Web framework
+# 核心Web框架
 fastapi>=0.115,<1.0
 uvicorn[standard]>=0.30,<1.0
 starlette>=0.40,<1.0
 
-# Data validation & serialization
+# 数据验证和序列化
 pydantic>=2.8,<3.0
 
-# Database & ORM
+# 数据库和ORM
 sqlalchemy>=2.0.35,<3.0
 
-# HTTP client & utilities
+# HTTP客户端和工具
 httpx>=0.27,<1.0
 
-# WebSocket support
+# WebSocket支持
 websockets>=13.0,<16.0
 
-# Multipart/form-data handling
+# 表单数据处理
 python-multipart>=0.0.9,<1.0
 
-# Configuration management
+# 配置管理
 python-dotenv>=1.0,<2.0
 
-# JWT auth
+# JWT认证
 pyjwt>=2.8,<3.0
 
-# Email validation
+# 邮件验证
 email-validator>=2.1,<3.0
 
-# Testing framework
+# 测试框架
 pytest>=8.0,<9.0
 
-# Dev tools
+# 开发工具
 rich>=13.0,<15.0
 typer>=0.12,<1.0
 
-# Data processing
+# 数据处理
 pyyaml>=6.0,<7.0
 
-# Network & DNS
+# 网络和DNS
 dnspython>=2.4,<3.0
 
-# File watching (dev)
+# 文件监控（开发用）
 watchfiles>=0.20,<2.0
 
-# Helper tools
+# 包管理工具
 shellingham>=1.5,<2.0
