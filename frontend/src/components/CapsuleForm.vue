@@ -350,7 +350,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, nextTick, onUnmounted } from 'vue'
+import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
 import { createCapsule } from '../api/mapApi.js'
 
 // Props

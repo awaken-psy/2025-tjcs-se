@@ -216,19 +216,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { formatStandard } from '@/utils/formatTime.js'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { formatStandard, formatRelative } from '@/utils/formatTime.js'
 // 复用共用组件（新增2个优化组件，减少重复代码）
 import AppHeader from '@/components/AppHeader.vue'
-import Sidebar from '@/components/Sidebar.vue'
+import CapsuleActionButtons from '@/components/CapsuleActionButtons.vue'; // 新增：操作按钮共用组件
 import CapsuleCard from '@/components/CapsuleCard.vue'
-import CapsuleForm from '@/components/CapsuleForm.vue' // 使用与中枢页相同的组件
-import CapsuleFilterBar from '@/components/CapsuleFilterBar.vue' // 新增：筛选控制共用组件
-import CapsuleActionButtons from '@/components/CapsuleActionButtons.vue' // 新增：操作按钮共用组件
+import CapsuleFilterBar from '@/components/CapsuleFilterBar.vue'; // 新增：筛选控制共用组件
+import CapsuleForm from '@/components/CapsuleForm.vue'; // 使用与中枢页相同的组件
+import Sidebar from '@/components/Sidebar.vue'
 // 引入API - 使用与中枢页相同的胶囊创建API
-import { createCapsule } from '@/api/capsuleApi.js' // 使用相同的API文件
-import { getMyCapsules, editCapsule, deleteCapsule } from '@/api/myCapsuleApi.js'
+import { deleteCapsule, getMyCapsules } from '@/api/myCapsuleApi.js'
 
 /**
  * 页面作用：

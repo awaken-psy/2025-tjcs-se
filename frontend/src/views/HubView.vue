@@ -38,7 +38,7 @@
           { key: 'create', label: '创建胶囊', icon: '✚' },
           { key: 'myCapsule', label: '我的胶囊', icon: '👤' },
           { key: 'events', label: '校园活动', icon: '🎪' },
-          { key: 'logout', label: '注销', icon: '🔐' }
+          { key: 'logout', label: isLogoutLoading ? '注销中...' : '注销', icon: '🔐', disabled: isLogoutLoading }
         ]"
         current-active="hub"
         tip-text="提示：点击「创建胶囊」可前往编辑页，或使用右上角的快速创建"
@@ -257,7 +257,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import CapsuleForm from '@/components/CapsuleForm.vue'
 const showCapsuleForm = ref(false)
 const onCapsuleCreated = () => {
@@ -273,12 +273,17 @@ import Sidebar from '@/components/Sidebar.vue'
 import CapsuleCard from '@/components/CapsuleCard.vue'
 import StatsCard from '@/components/StatsCard.vue'
 // 引入页面专属API
+
 import { 
   getUserInfo, 
   getNearbyCapsules, 
   getCampusEvents, 
   getRecentActivities 
 } from '@/api/hubApi.js'
+// 引入认证API
+import { logout } from '@/api/new/authenticationApi'
+// 引入用户状态
+import { useUserStore } from '@/store/user'
 
 /**
  * 页面作用：
@@ -304,6 +309,11 @@ const userInfo = ref({})
 const nearbyCapsules = ref([])
 const campusEvents = ref([])
 const recentActivities = ref([])
+// 新增：页面状态控制
+const isPageActive = ref(true)
+const isLoading = ref(false)
+// 注销加载状态
+const isLogoutLoading = ref(false)
 
 /**
  * 页面初始化：加载所有依赖数据
@@ -315,31 +325,147 @@ onMounted(async() => {
     router.replace({ path: '/login', query: { from: 'hub' } })
     return
   }
+  
+  await loadPageData()
+})
+
+/**
+ * 加载页面数据
+ */
+const loadPageData = async () => {
+  if (!isPageActive.value) return
+  
+  isLoading.value = true
   try {
     // 每次都主动向后端拉取用户信息，并同步到localStorage
     const userData = await getUserInfo()
+    if (!isPageActive.value) return
+    
     localStorage.setItem('user_info', JSON.stringify(userData))
-    const [nearbyData, eventsData, activitiesData] = await Promise.all([
+    
+    // 使用Promise.allSettled而不是Promise.all，避免一个失败影响全部
+    const [nearbyResult, eventsResult, activitiesResult] = await Promise.allSettled([
       getNearbyCapsules(),
       getCampusEvents(),
       getRecentActivities()
     ])
+    
+    if (!isPageActive.value) return
+    
+    // 处理各个请求结果
     userInfo.value = userData
-    nearbyCapsules.value = nearbyData
-    campusEvents.value = eventsData
-    recentActivities.value = activitiesData
+    
+    if (nearbyResult.status === 'fulfilled') {
+      nearbyCapsules.value = nearbyResult.value
+    } else {
+      console.warn('获取附近胶囊失败:', nearbyResult.reason)
+      nearbyCapsules.value = getFallbackCapsules()
+    }
+    
+    if (eventsResult.status === 'fulfilled') {
+      campusEvents.value = eventsResult.value
+    } else {
+      console.warn('获取校园活动失败:', eventsResult.reason)
+      campusEvents.value = getFallbackEvents()
+    }
+    
+    if (activitiesResult.status === 'fulfilled') {
+      recentActivities.value = activitiesResult.value
+    } else {
+      console.warn('获取最近动态失败:', activitiesResult.reason)
+      recentActivities.value = getFallbackActivities()
+    }
+    
   } catch (error) {
+    if (!isPageActive.value) return
     console.error('中枢页初始化失败：', error)
     // 极端错误降级：确保页面至少显示基础结构
-    userInfo.value = { name: '校园用户', bio: '用时光胶囊记录校园回忆' }
-    nearbyCapsules.value = [{ id: 'c_default', title: '校园初印象', time: new Date().toISOString(), vis: 'public', desc: '第一次踏入校园的心情', tags: ['校园'], likes: 0, views: 0, location: '学校大门', distance: '50m', img: 'https://picsum.photos/id/1018/300/200' }]
+    setFallbackData()
+  } finally {
+    if (isPageActive.value) {
+      isLoading.value = false
+    }
   }
+}
+
+/**
+ * 设置降级数据
+ */
+const setFallbackData = () => {
+  userInfo.value = { 
+    name: '校园用户', 
+    bio: '用时光胶囊记录校园回忆',
+    stats: {
+      pendingCapsules: 0,
+      activeToday: 0
+    }
+  }
+  nearbyCapsules.value = getFallbackCapsules()
+  campusEvents.value = getFallbackEvents()
+  recentActivities.value = getFallbackActivities()
+}
+
+/**
+ * 获取降级胶囊数据
+ */
+const getFallbackCapsules = () => {
+  return [{
+    id: 'c_default', 
+    title: '校园初印象', 
+    time: new Date().toISOString(), 
+    vis: 'public', 
+    desc: '第一次踏入校园的心情', 
+    tags: ['校园'], 
+    likes: 0, 
+    views: 0, 
+    location: '学校大门', 
+    distance: '50m', 
+    img: 'https://picsum.photos/id/1018/300/200'
+  }]
+}
+
+/**
+ * 获取降级活动数据
+ */
+const getFallbackEvents = () => {
+  return [{
+    id: 'event_default',
+    name: '校园迎新活动',
+    date: new Date().toISOString(),
+    desc: '欢迎新同学加入校园大家庭',
+    tags: ['迎新', '活动'],
+    participantCount: 120,
+    coverImg: 'https://picsum.photos/id/1025/300/200'
+  }]
+}
+
+/**
+ * 获取降级动态数据
+ */
+const getFallbackActivities = () => {
+  return [{
+    id: 'act_default',
+    user: '系统',
+    userAvatar: 'https://picsum.photos/id/64/40/40',
+    action: '发布了',
+    details: '校园迎新活动',
+    time: new Date().toISOString(),
+    relatedId: 'event_default'
+  }]
+}
+
+/**
+ * 页面卸载时标记
+ */
+onUnmounted(() => {
+  isPageActive.value = false
 })
 
 /**
  * 顶部导航：点击品牌区域，刷新当前页面（中枢页）
  */
 const handleGoHub = () => {
+  if (!isPageActive.value) return
   routeJump('/hubviews')
 }
 
@@ -348,6 +474,7 @@ const handleGoHub = () => {
  * @param {String} keyword - 搜索关键词
  */
 const handleSearch = (keyword) => {
+  if (!isPageActive.value) return
   alert(`正在搜索：${keyword}（后续可对接全局搜索接口）`)
 }
 
@@ -356,6 +483,8 @@ const handleSearch = (keyword) => {
  * @param {String} key - 按钮唯一标识
  */
 const handleHeaderAction = (key) => {
+  if (!isPageActive.value) return
+  
   switch (key) {
   case 'create':
     showCapsuleForm.value = true
@@ -373,7 +502,9 @@ const handleHeaderAction = (key) => {
  * 侧边导航：导航项切换（跳转对应页面）
  * @param {String} key - 导航项唯一标识
  */
-const handleNavChange = (key) => {
+const handleNavChange = async (key) => {
+  if (!isPageActive.value) return
+  
   const routeMap = {
     hub: '/hubviews',
     map: '/map',
@@ -381,22 +512,73 @@ const handleNavChange = (key) => {
     events: '/activities',
     logout: '/login'
   }
+  
   if (key === 'logout') {
-    // 注销逻辑：清除登录状态并跳转登录页
-    localStorage.removeItem('user_token')
-    localStorage.removeItem('user_info')
-    routeJump('/login', { query: { from: 'logout' } })
+    // 使用logout API实现注销
+    await handleLogout()
     return
   }
+  
   if (key === 'map') {
     routeJump('/map')
     return
   }
+  
   if (key === 'create') {
     showCapsuleForm.value = true
     return
   }
+  
   routeJump(routeMap[key] || '/hubviews')
+}
+
+/**
+ * 注销处理函数
+ */
+const handleLogout = async () => {
+  // 防止重复点击
+  if (isLogoutLoading.value) return
+  
+  // 标记注销加载状态
+  isLogoutLoading.value = true
+      alert("1")
+
+  try {
+    // 调用logout API通知后端清除会话
+    await logout()
+    console.log('注销API调用成功')
+        alert("2")
+
+  } catch (error) {
+    console.error('注销API调用失败:', error)
+    // 即使API调用失败，也要继续执行清理逻辑
+  } finally {
+    // 清理所有本地存储数据和 Pinia 状态
+    const keysToRemove = [
+      'user_token', 
+      'user_info', 
+      'access_token', 
+      'refresh_token', 
+      'saved_login_email'
+    ]
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key)
+    })
+    localStorage.removeItem('user-store')
+    // 彻底清空 Pinia 用户状态
+    const userStore = useUserStore()
+    userStore.logout()
+    alert("3")
+    // 重置加载状态
+    isLogoutLoading.value = false
+        alert("4")
+
+    // 立即跳转到登录页
+    router.replace({ 
+      path: '/login', 
+      query: { from: 'logout' } 
+    })
+  }
 }
 
 /**
@@ -404,6 +586,7 @@ const handleNavChange = (key) => {
  * @param {String} capsuleId - 胶囊ID
  */
 const handleViewCapsule = (capsuleId) => {
+  if (!isPageActive.value) return
   alert(`查看胶囊详情：${capsuleId}（后续对接胶囊详情页）`)
 }
 
@@ -412,6 +595,7 @@ const handleViewCapsule = (capsuleId) => {
  * @param {String} capsuleId - 胶囊ID
  */
 const handleLikeCapsule = (capsuleId) => {
+  if (!isPageActive.value) return
   // 前端临时更新点赞数（后续对接点赞接口）
   const capsule = nearbyCapsules.value.find(c => c.id === capsuleId)
   if (capsule) {
@@ -424,6 +608,7 @@ const handleLikeCapsule = (capsuleId) => {
  * @param {String} eventId - 活动ID
  */
 const handleViewEvent = (eventId) => {
+  if (!isPageActive.value) return
   alert(`查看活动详情：${eventId}（后续对接活动详情页）`)
 }
 
@@ -432,6 +617,7 @@ const handleViewEvent = (eventId) => {
  * @param {String} relatedId - 关联内容ID（胶囊ID/活动ID）
  */
 const handleViewRelated = (relatedId) => {
+  if (!isPageActive.value) return
   if (!relatedId) return
   if (relatedId.startsWith('c_')) {
     handleViewCapsule(relatedId)

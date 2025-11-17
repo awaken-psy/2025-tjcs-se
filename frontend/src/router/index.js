@@ -10,7 +10,7 @@ import MapView from '@/views/MapView.vue'
 
 const routes = [
   {
-    path: '/activities',
+    path: '/events',
     name: 'Events',
     component: EventsView
   },
@@ -43,7 +43,7 @@ const routes = [
 
 const router = createRouter({
   history: createWebHashHistory(),
-  routes
+  routes: routes
 })
 
 export default router
