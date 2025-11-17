@@ -206,7 +206,7 @@ import {
   getCapsuleMarkers,
   getHeatmapData,
   getUserLocation
-} from '@/api/new/mapApi.js'
+} from '@/api/mapApi.js'
 
 /**
  * 页面作用：
@@ -804,3 +804,4 @@ const handleFocusCapsule = (capsuleId) => {
   }
 }
 </style>
+

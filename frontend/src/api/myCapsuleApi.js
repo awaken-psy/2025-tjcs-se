@@ -19,7 +19,7 @@ export const getMyCapsules = async (params = {}) => {
 }
 
 // 壳子函数：创建胶囊，实际调用 mapApi.js 的 createCapsule
-import { createCapsule as mapCreateCapsule } from './new/mapApi.js'
+import { createCapsule as mapCreateCapsule } from './mapApi.js'
 
 /**
  * 创建新胶囊（壳子函数，复用mapApi.js的实现）

@@ -1,6 +1,6 @@
 // src/api/mapApi.js
 // 地图页接口封装：胶囊地理数据、热力图、定位、上报位置
-import request from '../../utils/request.js'
+import request from '../utils/request.js'
 
 /**
  * 获取校园胶囊地理标记数据（含经纬度、可见性等）

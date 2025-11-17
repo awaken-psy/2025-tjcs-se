@@ -288,6 +288,7 @@
             <i class="fas fa-chevron-left" /> 上一页
           </button>
           <span class="page-info">
+            <!--TODO:当总活动数为0时，分页计算可能显示异常-->
             第 {{ currentPage }} 页 / 共 {{ Math.ceil(totalEvents / pageSize) }} 页（共 {{ totalEvents }} 个活动）
           </span>
           <button 
@@ -472,6 +473,7 @@
                 v-if="event.coverImg"
                 class="reg-img"
               >
+                <!--OPTIMIZE:没有对图片路径进行安全验证-->
                 <img
                   :src="event.coverImg"
                   alt="活动封面"
@@ -518,6 +520,7 @@
               <div class="empty-icon-container">
                 <i class="fas fa-calendar-check empty-icon" />
               </div>
+              <!--TODO:加入报名活动相关内容-->
               <h4 class="empty-title">
                 暂无报名记录
               </h4>
@@ -528,6 +531,7 @@
                 class="empty-action-btn"
                 @click="handleCloseMyReg"
               >
+                <!--TODO:点击"去发现活动"只是关闭弹窗，没有实际的导航功能-->
                 <i class="fas fa-explore" /> 去发现活动
               </button>
             </div>
@@ -539,21 +543,21 @@
 </template>
 
 <script setup>
-import EventMetaInfo from '../components/EventMetaInfo.vue'
-import { ref, onMounted, computed } from 'vue'
-import { formatStandard } from '@/utils/formatTime.js'
+import {
+  cancelRegister,
+  getCampusEvents,
+  getEventDetail,
+  getMyRegisteredEvents,
+  registerEvent
+} from '@/api/eventsApi.js'
 import AppHeader from '@/components/AppHeader.vue'
 import CapsuleCard from '@/components/CapsuleCard.vue'
+import EventRegButton from '@/components/EventRegButton.vue'
 import EventStatusBadge from '@/components/EventStatusBadge.vue'
 import RegStatsCard from '@/components/RegStatsCard.vue'
-import EventRegButton from '@/components/EventRegButton.vue'
-import { 
-  getCampusEvents, 
-  getEventDetail, 
-  registerEvent, 
-  cancelRegister, 
-  getMyRegisteredEvents 
-} from '@/api/eventsApi.js'
+import { formatStandard } from '@/utils/formatTime.js'
+import { computed, onMounted, ref } from 'vue'
+import EventMetaInfo from '../components/EventMetaInfo.vue'
 
 // 原始数据
 const eventsList = ref([])
@@ -582,9 +586,11 @@ const regTab = ref('all')
 
 // 加载状态
 const isLoading = ref(false)
+// OPTIMIZE: 需要确保在所有可能的错误路径中都正确重置loading状态
 const isProcessing = ref({})
 
 // 静态数据
+// OPTIMIZE: 热门标签列表可考虑从后端获取
 const hotTags = ref(['毕业季', '文化节', '校友分享', '体育比赛', '讲座', '社团活动'])
 
 // 计算属性 - 修复：简化筛选逻辑，主要依赖后端筛选
@@ -593,6 +599,7 @@ const filteredEvents = computed(() => {
   if (!eventsList.value || eventsList.value.length === 0) return []
   
   // 前端只做简单的搜索筛选，其他筛选交给后端
+  // OPTIMIZE: 可能需要添加搜索防抖机制，避免频繁请求
   const keyword = filter.value.search.toLowerCase()
   if (!keyword) return eventsList.value
   
@@ -661,7 +668,7 @@ const fetchEventsList = async() => {
     // 适配不同的后端数据结构
     let list = []
     let total = 0
-    
+    // TODO: 需要与后端确认统一的数据结构格式，移除不必要的兼容代码
     if (result?.data?.records) {
       // 结构: { data: { records: [], total: 0 } }
       list = result.data.records || []
@@ -724,7 +731,7 @@ const fetchMyRegEvents = async() => {
 // 辅助函数
 const adaptEventToCapsule = (event) => {
   if (!event) return {}
-  
+  // TODO:需要确保后端返回的数据字段与前端期望的字段完全匹配
   return {
     id: event.id || '',
     title: event.name || '未命名活动',
@@ -744,6 +751,7 @@ const adaptEventToCapsule = (event) => {
 
 const isEventDisabled = (event) => {
   if (!event) return true
+  // OPTIMIZE: 缺少对"进行中"但已超过报名截止时间的活动状态判断
   return event.status === 'ended' || new Date(event.registerDeadline) < new Date()
 }
 
@@ -756,6 +764,7 @@ const getDisabledTip = (event) => {
 
 // 顶部导航相关方法
 const handleGoHub = () => {
+  //TODO: 路由跳转至中枢页
   alert('跳转至中枢页（后续替换为路由跳转）')
 }
 
@@ -767,6 +776,7 @@ const handleSearch = (keyword) => {
 
 const handleHeaderAction = (key) => {
   switch (key) {
+    //TODO:完善创建活动功能
   case 'create': alert('创建校园活动（后续对接活动创建表单）'); break
   case 'myReg': handleShowMyReg(); break
   case 'refresh': 
@@ -848,6 +858,7 @@ const handleRegister = async(eventId) => {
     }
   } catch (error) {
     console.error(`报名活动(${eventId})失败：`, error)
+    //OPTIMIZE: 更友好的错误提示
     alert('报名失败，请稍后重试')
   } finally {
     isProcessing.value[eventId] = false
@@ -895,6 +906,7 @@ const handleClickRegTab = (tab) => {
   handleShowMyReg()
 }
 </script>
+
 <style scoped>
 /* 全局样式重置与基础配置 */
 * {
@@ -1635,6 +1647,9 @@ const handleClickRegTab = (tab) => {
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   border: 1px solid transparent;
+  margin: 0 8px 12px 0;
+  white-space: nowrap;
+  display: inline-block;
 }
 
 .tag-item:hover {
@@ -1983,4 +1998,5 @@ const handleClickRegTab = (tab) => {
 .schedule-item {flex-direction: column;gap: 8px;}
 .schedule-time {min-width: auto;width: 100%;}
 .modal-actions {flex-direction: column;}
-.btn {width: 100%;padding: 12px 20px;}}</style>
+.btn {width: 100%;padding: 12px 20px;}}
+</style>
