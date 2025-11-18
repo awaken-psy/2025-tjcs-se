@@ -12,6 +12,7 @@
     "coverage": "vitest run --coverage --environment jsdom --globals"
   },
   "dependencies": {
+    "@vuemap/vue-amap": "^2.1.17",
     "axios": "^1.13.1",
     "core-js": "^3.8.3",
     "pinia": "^3.0.3",
