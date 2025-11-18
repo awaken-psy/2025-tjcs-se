@@ -5,17 +5,12 @@ from fastapi import APIRouter, HTTPException, Query, Path, Depends
 from typing import Optional, List
 from datetime import datetime
 
-from app.model.capsule_model import UnlockCheckRequest, UnlockCapsuleRequest
-from utils.location import Location
-from app.model.capsule_model import (
-    UnlockCheckResponse,
-    UnlockCapsuleResponse,
-    SimpleCapsuleInfo,
-    DetailedCapsuleInfo
+from model.capsule_model import (
+    UnlockCheckRequest, UnlockCapsuleRequest,
+    UnlockCheckResponse, UnlockCapsuleResponse,
+    SimpleCapsuleInfo, DetailedCapsuleInfo, Location
 )
 from auth.dependencies import login_required
-from domain.capsule import CapsuleStatus, Visibility
-from domain.condition import UnlockConditions
 from domain.user import RegisteredUser
 
 from ..routes import unlock_router as router
