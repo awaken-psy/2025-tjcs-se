@@ -1,4 +1,0 @@
-git init
-git remote add origin https://gitlab.com/tj-cs-swe/CS10102302-2025/group15/timecapsule.git
-git checkout -b main
-git pull origin main
