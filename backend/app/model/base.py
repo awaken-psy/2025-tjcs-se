@@ -13,6 +13,16 @@ class BaseResponse(BaseModel, Generic[T]):
     message: str
     data: Optional[T] = None
 
+    @classmethod
+    def success(cls, message: str = "success", data: Optional[T] = None) -> 'BaseResponse[T]':
+        """成功响应"""
+        return cls(code=200, message=message, data=data)
+
+    @classmethod
+    def fail(cls, message: str = "fail", data: Optional[T] = None) -> 'BaseResponse[T]':
+        """失败响应"""
+        return cls(code=400, message=message, data=data)
+
 
 class Pagination(BaseModel):
     """分页信息模型"""

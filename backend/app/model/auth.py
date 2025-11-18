@@ -10,6 +10,11 @@ class UserRegisterRequest(BaseModel):
     password: str
     nickname: str
     student_id: str | None = None
+    verify_code: str
+
+class SendCodeRequest(BaseModel):
+    """发送验证码请求模型"""
+    email: EmailStr
 
 
 class UserLoginRequest(BaseModel):

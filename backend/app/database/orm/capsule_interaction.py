@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from database.orm.config import Base
+from database.config import Base
 
 class CapsuleInteraction(Base):
     """胶囊交互记录"""
@@ -19,9 +19,9 @@ class CapsuleInteraction(Base):
     share_platform = Column(String(50), nullable=True, comment="分享平台")
     share_url = Column(String(500), nullable=True, comment="分享URL")
 
-    # # 位置信息
-    # interaction_latitude = Column(Float, nullable=True, comment="交互时的纬度")
-    # interaction_longitude = Column(Float, nullable=True, comment="交互时的经度")
+    # 位置信息
+    interaction_latitude = Column(Float, nullable=True, comment="交互时的纬度")
+    interaction_longitude = Column(Float, nullable=True, comment="交互时的经度")
 
     created_at = Column(DateTime, default=func.now(), nullable=False, comment="创建时间")
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False, comment="更新时间")
@@ -31,3 +31,16 @@ class CapsuleInteraction(Base):
 
     def __repr__(self):
         return f"<CapsuleInteraction(id={self.id}, unlock_record_id={self.unlock_record_id}, type='{self.interaction_type}')>"
+    
+    # def to_dict(self):
+    #     return {
+    #         "id": self.id,
+    #         "unlock_record_id": self.unlock_record_id,
+    #         "interaction_type": self.interaction_type,
+    #         "comment_content": self.comment_content,
+    #         "comment_rating": self.comment_rating,
+    #         "share_platform": self.share_platform,
+    #         "share_url": self.share_url,
+    #         "created_at": self.created_at,
+    #         "updated_at": self.updated_at,
+    #     }

@@ -7,7 +7,7 @@ from typing import Dict, Optional, Tuple, List, Union
 from enum import Enum
 from domain.user import UserRole, Permission
 from pydantic import BaseModel, Field, ValidationError
-from domain.user import UserRole, Permission, AccessUser, AuthenticatedUser, AdminUser, BaseUser
+from domain.user import UserRole, Permission, GuestUser, RegisteredUser, AdminUser, BaseUser
 
 
 class JWTConfig:

@@ -3,107 +3,32 @@ Pydantic models for the Time Capsule API
 """
 
 # Base models
-from .base import BaseResponse, Pagination
-
+from .base import *
 # Authentication models
-from .auth import UserRegisterRequest, UserLoginRequest, UserAuthResponse, UserRefreshTokenResponse
-
+from .auth import *
 # Capsule models
-from .capsule import (
-    Location,
-    UnlockConditions,
-    MediaFile,
-    Creator,
-    CapsuleStats,
-    CapsuleBasic,
-    CapsuleDetail,
-    CapsuleCreateRequest,
-    CapsuleUpdateRequest,
-    CapsuleDraftRequest,
-    CapsuleCreateResponse,
-    CapsuleUpdateResponse,
-    CapsuleDraftResponse,
-    CapsuleListResponse,
-    MyCapsulesQuery,
-)
-
+from .capsule import *
 # Unlock models
-from .unlock import (
-    CurrentLocation,
-    UnlockCapsuleRequest,
-    UnlockCapsuleResponse,
-    NearbyCapsule,
-    NearbyCapsulesResponse,
-    NearbyCapsulesQuery,
-)
-
+from .unlock import *
 # Browse models
-from .browse import (
-    BrowseCapsulesQuery,
-    TimelineGroup,
-    BrowseCapsulesResponse,
-)
-
+from .browse import *
 # Interaction models
-from .interaction import (
-    CommentUser,
-    CommentItem,
-    LikeCapsuleResponse,
-    AddCommentRequest,
-    AddCommentResponse,
-    CommentsListResponse,
-    CollectCapsuleResponse,
-    CommentsQuery,
-)
-
+from .interaction import *
 # User models
-from .user import (
-    UserStats,
-    UserProfile,
-    UserHistoryItem,
-    UserHistoryResponse,
-    UpdateUserRequest,
-    UserHistoryQuery,
-)
-
+from .user import *
 # Friend models
-from .friend import (
-    SearchedUser,
-    FriendRequestUser,
-    FriendRequestItem,
-    FriendItem,
-    UserSearchResponse,
-    FriendRequestsResponse,
-    FriendsListResponse,
-    SendFriendRequest,
-    HandleFriendRequest,
-    UserSearchQuery,
-    FriendRequestsQuery,
-)
-
+from .friend import *
 # File models
-from .file import (
-    FileUploadResponse,
-    ReportRequest,
-)
-
+from .file import *
 # Admin models
-from .admin import (
-    PendingCapsule,
-    ReportItem,
-    ReviewCapsuleRequest,
-    PendingCapsulesQuery,
-    ReportsQuery,
-    PendingCapsulesResponse,
-    ReportsResponse,
-)
+from .admin import *
 
 __all__ = [
     # Base
     "BaseResponse", "Pagination",
 
     # Auth
-    "UserRegisterRequest", "UserLoginRequest", "UserAuthResponse","UserRefreshTokenResponse",
+    "UserRegisterRequest", "UserLoginRequest", "UserAuthResponse","UserRefreshTokenResponse","SendCodeRequest",
 
     # Capsule
     "Location", "UnlockConditions", "MediaFile", "Creator", "CapsuleStats",
