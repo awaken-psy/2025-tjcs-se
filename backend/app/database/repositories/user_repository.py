@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from fastapi import HTTPException
 
-from app.database.orm.user import User
-from app.database.config import get_db
+from ..orm import User
+from ..database import get_db
 from app.domain.user import UserFactory, AuthorizedUser
 
 

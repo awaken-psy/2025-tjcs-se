@@ -4,7 +4,7 @@
 from typing import Tuple, Optional
 from sqlalchemy.orm import Session
 
-from app.database.repositories.user_repository import UserRepository
+from app.database import UserRepository
 from app.auth.password import PasswordManager
 from app.auth.jwt_handler import JWTHandler
 from app.domain.user import UserRole, GuestUser, RegisteredUser, AdminUser, BaseUser

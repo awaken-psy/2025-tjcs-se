@@ -5,6 +5,7 @@ from email.mime.text import MIMEText
 from email.header import Header
 from typing import Optional
 import logging
+from email.utils import formataddr
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +39,9 @@ class EmailVerifyCodeManager:
         try:
             # 创建邮件内容
             message = MIMEText(content, 'plain', 'utf-8')
-            message['From'] = Header(f'时光胶囊·校园 <{self.sender}>', 'utf-8')
-            message['To'] = Header(recipient, 'utf-8')
-            message['Subject'] = Header(subject, 'utf-8')
+            message['Subject'] = Header(subject, 'utf-8') #type: ignore
+            message['From'] = formataddr((str(Header('时光胶囊·校园','utf-8')), self.sender))
+            message['To'] = recipient
 
             # 连接SMTP服务器并发送邮件
             with smtplib.SMTP_SSL(self.smtp_server, self.smtp_port) as server:
@@ -128,7 +129,7 @@ class EmailVerifyCodeManager:
         current_time = time.time()
         if current_time > verify_code.expire_time:
             del self.verify_codes[email]
-            return False, "验证码已过期"
+            return False, "验证码不存在或已过期"
 
         # 验证验证码
         if verify_code.code != code:

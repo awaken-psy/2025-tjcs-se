@@ -4,7 +4,7 @@ Authentication API interface
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 
-from app.database.config import get_db
+from app.database.database import get_db
 from app.model import (
     BaseResponse,
     UserRegisterRequest,
@@ -110,13 +110,11 @@ async def login(
 ):
     """用户登录"""
     try:
-        # 创建登录管理器
-        login_manager = LoginManager()
 
         # 执行用户登录
-        success, message, user_data = login_manager.login_user(
+        success, message, user_data = LoginManager().login_user(
             email_or_username=request.email,
-            password=request.password
+            password_hash=request.password
         )
 
         if success and user_data:

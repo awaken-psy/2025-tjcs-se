@@ -4,8 +4,8 @@
 from typing import Tuple, Optional
 from sqlalchemy.orm import Session
 
-from app.database.repositories.user_repository import UserRepository
-from app.auth.password import password_manager
+from app.database import UserRepository
+from app.auth.password import PasswordManager
 from app.auth.jwt_handler import JWTHandler
 from app.services.verifycode import verify_code_manager
 from app.domain.user import AuthorizedUser, AdminUser
@@ -63,14 +63,14 @@ class RegisterManager:
                     return False, "该id已被注册", None
 
             # 5. 对密码进行哈希处理
-            hash_success, hashed_password = password_manager.hash_password(password)
+            hash_success, hashed_password = PasswordManager.hash_password(password)
             if not hash_success:
                 return False, hashed_password, None
 
             # 6. 创建用户
             try:
                 new_user = self.user_repository.create_user(
-                    username=email,  # 使用邮箱作为用户名
+                    username=nickname,
                     email=email,
                     password_hash=hashed_password,
                     nickname=nickname,

@@ -3,6 +3,8 @@
 """
 import __init__
 from fastapi import FastAPI
+from database import create_tables
+
 
 from api.v1 import (
     admin_router,
@@ -62,6 +64,7 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
+    create_tables()
     uvicorn.run(
         "main:app",
         host="127.0.0.1",

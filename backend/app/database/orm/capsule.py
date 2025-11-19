@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from datetime import datetime
 
-from database.config import Base
+from ..database import Base
 
 class Capsule(Base):
     """胶囊主模型"""

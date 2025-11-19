@@ -6,9 +6,9 @@ import os
 
 # SMTP Configuration
 SMTP_CONFIG = {
-    "server": os.getenv("SMTP_SERVER", "smtp.qq.com"),
+    "server": os.getenv("SMTP_SERVER", "smtp.tongji.edu.cn"),
     "port": int(os.getenv("SMTP_PORT", "465")),
-    "sender_email": os.getenv("SMTP_SENDER_EMAIL", ""),
+    "sender_email": os.getenv("SMTP_SENDER_EMAIL", "x__x@tongji.edu.cn"),
     "sender_password": os.getenv("SMTP_SENDER_PASSWORD", ""),
 }
 
