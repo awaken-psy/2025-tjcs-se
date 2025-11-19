@@ -47,6 +47,29 @@ class UnlockCapsuleRequest(BaseModel):
     current_time: Optional[str] = Field(None, description="当前时间")
 
 
+class UnlockVerifyRequest(BaseModel):
+    """验证解锁条件请求模型"""
+    current_location: Location = Field(..., description="当前纬度")
+    # 可选的胶囊ID，如果不提供则验证所有可解锁的胶囊
+    capsule_id: Optional[str] = Field(None, description="要验证的胶囊ID")
+    # 可选的当前时间，如果不提供则使用服务器时间
+    current_time: Optional[datetime] = Field(None, description="当前时间")
+
+
+class UnlockVerifyData(BaseModel):
+    """验证解锁条件响应数据"""
+    access_token: str = Field(..., description="访问令牌(用于访问内容)")
+    capsule_id: str = Field(..., description="胶囊ID")
+    unlocked_at: datetime = Field(..., description="解锁时间")
+
+
+class UnlockVerifyResponse(BaseModel):
+    """验证解锁条件响应模型"""
+    code: int = Field(..., description="状态码")
+    data: Optional[UnlockVerifyData] = Field(None, description="响应数据")
+    message: str = Field(..., description="操作结果描述")
+
+
 class BaseResponse(BaseModel):
     """基础响应模型"""
     success: bool = Field(..., description="是否成功")

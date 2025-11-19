@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Query, Path, Depends
 from typing import Optional, List
 from datetime import datetime
 
-from app.model.capsule_model import UnlockCheckRequest, UnlockCapsuleRequest
+from app.model.capsule_model import UnlockCheckRequest, UnlockCapsuleRequest, UnlockVerifyRequest, UnlockVerifyResponse
 from utils.location import Location
 from app.model.capsule_model import (
     UnlockCheckResponse,
@@ -17,8 +17,9 @@ from auth.dependencies import login_required
 from domain.capsule import CapsuleStatus, Visibility
 from domain.condition import UnlockConditions
 from domain.user import RegisteredUser
+from services.capsule_manager import CapsuleManager
 
-from ..routes import unlock_router as router
+router = APIRouter(prefix="/unlock", tags=["Unlock"])
 
 
 @router.post(
@@ -101,4 +102,64 @@ async def unlock_capsule(
         raise HTTPException(
             status_code=500,
             detail=f"解锁胶囊时发生错误: {str(e)}"
+        )
+
+
+@router.post(
+    "/verify",
+    response_model=UnlockVerifyResponse,
+    summary="验证解锁条件",
+    description="验证用户当前位置和时间是否满足胶囊的解锁条件，满足则执行解锁操作并返回访问令牌"
+)
+async def verify_unlock_conditions(
+    request: UnlockVerifyRequest,
+    user: RegisteredUser = Depends(login_required)
+):
+    """验证解锁条件"""
+    try:
+        # 初始化胶囊管理器
+        capsule_manager = CapsuleManager()
+
+        # 如果请求中有指定胶囊ID，则验证特定胶囊
+        if request.capsule_id:
+            result = capsule_manager.verify_unlock_conditions(
+                capsule_id=request.capsule_id,
+                user_id=user.user_id,
+                user_lat=request.current_location.latitude,
+                user_lon=request.current_location.longitude,
+                current_time=request.current_time
+            )
+
+            if result["success"]:
+                # 解锁成功，返回访问令牌和相关信息
+                return UnlockVerifyResponse(
+                    code=200,
+                    data={
+                        "access_token": result["access_token"],
+                        "capsule_id": result["capsule_id"],
+                        "unlocked_at": result["unlocked_at"]
+                    },
+                    message="胶囊解锁成功"
+                )
+            else:
+                # 解锁失败
+                return UnlockVerifyResponse(
+                    code=400,
+                    data=None,
+                    message=f"解锁失败: {result['reason']}"
+                )
+        else:
+            # 如果没有指定胶囊ID，返回错误（此API要求必须指定胶囊ID）
+            return UnlockVerifyResponse(
+                code=400,
+                data=None,
+                message="请指定要验证的胶囊ID"
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"验证解锁条件时发生错误: {str(e)}"
         )

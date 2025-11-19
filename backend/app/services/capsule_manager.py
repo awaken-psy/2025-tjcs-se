@@ -227,6 +227,76 @@ class CapsuleManager:
 
         return result
 
+    def verify_unlock_conditions(self, capsule_id: str, user_id: int, user_lat: float, user_lon: float, current_time: datetime = None) -> Dict[str, Any]:
+        """
+        验证解锁条件并执行解锁操作
+
+        Args:
+            capsule_id: 胶囊ID
+            user_id: 用户ID
+            user_lat: 用户当前纬度
+            user_lon: 用户当前经度
+            current_time: 当前时间，如果不提供则使用系统时间
+
+        Returns:
+            包含解锁结果的字典
+        """
+        if current_time is None:
+            current_time = datetime.now()
+
+        # 检查是否可以解锁
+        unlock_result = self.can_unlock_capsule(int(capsule_id), user_id, user_lat, user_lon, current_time)
+
+        if not unlock_result["can_unlock"]:
+            return {
+                "success": False,
+                "reason": unlock_result.get("reason", "不满足解锁条件"),
+                "conditions_met": unlock_result.get("conditions_met", []),
+                "conditions_not_met": unlock_result.get("conditions_not_met", [])
+            }
+
+        # 执行解锁操作 - 创建解锁记录
+        if DATABASE_AVAILABLE and self.db:
+            try:
+                unlock_record = UnlockRecordDB(
+                    capsule_id=int(capsule_id),
+                    user_id=user_id,
+                    unlocked_at=current_time,
+                    unlock_method="位置验证解锁",
+                    unlock_latitude=user_lat,
+                    unlock_longitude=user_lon
+                )
+                self.db.add(unlock_record)
+                self.db.commit()
+
+                # 生成访问令牌（简化版本，实际应该使用JWT）
+                access_token = f"token_{capsule_id}_{user_id}_{int(current_time.timestamp())}"
+
+                return {
+                    "success": True,
+                    "access_token": access_token,
+                    "capsule_id": capsule_id,
+                    "unlocked_at": current_time,
+                    "conditions_met": unlock_result.get("conditions_met", [])
+                }
+
+            except Exception as e:
+                self.db.rollback()
+                return {
+                    "success": False,
+                    "reason": f"解锁失败: {str(e)}"
+                }
+        else:
+            # 模拟解锁成功
+            access_token = f"mock_token_{capsule_id}_{user_id}_{int(current_time.timestamp())}"
+            return {
+                "success": True,
+                "access_token": access_token,
+                "capsule_id": capsule_id,
+                "unlocked_at": current_time,
+                "conditions_met": unlock_result.get("conditions_met", ["模拟解锁条件"])
+            }
+
     def create_capsule(self):
         pass        
         
