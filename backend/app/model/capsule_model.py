@@ -1,6 +1,6 @@
 
 # 请求模型
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from datetime import datetime
 from pydantic import BaseModel, Field
 from enum import Enum
@@ -76,6 +76,22 @@ class CapsuleCreateRequest(BaseModel):
     location: Optional[Location] = Field(None, description="位置信息")
     unlock_conditions: Optional[UnlockConditions] = Field(None, description="解锁条件")
     media_files: Optional[List[str]] = Field(default_factory=list, description="媒体文件ID列表")
+
+
+class CapsuleCreateRequestLegacy(BaseModel):
+    """创建胶囊请求模型（兼容前端扁平化数据格式）"""
+    title: str = Field(..., min_length=1, max_length=100, description="胶囊标题")
+    content: str = Field(..., min_length=1, description="胶囊内容")
+    visibility: str = Field(..., description="可见性")
+    tags: Optional[List[str]] = Field(default_factory=list, description="标签列表")
+    location: Optional[str] = Field("", description="位置信息")
+    lat: Optional[float] = Field(0.0, description="纬度")
+    lng: Optional[float] = Field(0.0, description="经度")
+    createTime: Optional[str] = Field(None, description="创建时间")
+    updateTime: Optional[str] = Field(None, description="更新时间")
+    imageUrl: Optional[str] = Field("", description="图片URL")
+    likes: Optional[int] = Field(0, description="点赞数")
+    views: Optional[int] = Field(0, description="浏览数")
 
 
 class CapsuleUpdateRequest(BaseModel):
@@ -166,6 +182,14 @@ class CapsuleListResponse(BaseModel):
     pagination: PaginationInfo = Field(..., description="分页信息")
 
 
+class CapsuleListResponseLegacy(BaseModel):
+    """胶囊列表响应模型（兼容前端格式）"""
+    code: int = Field(200, description="响应状态码")
+    message: str = Field("success", description="响应消息")
+    data: Union[List[Dict[str, Any]], Dict[str, Any]] = Field(..., description="胶囊数据")
+    total: Optional[int] = Field(None, description="总数量")
+
+
 class CapsuleDetailInfo(BaseModel):
     """胶囊详情信息模型"""
     id: str = Field(..., description="胶囊ID")
@@ -195,8 +219,12 @@ class CapsuleDeleteResponse(BaseResponse):
 class DetailedCapsuleInfo(BaseModel):
     """详细胶囊信息模型"""
     capsule_id: str = Field(..., description="胶囊ID")
-    # TODO 补充详细胶囊信息模型
-    pass
+    title: Optional[str] = Field(None, description="胶囊标题")
+    content: Optional[str] = Field(None, description="胶囊内容")
+    location: Optional[Location] = Field(None, description="胶囊位置")
+    visibility: Optional[str] = Field(None, description="可见性")
+    created_at: Optional[datetime] = Field(None, description="创建时间")
+    updated_at: Optional[datetime] = Field(None, description="更新时间")
 
 class SimpleCapsuleInfo(BaseModel):
     """简化胶囊信息模型"""

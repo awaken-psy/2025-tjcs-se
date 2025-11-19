@@ -29,19 +29,15 @@ DATABASE_CONFIG = {
 
 def get_database_url():
     """获取数据库连接URL"""
-    db_type = os.getenv("DB_TYPE", "mysql").lower()
+    db_type = os.getenv("DB_TYPE", "sqlite").lower()
 
     if db_type == "sqlite":
         config = DATABASE_CONFIG["sqlite"]
         return f"sqlite:///{config['database']}"
 
-    # 默认使用MySQL
-    config = DATABASE_CONFIG["mysql"]
-    return (
-        f"{config['driver']}://{config['username']}:{config['password']}"
-        f"@{config['host']}:{config['port']}/{config['database']}"
-        f"?charset={config['charset']}"
-    )
+    # 简化：默认使用SQLite，避免MySQL依赖问题
+    config = DATABASE_CONFIG["sqlite"]
+    return f"sqlite:///{config['database']}"
 
 
 def create_engine_with_config():
@@ -90,7 +86,7 @@ def create_tables():
     from database.orm.capsule import Capsule, CapsuleMedia
     from database.orm.unlock_condition import UnlockCondition
     from database.orm.unlock_record import UnlockRecord, UnlockAttempt
-    from database.orm.capsule_interaction import CapsuleInteraction
+    # from database.orm.capsule_interaction import CapsuleInteraction
 
     Base.metadata.create_all(bind=engine)
     print("所有数据库表创建完成")

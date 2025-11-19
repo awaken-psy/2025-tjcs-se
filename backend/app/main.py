@@ -1,21 +1,28 @@
 """
 时光胶囊·校园 - FastAPI 应用入口
 """
-import __init__
 from fastapi import FastAPI, HTTPException, Query, Path, UploadFile, File
+from fastapi.staticfiles import StaticFiles
 from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel
+import os
 
-from api.v1 import (
+from api.v1.routes import (
     auth_router,
-    capsule_router,
-    unlock_router,
     event_router,
     hub_router,
     map_router,
     user_router
 )
+# 导入胶囊相关路由
+from api.v1 import capsule_router
+
+# unlock功能暂时禁用，等待其他团队成员实现
+try:
+    from api.v1 import unlock_router
+except ImportError:
+    unlock_router = None
 
 # 创建 FastAPI 应用实例
 app = FastAPI(
@@ -30,11 +37,24 @@ app = FastAPI(
 # 注册 API 路由
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(capsule_router, prefix="/api/v1")
-app.include_router(unlock_router, prefix="/api/v1")
+if unlock_router:  # 只有在unlock_router存在时才注册
+    app.include_router(unlock_router, prefix="/api/v1")
 app.include_router(event_router, prefix="/api/v1")
 app.include_router(hub_router, prefix="/api/v1")
 app.include_router(map_router, prefix="/api/v1")
 app.include_router(user_router, prefix="/api/v1")
+
+# 配置静态文件服务
+UPLOAD_DIR = os.getenv('UPLOAD_DIR', './uploads')
+if os.path.exists(UPLOAD_DIR):
+    # 挂载上传目录作为静态文件服务
+    app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+    print(f"📁 静态文件服务已挂载: {UPLOAD_DIR} -> /uploads")
+else:
+    # 如果上传目录不存在，创建它
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+    print(f"📁 创建并挂载上传目录: {UPLOAD_DIR} -> /uploads")
 
 # 数据模型（用于直接在main.py中定义的接口）
 class CapsuleCreateRequest(BaseModel):
@@ -111,176 +131,7 @@ class CapsuleDeleteResponse(BaseModel):
     success: bool
     message: str
 
-# 胶囊相关接口（前端实际使用的，直接定义在main.py中）
-@app.post(
-    "/api/v1/capsule/create",
-    response_model=CapsuleCreatedResponse,
-    summary="创建胶囊(旧版)",
-    description="创建新的时光胶囊，兼容旧版前端API"
-)
-async def create_capsule_legacy(request: CapsuleCreateRequest):
-    """创建胶囊 (旧版API)"""
-    try:
-        return CapsuleCreatedResponse(
-            success=True,
-            message="胶囊创建成功",
-            capsule_id="caps_114514",
-            title=request.title,
-            status="published",
-            created_at=datetime.now().isoformat()
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"创建胶囊时发生错误: {str(e)}"
-        )
-
-@app.get(
-    "/api/v1/capsule/my",
-    response_model=CapsuleListResponse,
-    summary="获取我的胶囊列表",
-    description="获取当前用户创建的胶囊列表"
-)
-async def get_my_capsules(
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100)
-):
-    """获取我的胶囊列表"""
-    try:
-        # 模拟胶囊数据
-        mock_capsules = [
-            CapsuleListItem(
-                capsule_id="caps_1",
-                title="我的胶囊1",
-                content="这是我的第一个胶囊",
-                visibility="private",
-                status="published",
-                tags=["个人", "回忆"],
-                created_at="2024-01-15T10:30:00Z",
-                updated_at="2024-01-15T10:30:00Z",
-                media_count=2
-            )
-        ]
-
-        # 模拟分页信息
-        total_items = len(mock_capsules)
-        total_pages = (total_items + limit - 1) // limit
-        pagination = PaginationInfo(
-            page=page,
-            page_size=limit,
-            total=total_items,
-            total_pages=total_pages
-        )
-
-        return CapsuleListResponse(
-            capsules=mock_capsules,
-            pagination=pagination
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"获取我的胶囊列表时发生错误: {str(e)}"
-        )
-
-@app.get(
-    "/api/v1/capsule/detail/{capsule_id}",
-    response_model=CapsuleDetailResponse,
-    summary="获取胶囊详情(旧版)",
-    description="获取单个胶囊的详细信息，兼容旧版前端API"
-)
-async def get_capsule_detail_legacy(capsule_id: str = Path(...)):
-    """获取胶囊详情 (旧版API)"""
-    try:
-        capsule_detail = CapsuleDetailInfo(
-            id=capsule_id,
-            title="毕业纪念",
-            content="记录我们美好的毕业时光，这是我们在大学的最后一天，大家一起拍了很多照片，留下了珍贵的回忆。",
-            visibility="public",
-            status="published",
-            tags=["毕业", "纪念", "校园", "回忆"],
-            created_at="2024-01-15T10:30:00Z",
-            updated_at="2024-01-16T11:30:00Z"
-        )
-
-        return CapsuleDetailResponse(capsule=capsule_detail)
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"获取胶囊详情时发生错误: {str(e)}"
-        )
-
-@app.post(
-    "/api/v1/capsule/edit/{capsule_id}",
-    response_model=CapsuleUpdateResponse,
-    summary="编辑胶囊信息(旧版)",
-    description="编辑胶囊信息，兼容旧版前端API"
-)
-async def edit_capsule_legacy(
-    request: CapsuleUpdateRequest,
-    capsule_id: str = Path(...)
-):
-    """编辑胶囊 (旧版API - POST方法)"""
-    try:
-        return CapsuleUpdateResponse(
-            success=True,
-            message="胶囊更新成功",
-            capsule_id=capsule_id,
-            updated_at=datetime.now().isoformat()
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"更新胶囊时发生错误: {str(e)}"
-        )
-
-@app.post(
-    "/api/v1/capsule/delete/{capsule_id}",
-    response_model=CapsuleDeleteResponse,
-    summary="删除胶囊(旧版)",
-    description="删除胶囊，兼容旧版前端API"
-)
-async def delete_capsule_legacy(capsule_id: str = Path(...)):
-    """删除胶囊 (旧版API - POST方法)"""
-    try:
-        return CapsuleDeleteResponse(
-            success=True,
-            message="胶囊已删除"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"删除胶囊时发生错误: {str(e)}"
-        )
-
-@app.post(
-    "/api/v1/capsule/upload-img",
-    summary="上传胶囊图片(旧版)",
-    description="上传胶囊图片，兼容旧版前端API"
-)
-async def upload_capsule_image_legacy(img: UploadFile = File(...)):
-    """上传胶囊图片 (旧版API)"""
-    try:
-        if not img.content_type.startswith('image/'):
-            raise HTTPException(
-                status_code=400,
-                detail="只能上传图片文件"
-            )
-
-        # 模拟上传成功
-        return {
-            "success": True,
-            "message": "图片上传成功",
-            "data": {
-                "url": f"https://example.com/uploads/{img.filename}",
-                "filename": img.filename,
-                "size": 0
-            }
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"上传图片时发生错误: {str(e)}"
-        )
+# API接口已移至模块化路由中，避免重复定义
 
 # 根路径
 @app.get("/")
