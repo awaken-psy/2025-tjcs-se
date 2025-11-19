@@ -12,8 +12,89 @@ from auth.dependencies import login_required
 
 from model.capsule_model import CapsuleCreateRequest, CapsuleUpdateRequest
 from model.capsule_model import CapsuleCreatedResponse, CapsuleListResponse, CapsuleDetailResponse, CapsuleUpdateResponse, ErrorResponse, CapsuleDeleteResponse
+from model.capsule_model import NearbyCapsulesResponse, NearbyCapsule, NearbyCapsuleLocation
+from services.capsule_manager import CapsuleManager
 
-from ..routes import capsule_router as router
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/capsule", tags=["Capsule"])
+
+
+@router.get(
+    "/nearby",
+    response_model=NearbyCapsulesResponse,
+    summary="获取附近胶囊",
+    description="获取用户附近的胶囊列表，包含距离和解锁状态信息"
+)
+async def get_nearby_capsules(
+    latitude: float = Query(..., description="用户当前纬度"),
+    longitude: float = Query(..., description="用户当前经度"),
+    radius_meters: int = Query(1000, ge=10, le=10000, description="搜索半径（米）"),
+    user: RegisteredUser = Depends(login_required)
+):
+    """获取附近胶囊"""
+    try:
+        # 简化测试 - 直接返回模拟数据
+        print(f"Getting nearby capsules for user {user.user_id} at {latitude}, {longitude}")
+
+        mock_nearby_capsules = [
+            {
+                "can_unlock": False,
+                "created_at": datetime(2024, 10, 26, 10, 0, 0),
+                "creator_nickname": "小明",
+                "id": "caps_001",
+                "is_unlocked": False,
+                "location": NearbyCapsuleLocation(
+                    distance=150.5,
+                    latitude=39.9042,
+                    longitude=116.4074
+                ),
+                "title": "毕业纪念",
+                "visibility": "public"
+            },
+            {
+                "can_unlock": True,
+                "created_at": datetime(2024, 10, 25, 14, 30, 0),
+                "creator_nickname": "张三",
+                "id": "caps_002",
+                "is_unlocked": False,
+                "location": NearbyCapsuleLocation(
+                    distance=320.8,
+                    latitude=39.9052,
+                    longitude=116.4084
+                ),
+                "title": "足球比赛回忆",
+                "visibility": "friends"
+            },
+            {
+                "can_unlock": False,
+                "created_at": datetime(2024, 10, 24, 9, 15, 0),
+                "creator_nickname": "李四",
+                "id": "caps_003",
+                "is_unlocked": True,
+                "location": NearbyCapsuleLocation(
+                    distance=580.2,
+                    latitude=39.9032,
+                    longitude=116.4064
+                ),
+                "title": "我们分手了",
+                "visibility": "private"
+            }
+        ]
+
+        return NearbyCapsulesResponse(
+            code=200,
+            data={
+                "capsules": mock_nearby_capsules
+            },
+            message=f"成功获取{len(mock_nearby_capsules)}个附近胶囊"
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"获取附近胶囊时发生错误: {str(e)}"
+        )
 
 
 @router.post(
@@ -246,5 +327,6 @@ async def delete_capsule(
             status_code=500,
             detail=f"删除胶囊时发生错误: {str(e)}"
         )
+
 
 

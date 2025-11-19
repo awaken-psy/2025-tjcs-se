@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(curl:*)",
+      "Bash(set:*)",
+      "Bash(findstr:*)",
+      "Bash(d:/软件工程/.venv/Scripts/pip.exe install:*)",
+      "Bash(d:/软件工程/.venv/Scripts/python.exe:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(timeout:*)",
+      "Bash(find:*)",
+      "Bash(tree:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

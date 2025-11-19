@@ -116,3 +116,35 @@ class UnlockCapsuleResponse(BaseResponse):
     capsule_context: DetailedCapsuleInfo = Field(..., description="胶囊详细信息")
     unlock_method: str = Field(..., description="解锁方式")
     unlock_conditions_met: List[str] = Field(..., description="满足的解锁条件")
+
+
+# 附近胶囊相关模型
+class NearbyCapsuleLocation(BaseModel):
+    """附近胶囊位置信息"""
+    distance: float = Field(..., description="距离(米)")
+    latitude: float = Field(..., description="纬度")
+    longitude: float = Field(..., description="经度")
+
+
+class NearbyCapsule(BaseModel):
+    """附近胶囊项模型"""
+    can_unlock: bool = Field(..., description="是否符合解锁条件")
+    created_at: datetime = Field(..., description="创建时间")
+    creator_nickname: Optional[str] = Field(None, description="创建者昵称")
+    id: str = Field(..., description="胶囊ID")
+    is_unlocked: bool = Field(..., description="是否已解锁")
+    location: NearbyCapsuleLocation = Field(..., description="位置信息")
+    title: str = Field(..., description="胶囊标题")
+    visibility: str = Field(..., description="可见性")
+
+
+class NearbyCapsulesData(BaseModel):
+    """附近胶囊响应数据"""
+    capsules: List[NearbyCapsule] = Field(..., description="附近胶囊列表")
+
+
+class NearbyCapsulesResponse(BaseModel):
+    """获取附近胶囊响应模型"""
+    code: int = Field(..., description="状态码")
+    data: Optional[NearbyCapsulesData] = Field(None, description="响应数据")
+    message: str = Field(..., description="操作结果描述")
