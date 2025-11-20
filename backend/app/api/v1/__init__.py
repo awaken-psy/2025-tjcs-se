@@ -1,21 +1,26 @@
 from fastapi import APIRouter
-from pathlib import Path
-import importlib
 
-from .routes import *
+# Import interface routers
+from .admin import router as admin_router
+from .authentication import router as auth_router
+from .capsules import router as capsule_router
+from .unlock import router as unlock_router
+from .interactions import router as interaction_router
+from .users import router as user_router
+from .friends import router as friend_router
+from .upload import router as upload_router
+from .reports import router as report_router
 
-# 导入当前目录下所有一级子目录下的python文件
-package_dir = Path(__file__).parent
-for dir in package_dir.iterdir():
-    if not dir.is_dir():
-        continue
-    dir_name = dir.name
-    for file in dir.iterdir():
-        if file.suffix == '.py' and file.name != '__init__.py':
-            module_name = file.stem
-            try:
-                importlib.import_module(f'.{module_name}', package=__name__+'.'+dir_name)
-                print(f"imported module {module_name}")
-            except ImportError as e:
-                print(f"warning: failed to import module {module_name}: {e}")
+# Export all routers
+__all__ = [
+    'admin_router',
+    'auth_router',
+    'capsule_router',
+    'unlock_router',
+    'interaction_router',
+    'user_router',
+    'friend_router',
+    'upload_router',
+    'report_router'
+]
 

@@ -2,6 +2,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.engine import Engine
 
 # 数据库配置
 DATABASE_CONFIG = {
@@ -9,8 +10,8 @@ DATABASE_CONFIG = {
         "driver": "mysql+pymysql",
         "host": os.getenv("DB_HOST", "localhost"),
         "port": os.getenv("DB_PORT", "3306"),
-        "username": os.getenv("DB_USERNAME", "timecapsule_user"),
-        "password": os.getenv("DB_PASSWORD", "timecapsule_password"),
+        "username": os.getenv("DB_USERNAME", "root"),
+        "password": os.getenv("DB_PASSWORD", "114514"),
         "database": os.getenv("DB_DATABASE", "timecapsule"),
         "charset": "utf8mb4",
         "pool_size": 10,
@@ -44,7 +45,7 @@ def get_database_url():
     )
 
 
-def create_engine_with_config():
+def create_engine_with_config()->Engine:
     """创建数据库引擎"""
     db_url = get_database_url()
     db_type = os.getenv("DB_TYPE", "mysql").lower()
@@ -84,19 +85,12 @@ def get_db():
 
 
 def create_tables():
-    """创建所有表"""
-    # 导入所有模型以确保它们被注册
-    from database.orm.user import User, UserFriend
-    from database.orm.capsule import Capsule, CapsuleMedia
-    from database.orm.unlock_condition import UnlockCondition
-    from database.orm.unlock_record import UnlockRecord, UnlockAttempt
-    from database.orm.capsule_interaction import CapsuleInteraction
-
     Base.metadata.create_all(bind=engine)
     print("所有数据库表创建完成")
 
 
 def drop_tables():
-    """删除所有表（用于测试和开发）"""
+    """删除所有表（用于测试和开发）
+    """
     Base.metadata.drop_all(bind=engine)
     print("所有数据库表已删除")

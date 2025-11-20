@@ -5,7 +5,7 @@ from datetime import datetime
 
 from sqlalchemy.sql.sqltypes import Boolean
 
-from database.orm.config import Base
+from ..database import Base
 
 class UnlockCondition(Base):
     """解锁条件主模型"""
@@ -42,6 +42,24 @@ class UnlockCondition(Base):
 
     def __repr__(self):
         return f"<UnlockCondition(id={self.id}, capsule_id={self.capsule_id}, condition_type='{self.condition_type}')>"
+    
+    # def to_dict(self):
+    #     return {
+    #         "id": self.id,
+    #         "capsule_id": self.capsule_id,
+    #         "condition_type": self.condition_type,
+    #         "unlock_time": self.unlock_time,
+    #         "end_time": self.end_time,
+    #         "period_type": self.period_type,
+    #         "base_time": self.base_time,
+    #         "time_of_duration": self.time_of_duration,
+    #         "period_count": self.period_count,
+    #         "trigger_latitude": self.trigger_latitude,
+    #         "trigger_longitude": self.trigger_longitude,
+    #         "radius_meters": self.radius_meters,
+    #         "created_at": self.created_at,
+    #         "updated_at": self.updated_at,
+    #     }
 
 
 # class LocationHistory(Base):

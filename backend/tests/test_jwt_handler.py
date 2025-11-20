@@ -12,14 +12,14 @@ from app.auth.jwt_handler import (
 )
 from app.domain.user import (
     UserRole, Permission, 
-    BaseUser, AuthenticatedUser, AdminUser, UserFactory
+    BaseUser, RegisteredUser, AdminUser, UserFactory
 )
 
 
 @pytest.fixture
 def test_user():
     """测试用户fixture"""
-    return UserFactory.create_authenticated_user(
+    return UserFactory.create_registered_user(
         user_id="user_001",
         username="测试用户"
     )
