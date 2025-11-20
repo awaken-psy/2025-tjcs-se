@@ -16,12 +16,8 @@ if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
 # 修复数据库导入路径
-try:
-    from database.database import create_tables
-except ImportError:
-    print("Warning: Could not import create_tables")
-    def create_tables():
-        print("Database tables creation skipped")
+from database.database import create_tables
+
 
 # 修复API路由导入路径 - 使用相对导入
 try:
@@ -108,83 +104,6 @@ else:
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
     print(f"📁 创建并挂载上传目录: {UPLOAD_DIR} -> /uploads")
-
-# 数据模型（用于直接在main.py中定义的接口）
-class CapsuleCreateRequest(BaseModel):
-    """创建胶囊请求模型"""
-    title: str
-    content: str
-    visibility: str  # private, friends, public
-    tags: Optional[List[str]] = []
-
-class CapsuleUpdateRequest(BaseModel):
-    """更新胶囊请求模型"""
-    title: Optional[str] = None
-    content: Optional[str] = None
-    visibility: Optional[str] = None
-    tags: Optional[List[str]] = None
-
-class CapsuleListItem(BaseModel):
-    """胶囊列表项模型"""
-    capsule_id: str
-    title: str
-    content: str
-    visibility: str
-    status: str
-    tags: List[str]
-    created_at: str
-    updated_at: Optional[str] = None
-    media_count: int = 0
-
-class PaginationInfo(BaseModel):
-    """分页信息模型"""
-    page: int
-    page_size: int
-    total: int
-    total_pages: int
-
-class CapsuleListResponse(BaseModel):
-    """胶囊列表响应模型"""
-    capsules: List[CapsuleListItem]
-    pagination: PaginationInfo
-
-class CapsuleDetailInfo(BaseModel):
-    """胶囊详情信息模型"""
-    id: str
-    title: str
-    content: str
-    visibility: str
-    status: str
-    tags: List[str]
-    created_at: str
-    updated_at: Optional[str] = None
-
-class CapsuleDetailResponse(BaseModel):
-    """胶囊详情响应模型"""
-    capsule: CapsuleDetailInfo
-
-class CapsuleCreatedResponse(BaseModel):
-    """创建胶囊成功响应模型"""
-    success: bool
-    message: str
-    capsule_id: str
-    title: str
-    status: str
-    created_at: str
-
-class CapsuleUpdateResponse(BaseModel):
-    """更新胶囊响应模型"""
-    success: bool
-    message: str
-    capsule_id: str
-    updated_at: str
-
-class CapsuleDeleteResponse(BaseModel):
-    """删除胶囊响应模型"""
-    success: bool
-    message: str
-
-# API接口已移至模块化路由中，避免重复定义
 
 # 根路径
 @app.get("/")
