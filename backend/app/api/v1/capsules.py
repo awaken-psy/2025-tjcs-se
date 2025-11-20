@@ -1,7 +1,7 @@
 """
 胶囊相关 API 路由
 """
-from fastapi import APIRouter, HTTPException, Query, Path, Depends, UploadFile, File
+from fastapi import APIRouter, HTTPException, Query, Path, Depends, UploadFile, File,Form
 from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel, Field
@@ -12,7 +12,7 @@ from model.capsule_model import (
     CapsuleUpdateResponse, ErrorResponse, CapsuleDeleteResponse,
     CapsuleStatus, CapsuleVisibility, Location, UnlockConditions,
     CapsuleListItem, PaginationInfo, MediaFile, UserInfo, CapsuleStats,
-    CapsuleDetailInfo
+    CapsuleDetailInfo, BaseResponse, ErrorResponse, DraftSaveRequest, DraftSaveResponse
 )
 
 # 导入服务类
@@ -524,48 +524,233 @@ async def delete_capsule(
             detail=f"删除胶囊时发生错误: {str(e)}"
         )
 
-
 @router.post(
-    "/upload-img",
-    summary="上传胶囊图片(旧版)",
-    description="上传胶囊图片，兼容旧版前端API"
+    "/upload",
+    response_model=BaseResponse,
+    summary="上传媒体文件",
+    description="为胶囊上传媒体文件（图片、音频、视频等）"
 )
-async def upload_capsule_image_legacy(
-    img: UploadFile = File(..., description="图片文件"),
+async def upload_media(
+    files: List[UploadFile] = File(...),
+    capsule_id: Optional[str] = Query(None, description="胶囊ID，如果指定则关联到特定胶囊"),
     user: RegisteredUser = Depends(login_required)
 ):
-    """上传胶囊图片 (旧版API)"""
+    """上传媒体文件"""
     try:
-        # 验证文件类型
-        if not img.content_type or not img.content_type.startswith('image/'):
-            raise HTTPException(
-                status_code=400,
-                detail="只能上传图片文件"
-            )
+        # TODO: 实现实际的文件上传逻辑
+        # 这里先返回模拟数据
 
-        # 初始化文件管理器
-        file_manager = FileManager()
-
-        # 上传文件
-        result = await file_manager.upload_capsule_file(img, 'image')
-
-        # 返回兼容旧版格式的响应
-        return {
-            "success": True,
-            "message": "图片上传成功",
-            "data": {
-                "url": result['data']['access_url'],
-                "filename": result['data']['filename'],
-                "size": result['data']['file_size']
-            }
-        }
-
-    except HTTPException:
-        raise
+        return BaseResponse(
+            success=True,
+            message=f"成功上传 {len(files)} 个文件"
+        )
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"上传图片时发生错误: {str(e)}"
+            detail=f"上传文件时发生错误: {str(e)}"
         )
 
 
+@router.get(
+    "/{media_id}",
+    response_model=BaseResponse,
+    summary="获取媒体文件",
+    description="获取指定媒体文件的内容或URL"
+)
+async def get_media(
+    media_id: str = Path(..., description="媒体文件ID"),
+    user: RegisteredUser = Depends(login_required)
+):
+    """获取媒体文件"""
+    try:
+        # TODO: 实现实际的文件获取逻辑
+        # 这里先返回模拟数据
+
+        return BaseResponse(
+            success=True,
+            message="获取媒体文件成功"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"获取媒体文件时发生错误: {str(e)}"
+        )
+
+
+@router.delete(
+    "/{media_id}",
+    response_model=BaseResponse,
+    summary="删除媒体文件",
+    description="删除指定的媒体文件"
+)
+async def delete_media(
+    media_id: str = Path(..., description="媒体文件ID"),
+    user: RegisteredUser = Depends(login_required)
+):
+    """删除媒体文件"""
+    try:
+        # TODO: 实现实际的文件删除逻辑
+        # 这里先返回模拟数据
+
+        return BaseResponse(
+            success=True,
+            message="媒体文件删除成功"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"删除媒体文件时发生错误: {str(e)}"
+        )
+
+
+@router.get(
+    "/capsule/{capsule_id}",
+    response_model=BaseResponse,
+    summary="获取胶囊媒体列表",
+    description="获取指定胶囊的所有媒体文件列表"
+)
+async def get_capsule_media(
+    capsule_id: str = Path(..., description="胶囊ID"),
+    user: RegisteredUser = Depends(login_required)
+):
+    """获取胶囊媒体列表"""
+    try:
+        # TODO: 实现实际的查询逻辑
+        # 这里先返回模拟数据
+
+        return BaseResponse(
+            success=True,
+            message="获取胶囊媒体列表成功"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"获取胶囊媒体列表时发生错误: {str(e)}"
+        )
+
+
+@router.post(
+    "/media",
+    response_model=BaseResponse,
+    summary="上传媒体文件",
+    description="单独上传媒体文件，返回文件ID供后续使用"
+)
+async def upload_media_files(
+    files: List[UploadFile] = File(...),
+    user: RegisteredUser = Depends(login_required)
+):
+    """上传媒体文件"""
+    try:
+        # TODO: 实现实际的文件上传和存储逻辑
+        # 这里先返回模拟数据
+
+        uploaded_files = []
+        for file in files:
+            # 模拟文件处理
+            uploaded_files.append({
+                "file_id": f"file_{datetime.now().timestamp()}",
+                "file_name": file.filename,
+                "file_type": file.content_type,
+                "file_size": 0  # 实际应该获取文件大小
+            })
+
+        return BaseResponse(
+            success=True,
+            message=f"成功上传 {len(uploaded_files)} 个文件",
+            data={"uploaded_files": uploaded_files}
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"上传媒体文件时发生错误: {str(e)}"
+        )
+
+
+@router.post(
+    "/complete",
+    response_model=BaseResponse,
+    summary="完成胶囊创建",
+    description="使用已上传的文件完成胶囊创建"
+)
+async def complete_capsule_upload(
+    title: str = Form(...),
+    text_content: Optional[str] = Form(None),
+    location_json: str = Form(...),  # JSON格式的location数据
+    unlock_conditions_json: str = Form(...),  # JSON格式的unlock_conditions数据
+    visibility_json: str = Form(...),  # JSON格式的visibility数据
+    file_ids: Optional[str] = Form(None),  # 逗号分隔的文件ID列表
+    user: RegisteredUser = Depends(login_required)
+):
+    """完成胶囊创建"""
+    try:
+        # TODO: 实现实际的胶囊创建逻辑
+        # 这里先返回模拟数据
+
+        # 解析JSON数据（实际实现时需要proper JSON parsing）
+        # location = json.loads(location_json)
+        # unlock_conditions = json.loads(unlock_conditions_json)
+        # visibility = json.loads(visibility_json)
+        # file_id_list = file_ids.split(',') if file_ids else []
+
+        return BaseResponse(
+            success=True,
+            message="胶囊创建成功",
+            data={"capsule_id": f"caps_{datetime.now().timestamp()}"}
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"完成胶囊创建时发生错误: {str(e)}"
+        )
+
+
+@router.delete(
+    "/media/{file_id}",
+    response_model=BaseResponse,
+    summary="删除已上传的媒体文件",
+    description="删除之前上传但未使用的媒体文件"
+)
+async def delete_uploaded_media(
+    file_id: str = Path(..., description="文件ID"),
+    user: RegisteredUser = Depends(login_required)
+):
+    """删除已上传的媒体文件"""
+    try:
+        # TODO: 实现实际的文件删除逻辑
+        # 这里先返回模拟数据
+
+        return BaseResponse(
+            success=True,
+            message="媒体文件删除成功"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"删除媒体文件时发生错误: {str(e)}"
+        )
+
+
+@router.get(
+    "/media/preview/{file_id}",
+    response_model=BaseResponse,
+    summary="预览媒体文件",
+    description="获取已上传媒体文件的预览URL或缩略图"
+)
+async def get_media_preview(
+    file_id: str = Path(..., description="文件ID"),
+    user: RegisteredUser = Depends(login_required)
+):
+    """预览媒体文件"""
+    try:
+        # TODO: 实现实际的预览生成逻辑
+        # 这里先返回模拟数据
+
+        return BaseResponse(
+            success=True,
+            message="获取媒体预览成功"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"获取媒体预览时发生错误: {str(e)}"
+        )
