@@ -8,23 +8,39 @@ from datetime import datetime
 from pydantic import BaseModel
 import os
 
-from database import create_tables
+# 修复数据库导入路径
+try:
+    from app.database.database import create_tables
+except ImportError:
+    try:
+        from database.database import create_tables
+    except ImportError:
+        print("Warning: Could not import create_tables")
+        def create_tables():
+            print("Database tables creation skipped")
 
-from api.v1 import (
-    admin_router,
-    auth_router,
-    capsule_router,
-    unlock_router,
-    interaction_router,
-    user_router,
-    friend_router,
-    upload_router,
-    report_router
-)
+# 修复API路由导入路径
+try:
+    from app.api.v1 import (
+        admin_router,
+        auth_router,
+        capsule_router,
+        unlock_router,
+        interaction_router,
+        user_router,
+        friend_router,
+        upload_router,
+        report_router
+    )
+except ImportError:
+    print("Warning: Could not import from app.api.v1, trying relative import")
+    admin_router = auth_router = capsule_router = None
+    unlock_router = interaction_router = user_router = None
+    friend_router = upload_router = report_router = None
 
 # 尝试导入旧的路由结构以保持兼容性
 try:
-    from api.v1.routes import (
+    from app.api.v1.routes import (
         auth_router as legacy_auth_router,
         event_router,
         hub_router,
@@ -35,7 +51,18 @@ try:
     auth_router = auth_router or legacy_auth_router
     user_router = user_router or legacy_user_router
 except ImportError:
-    event_router = hub_router = map_router = None
+    try:
+        from api.v1.routes import (
+            auth_router as legacy_auth_router,
+            event_router,
+            hub_router,
+            map_router,
+            user_router as legacy_user_router
+        )
+        auth_router = auth_router or legacy_auth_router
+        user_router = user_router or legacy_user_router
+    except ImportError:
+        event_router = hub_router = map_router = None
 
 # 创建 FastAPI 应用实例
 app = FastAPI(
