@@ -7,21 +7,25 @@ from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel
 import os
+import sys
+
+# 添加当前目录到Python路径，确保可以找到app模块
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
 
 # 修复数据库导入路径
 try:
-    from app.database.database import create_tables
+    from database.database import create_tables
 except ImportError:
-    try:
-        from database.database import create_tables
-    except ImportError:
-        print("Warning: Could not import create_tables")
-        def create_tables():
-            print("Database tables creation skipped")
+    print("Warning: Could not import create_tables")
+    def create_tables():
+        print("Database tables creation skipped")
 
-# 修复API路由导入路径
+# 修复API路由导入路径 - 使用相对导入
 try:
-    from app.api.v1 import (
+    from api.v1 import (
         admin_router,
         auth_router,
         capsule_router,
@@ -32,15 +36,15 @@ try:
         upload_router,
         report_router
     )
-except ImportError:
-    print("Warning: Could not import from app.api.v1, trying relative import")
+except ImportError as e:
+    print(f"Warning: Could not import from api.v1: {e}")
     admin_router = auth_router = capsule_router = None
     unlock_router = interaction_router = user_router = None
     friend_router = upload_router = report_router = None
 
 # 尝试导入旧的路由结构以保持兼容性
 try:
-    from app.api.v1.routes import (
+    from api.v1.routes import (
         auth_router as legacy_auth_router,
         event_router,
         hub_router,
@@ -50,19 +54,9 @@ try:
     # 使用新的路由器，如果不存在则使用旧的
     auth_router = auth_router or legacy_auth_router
     user_router = user_router or legacy_user_router
-except ImportError:
-    try:
-        from api.v1.routes import (
-            auth_router as legacy_auth_router,
-            event_router,
-            hub_router,
-            map_router,
-            user_router as legacy_user_router
-        )
-        auth_router = auth_router or legacy_auth_router
-        user_router = user_router or legacy_user_router
-    except ImportError:
-        event_router = hub_router = map_router = None
+except ImportError as e:
+    print(f"Warning: Could not import legacy routes: {e}")
+    event_router = hub_router = map_router = None
 
 # 创建 FastAPI 应用实例
 app = FastAPI(

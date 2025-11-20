@@ -32,7 +32,7 @@ except ImportError:
 try:
     from .capsule.unlock import unlock_router as legacy_unlock_router
 except ImportError:
-    pass
+    legacy_unlock_router = None
 
 # 使用新的路由器，如果不存在则使用旧的
 capsule_router = capsule_router or legacy_capsule_router
