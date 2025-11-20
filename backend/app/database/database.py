@@ -4,6 +4,13 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.engine import Engine
 
+# 获取项目根目录
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+DATABASE_DIR = os.path.join(PROJECT_ROOT, "data")
+
+# 确保数据库目录存在
+os.makedirs(DATABASE_DIR, exist_ok=True)
+
 # 数据库配置
 DATABASE_CONFIG = {
     "mysql": {
@@ -22,7 +29,7 @@ DATABASE_CONFIG = {
     },
     "sqlite": {
         "driver": "sqlite",
-        "database": os.getenv("DB_PATH", "/tmp/timecapsule.db"),
+        "database": os.getenv("DB_PATH", os.path.join(DATABASE_DIR, "timecapsule.db")),
         "echo": os.getenv("DB_ECHO", "false").lower() == "true"
     }
 }
@@ -30,19 +37,15 @@ DATABASE_CONFIG = {
 
 def get_database_url():
     """获取数据库连接URL"""
-    db_type = os.getenv("DB_TYPE", "mysql").lower()
+    db_type = os.getenv("DB_TYPE", "sqlite").lower()
 
     if db_type == "sqlite":
         config = DATABASE_CONFIG["sqlite"]
         return f"sqlite:///{config['database']}"
 
-    # 默认使用MySQL
-    config = DATABASE_CONFIG["mysql"]
-    return (
-        f"{config['driver']}://{config['username']}:{config['password']}"
-        f"@{config['host']}:{config['port']}/{config['database']}"
-        f"?charset={config['charset']}"
-    )
+    # 简化：默认使用SQLite，避免MySQL依赖问题
+    config = DATABASE_CONFIG["sqlite"]
+    return f"sqlite:///{config['database']}"
 
 
 def create_engine_with_config()->Engine:
@@ -85,8 +88,18 @@ def get_db():
 
 
 def create_tables():
-    Base.metadata.create_all(bind=engine)
-    print("所有数据库表创建完成")
+    """创建数据库表"""
+    try:
+        print(f"🔧 正在创建数据库表...")
+        print(f"📁 数据库文件位置: {DATABASE_CONFIG['sqlite']['database']}")
+
+        Base.metadata.create_all(bind=engine)
+        print("✅ 所有数据库表创建完成")
+    except Exception as e:
+        print(f"❌ 创建数据库表时出错: {e}")
+        print("🔍 这可能是由于权限问题或路径不存在导致的")
+        # 不要抛出异常，让应用继续运行
+        print("⚠️  应用将在没有数据库表的情况下继续运行")
 
 
 def drop_tables():

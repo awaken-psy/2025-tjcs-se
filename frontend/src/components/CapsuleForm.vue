@@ -352,6 +352,7 @@
 <script setup>
 import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
 import { createCapsule } from '../api/mapApi.js'
+import { uploadCapsuleImage } from '../api/myCapsuleApi.js'
 
 // Props
 const props = defineProps({
@@ -646,7 +647,7 @@ const triggerFileInput = () => {
   fileInput.value?.click()
 }
 
-const handleImageUpload = (event) => {
+const handleImageUpload = async (event) => {
   const file = event.target.files[0]
   if (!file) return
 
@@ -661,27 +662,53 @@ const handleImageUpload = (event) => {
     return
   }
 
-  // 模拟上传进度
-  uploadProgress.value = 0
-  const interval = setInterval(() => {
-    uploadProgress.value += 10
-    if (uploadProgress.value >= 100) {
-      clearInterval(interval)
-      // 创建预览
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        previewImage.value = e.target.result
-        formData.image = file
-        uploadProgress.value = 0
-      }
-      reader.readAsDataURL(file)
+  // 显示上传进度
+  uploadProgress.value = 1
+
+  try {
+    // 创建预览（立即显示，不等待上传完成）
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      previewImage.value = e.target.result
     }
-  }, 100)
+    reader.readAsDataURL(file)
+
+    // 上传图片到服务器
+    const uploadResult = await uploadCapsuleImage(file)
+
+    if (uploadResult.code === 200 || uploadResult.success) {
+      // 上传成功，保存图片URL
+      formData.imageUrl = uploadResult.data?.url || uploadResult.data?.access_url
+      formData.image = file  // 保留File对象以备后用
+
+      showAlertMessage('图片上传成功', 'success')
+      console.log('图片上传结果:', uploadResult)
+    } else {
+      throw new Error(uploadResult.message || '图片上传失败')
+    }
+
+  } catch (error) {
+    console.error('图片上传失败:', error)
+    showAlertMessage(`图片上传失败: ${error.message}`, 'error')
+
+    // 上传失败时，清除预览
+    previewImage.value = ''
+    formData.image = null
+    formData.imageUrl = ''
+
+    // 重置文件输入
+    if (fileInput.value) {
+      fileInput.value.value = ''
+    }
+  } finally {
+    uploadProgress.value = 0
+  }
 }
 
 const removeImage = () => {
   previewImage.value = ''
   formData.image = null
+  formData.imageUrl = ''
   if (fileInput.value) {
     fileInput.value.value = ''
   }

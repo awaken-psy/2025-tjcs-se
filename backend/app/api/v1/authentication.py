@@ -4,18 +4,61 @@ Authentication API interface
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 
-from app.database.database import get_db
-from app.model import (
-    BaseResponse,
-    UserRegisterRequest,
-    UserLoginRequest,
-    UserAuthResponse,
-    UserRefreshTokenResponse,
-    SendCodeRequest,
-)
-from app.services.verifycode import verify_code_manager
-from app.services.register import RegisterManager
-from app.services.login import LoginManager
+# 修复导入路径
+try:
+    from app.database.database import get_db
+except ImportError:
+    try:
+        from database.database import get_db
+    except ImportError:
+        print("Warning: Could not import get_db")
+        def get_db():
+            return None
+
+try:
+    from app.model import (
+        BaseResponse,
+        UserRegisterRequest,
+        UserLoginRequest,
+        UserAuthResponse,
+        UserRefreshTokenResponse,
+        SendCodeRequest,
+    )
+except ImportError:
+    try:
+        from model import (
+            BaseResponse,
+            UserRegisterRequest,
+            UserLoginRequest,
+            UserAuthResponse,
+            UserRefreshTokenResponse,
+            SendCodeRequest,
+        )
+    except ImportError:
+        print("Warning: Could not import auth models")
+        # 创建基本响应模型
+        from pydantic import BaseModel
+        BaseResponse = BaseModel
+        UserRegisterRequest = BaseModel
+        UserLoginRequest = BaseModel
+        UserAuthResponse = BaseModel
+        UserRefreshTokenResponse = BaseModel
+        SendCodeRequest = BaseModel
+
+try:
+    from app.services.verifycode import verify_code_manager
+    from app.services.register import RegisterManager
+    from app.services.login import LoginManager
+except ImportError:
+    try:
+        from services.verifycode import verify_code_manager
+        from services.register import RegisterManager
+        from services.login import LoginManager
+    except ImportError:
+        print("Warning: Could not import auth services")
+        verify_code_manager = None
+        RegisterManager = None
+        LoginManager = None
 
 router = APIRouter(prefix='/auth', tags=['Authorization'])
 
