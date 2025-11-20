@@ -5,11 +5,25 @@ from datetime import datetime
 import json
 import math
 
-from database.orm.capsule import Capsule, CapsuleMedia
-from database.orm.unlock_condition import UnlockCondition
-from database.orm.unlock_record import UnlockRecord, UnlockAttempt
-from database.orm.user import User
-from database.orm.config import get_db
+# 尝试新的导入方式
+try:
+    from database.orm.capsule import Capsule, CapsuleMedia
+    from database.orm.unlock_condition import UnlockCondition
+    from database.orm.unlock_record import UnlockRecord, UnlockAttempt
+    from database.orm.user import User
+    from app.database.database import get_db
+except ImportError:
+    # 回退到旧的导入方式
+    try:
+        from app.database.orm.capsule import Capsule as CapsuleDB, CapsuleMedia
+        from app.database.orm.unlock_condition import UnlockCondition
+        from app.database.orm.unlock_record import UnlockRecord, UnlockAttempt
+        from app.database.orm.user import User
+        from app.database.database import get_db
+        Capsule = CapsuleDB
+    except ImportError as e:
+        print(f"Import error: {e}")
+        raise
 
 
 class CapsuleManager:

@@ -5,7 +5,7 @@ from datetime import datetime
 
 from sqlalchemy.sql.sqltypes import Boolean
 
-from database.orm.config import Base
+from ..database import Base
 
 class UnlockRecord(Base):
     """解锁记录主模型"""
@@ -37,6 +37,20 @@ class UnlockRecord(Base):
 
     def __repr__(self):
         return f"<UnlockRecord(id={self.id}, capsule_id={self.capsule_id}, user_id={self.user_id})>"
+    
+    # def to_dict(self):
+    #     return {
+    #         "id": self.id,
+    #         "capsule_id": self.capsule_id,
+    #         "user_id": self.user_id,
+    #         "unlock_method": self.unlock_method,
+    #         "unlock_location_latitude": self.unlock_location_latitude,
+    #         "unlock_location_longitude": self.unlock_location_longitude,
+    #         "unlock_address": self.unlock_address,
+    #         "unlocked_at": self.unlocked_at,
+    #         "view_count": self.view_count,
+    #         "last_viewed_at": self.last_viewed_at,
+    #     }
 
 
 
@@ -94,6 +108,22 @@ class UnlockAttempt(Base):
 
     def __repr__(self):
         return f"<UnlockAttempt(capsule_id={self.capsule_id}, user_id={self.user_id}, success={self.all_conditions_met})>"
+    
+    # def to_dict(self):
+    #     return {
+    #         "id": self.id,
+    #         "capsule_id": self.capsule_id,
+    #         "user_id": self.user_id,
+    #         "attempt_location_latitude": self.attempt_location_latitude,
+    #         "attempt_location_longitude": self.attempt_location_longitude,
+    #         "attempt_time": self.attempt_time.strftime,
+    #         "time_condition_met": self.time_condition_met,
+    #         "location_condition_met": self.location_condition_met,
+    #         "all_conditions_met": self.all_conditions_met,
+    #         "distance_to_trigger": self.distance_to_trigger,
+    #         "failure_reason": self.failure_reason,
+    #         "created_at": self.created_at.strftime,
+    #     }
 
 
 # class CapsuleNotification(Base):

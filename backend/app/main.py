@@ -8,21 +8,34 @@ from datetime import datetime
 from pydantic import BaseModel
 import os
 
-from api.v1.routes import (
-    auth_router,
-    event_router,
-    hub_router,
-    map_router,
-    user_router
-)
-# 导入胶囊相关路由
-from api.v1 import capsule_router
+from database import create_tables
 
-# unlock功能暂时禁用，等待其他团队成员实现
+from api.v1 import (
+    admin_router,
+    auth_router,
+    capsule_router,
+    unlock_router,
+    interaction_router,
+    user_router,
+    friend_router,
+    upload_router,
+    report_router
+)
+
+# 尝试导入旧的路由结构以保持兼容性
 try:
-    from api.v1 import unlock_router
+    from api.v1.routes import (
+        auth_router as legacy_auth_router,
+        event_router,
+        hub_router,
+        map_router,
+        user_router as legacy_user_router
+    )
+    # 使用新的路由器，如果不存在则使用旧的
+    auth_router = auth_router or legacy_auth_router
+    user_router = user_router or legacy_user_router
 except ImportError:
-    unlock_router = None
+    event_router = hub_router = map_router = None
 
 # 创建 FastAPI 应用实例
 app = FastAPI(
@@ -35,14 +48,33 @@ app = FastAPI(
 )
 
 # 注册 API 路由
-app.include_router(auth_router, prefix="/api/v1")
-app.include_router(capsule_router, prefix="/api/v1")
+if admin_router:
+    app.include_router(admin_router, prefix="/api/v1")
+if auth_router:
+    app.include_router(auth_router, prefix="/api/v1")
+if capsule_router:
+    app.include_router(capsule_router, prefix="/api/v1")
 if unlock_router:  # 只有在unlock_router存在时才注册
     app.include_router(unlock_router, prefix="/api/v1")
-app.include_router(event_router, prefix="/api/v1")
-app.include_router(hub_router, prefix="/api/v1")
-app.include_router(map_router, prefix="/api/v1")
-app.include_router(user_router, prefix="/api/v1")
+if interaction_router:
+    app.include_router(interaction_router, prefix="/api/v1")
+if user_router:
+    app.include_router(user_router, prefix="/api/v1")
+if friend_router:
+    app.include_router(friend_router, prefix="/api/v1")
+if upload_router:
+    app.include_router(upload_router, prefix="/api/v1")
+if report_router:
+    app.include_router(report_router, prefix="/api/v1")
+
+# 注册旧的路由以保持兼容性
+if event_router:
+    app.include_router(event_router, prefix="/api/v1")
+if hub_router:
+    app.include_router(hub_router, prefix="/api/v1")
+if map_router:
+    app.include_router(map_router, prefix="/api/v1")
+
 
 # 配置静态文件服务
 UPLOAD_DIR = os.getenv('UPLOAD_DIR', './uploads')
@@ -167,6 +199,9 @@ if __name__ == "__main__":
     print("📖 API文档地址: http://127.0.0.1:8000/docs")
     print("❤️ 健康检查地址: http://127.0.0.1:8000/health")
     print("=" * 50)
+
+    # 创建数据库表
+    create_tables()
 
     uvicorn.run(
         "main:app",
