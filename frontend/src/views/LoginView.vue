@@ -71,7 +71,7 @@
             登录或注册
           </div>
           <div class="auth-subtitle">
-            使用校园邮箱或第三方快速登录
+            使用校园邮箱登录或注册
           </div>
         </div>
         <div class="links">
@@ -122,20 +122,20 @@
         @submit.prevent="handleLogin"
       >
         <div class="field">
-          <label for="login-id">邮箱 / 学号</label>
+          <label for="login-email">邮箱</label>
           <input 
-            id="login-id" 
-            v-model="loginForm.username" 
-            type="text"
-            :class="{ 'input-error': formErrors.login.username }"
-            placeholder="demo1@univ.edu" 
+            id="login-email" 
+            v-model="loginForm.email" 
+            type="email"
+            :class="{ 'input-error': formErrors.login.email }"
+            placeholder="user@example.com" 
             required
           >
           <p
-            v-if="formErrors.login.username"
+            v-if="formErrors.login.email"
             class="error-tip"
           >
-            {{ formErrors.login.username }}
+            {{ formErrors.login.email }}
           </p>
         </div>
         
@@ -190,32 +190,10 @@
           </button>
         </div>
 
-        <div class="divider">
-          或
-        </div>
-
-        <!-- 第三方登录（SocialLogin） -->
-        <div class="socials">
-          <button 
-            id="wechat-login" 
-            class="btn"
-            @click.prevent="handleWechatLogin"
-          >
-            微信登录
-          </button>
-          <button 
-            id="qq-login" 
-            class="btn"
-            @click.prevent="handleQQLogin"
-          >
-            QQ 登录
-          </button>
-        </div>
-
         <div class="example">
           <div>演示账号：</div>
           <div class="demo-account">
-            账号：demo1@univ.edu<br>密码：123456
+            邮箱：demo@univ.edu<br>密码：123456
           </div>
         </div>
       </form>
@@ -244,36 +222,6 @@
           >
             {{ formErrors.reg.email }}
           </p>
-        </div>
-        
-        <div class="row">
-          <div class="field row-field">
-            <label for="reg-code">验证码</label>
-            <input 
-              id="reg-code" 
-              v-model="regForm.code" 
-              type="text"
-              :class="{ 'input-error': formErrors.reg.code }"
-              placeholder="请输入验证码" 
-              required
-            >
-            <p
-              v-if="formErrors.reg.code"
-              class="error-tip"
-            >
-              {{ formErrors.reg.code }}
-            </p>
-          </div>
-          <div class="btn-row">
-            <button 
-              id="send-code" 
-              class="btn ghost"
-              :disabled="codeCountdown > 0"
-              @click.prevent="handleSendCode"
-            >
-              {{ codeCountdown > 0 ? `已发送 (${codeCountdown}s)` : '发送验证码' }}
-            </button>
-          </div>
         </div>
         
         <div class="field">
@@ -318,7 +266,25 @@
             id="reg-nick" 
             v-model="regForm.nickname" 
             type="text"
-            placeholder="你的昵称（可选）"
+            :class="{ 'input-error': formErrors.reg.nickname }"
+            placeholder="你的昵称（1-20个字符）"
+            required
+          >
+          <p
+            v-if="formErrors.reg.nickname"
+            class="error-tip"
+          >
+            {{ formErrors.reg.nickname }}
+          </p>
+        </div>
+
+        <div class="field">
+          <label for="reg-student-id">学号（可选）</label>
+          <input 
+            id="reg-student-id" 
+            v-model="regForm.student_id" 
+            type="text"
+            placeholder="2024123456"
           >
         </div>
         
@@ -367,8 +333,6 @@
           </button>
         </div>
       </form>
-
-      <!-- ...删除静态演示说明... -->
     </section>
   </div>
 
@@ -509,7 +473,7 @@
         <h4>三、信息共享与披露</h4>
         <p>除非法律法规要求，或为实现产品核心功能（如胶囊分享、好友互动）所必需，我们不会向任何无关第三方披露您的个人信息。涉及第三方服务时，我们会明确告知并征得您的同意。</p>
         <h4>四、用户权利</h4>
-        <p>您有权随时访问、更正、导出或删除您的个人信息。如需注销账号或删除全部数据，可通过“个人中心-设置”页面提交申请，我们将在7个工作日内处理。</p>
+        <p>您有权随时访问、更正、导出或删除您的个人信息。如需注销账号或删除全部数据，可通过"个人中心-设置"页面提交申请，我们将在7个工作日内处理。</p>
         <h4>五、隐私政策变更</h4>
         <p>如本政策有重大变更，我们会通过站内通知、弹窗等方式及时告知。继续使用本服务即视为您同意更新后的政策。</p>
       </div>
@@ -547,26 +511,20 @@
 </template>
 
 <script setup>
-
 import { ref, reactive, onMounted } from 'vue'
 import { useUserStore } from '@/store/user'
 import { routeJump } from '@/utils/routeUtils'
-import { sendEmailCode, registerByEmail, loginByEmail, sendForgotPassword } from '@/api/auth'
+import { login, register } from '@/api/new/authenticationApi'
+import { encryptPassword } from '@/utils/encryptionUtils'
 
 // 初始化依赖
 const userStore = useUserStore()
 
-
-// 注册验证码常量（演示/测试用）
-// const FIXED_CODE = '123456';
-
-// ===== 状态管理（对应HTML中的state对象）=====
+// ===== 状态管理 =====
 // 标签页状态（登录/注册）
 const activeTab = ref('login')
 // 加载状态
 const isLoading = ref(false)
-// 验证码倒计时
-const codeCountdown = ref(0)
 // 模态框显示状态
 const showPermModal = ref(false)
 const showForgotModal = ref(false)
@@ -575,15 +533,15 @@ const showServiceModal = ref(false)
 
 // 表单数据
 const loginForm = reactive({
-  username: '',
+  email: '',
   password: ''
 })
 const regForm = reactive({
   email: '',
-  code: '',
   password: '',
   password2: '',
   nickname: '',
+  student_id: '',
   agree: false
 })
 const forgotForm = reactive({
@@ -592,13 +550,11 @@ const forgotForm = reactive({
 
 // 表单错误提示
 const formErrors = reactive({
-  login: { username: '', password: '' },
-  reg: { email: '', code: '', password: '', password2: '', agree: '' }
+  login: { email: '', password: '' },
+  reg: { email: '', password: '', password2: '', nickname: '', agree: '' }
 })
 
-// ...删除演示验证码和演示用户数据...
-
-// ===== 页面挂载（对应HTML中的initAuthApp）=====
+// ===== 页面挂载 =====
 onMounted(() => {
   // 已登录用户跳转首页
   if (userStore.isLogin) {
@@ -612,18 +568,18 @@ onMounted(() => {
     setTimeout(() => openModal('perm'), 700)
   }
 
-  // 读取记住的账号（复用原逻辑）
-  const savedUsername = localStorage.getItem('saved_login_username')
-  if (savedUsername) {
-    loginForm.username = savedUsername
+  // 读取记住的邮箱 - 适配新的存储逻辑
+  const savedEmail = localStorage.getItem('saved_login_email')
+  if (savedEmail) {
+    loginForm.email = savedEmail
   }
 })
 
-// ===== 标签页切换（对应HTML中的setupTabs）=====
+// ===== 标签页切换 =====
 const switchToLogin = () => {
   activeTab.value = 'login'
   // 清空登录表单错误
-  formErrors.login.username = ''
+  formErrors.login.email = ''
   formErrors.login.password = ''
 }
 
@@ -635,7 +591,7 @@ const switchToRegister = () => {
   })
 }
 
-// ===== 模态框控制（对应HTML中的setupModals）=====
+// ===== 模态框控制 =====
 const openModal = (modalType) => {
   if (modalType === 'perm') showPermModal.value = true
   if (modalType === 'forgot') showForgotModal.value = true
@@ -656,18 +612,18 @@ const closeModal = (modalType) => {
   if (modalType === 'service') showServiceModal.value = false
 }
 
-// ===== 表单验证（复用原Vue逻辑，适配新表单）=====
+// ===== 表单验证 =====
 const validateLoginForm = () => {
   let isValid = true
-  // 账号验证
-  if (!loginForm.username.trim()) {
-    formErrors.login.username = '请输入邮箱或学号'
+  // 邮箱验证
+  if (!loginForm.email.trim()) {
+    formErrors.login.email = '请输入邮箱'
     isValid = false
-  } else if (!/^1[3-9]\d{9}$|^[\w.-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/.test(loginForm.username.trim())) {
-    formErrors.login.username = '请输入正确的手机号或邮箱'
+  } else if (!/^[\w.-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/.test(loginForm.email.trim())) {
+    formErrors.login.email = '请输入有效的邮箱地址'
     isValid = false
   } else {
-    formErrors.login.username = ''
+    formErrors.login.email = ''
   }
 
   // 密码验证
@@ -699,14 +655,6 @@ const validateRegForm = () => {
     formErrors.reg.email = ''
   }
 
-  // 验证码验证
-  if (!regForm.code.trim()) {
-    formErrors.reg.code = '请输入验证码'
-    isValid = false
-  } else {
-    formErrors.reg.code = ''
-  }
-
   // 密码验证
   if (!regForm.password) {
     formErrors.reg.password = '请设置密码'
@@ -729,6 +677,17 @@ const validateRegForm = () => {
     formErrors.reg.password2 = ''
   }
 
+  // 昵称验证
+  if (!regForm.nickname.trim()) {
+    formErrors.reg.nickname = '请输入昵称'
+    isValid = false
+  } else if (regForm.nickname.trim().length > 20) {
+    formErrors.reg.nickname = '昵称不能超过20个字符'
+    isValid = false
+  } else {
+    formErrors.reg.nickname = ''
+  }
+
   // 同意条款验证
   if (!regForm.agree) {
     formErrors.reg.agree = '请先同意隐私政策'
@@ -740,79 +699,129 @@ const validateRegForm = () => {
   return isValid
 }
 
-// ===== 事件处理（对应HTML中的事件函数）=====
-// 发送验证码（对接API）
-const handleSendCode = async() => {
-  const email = regForm.email.trim()
-  if (!email || !/^[\w.-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/.test(email)) {
-    formErrors.reg.email = '请输入有效的校内邮箱'
-    return
-  }
-  try {
-    await sendEmailCode(email, 'register')
-    codeCountdown.value = 60
-    const timer = setInterval(() => {
-      codeCountdown.value--
-      if (codeCountdown.value <= 0) {
-        clearInterval(timer)
-      }
-    }, 1000)
-  } catch (error) {
-    formErrors.reg.email = error.message || '验证码发送失败'
-  }
-}
-
-// 登录处理（对接API）
+// ===== 事件处理 =====
+// 登录处理 - 适配新的响应结构
 const handleLogin = async() => {
   if (!validateLoginForm()) return
   try {
     isLoading.value = true
-    const res = await loginByEmail(loginForm.username.trim(), loginForm.password)
-    userStore.login(res.token, res.userInfo)
-    localStorage.setItem('user_token', res.token)
-    localStorage.setItem('user_info', JSON.stringify(res.userInfo))
-    localStorage.setItem('saved_login_username', loginForm.username)
+    
+    // 加密密码
+    const encryptedPassword = await encryptPassword(loginForm.password)
+    
+    // 注意：请求适配层会处理响应，这里直接得到处理后的数据
+    const responseData = await login({
+      email: loginForm.email.trim(),
+      password: encryptedPassword
+    })
+
+    console.log('登录响应数据:', responseData)
+    
+    // 由于请求适配层已经处理了响应，responseData 直接就是后端返回的 data 字段
+    // 但我们需要检查是否有错误，因为成功时返回 data，错误时抛出异常
+    
+    // 如果执行到这里说明登录成功，responseData 包含用户信息
+    const { token, refresh_token, user_id, email, nickname, avatar } = responseData
+    
+    // 存储token和用户信息 - 适配拦截器的token读取逻辑
+    userStore.login(token, {
+      user_id,
+      email,
+      nickname,
+      avatar,
+      role: 'user'
+    }, refresh_token)
+    
+    // 关键修改：统一token存储key，适配请求拦截器
+    localStorage.setItem('access_token', token)
+    localStorage.setItem('refresh_token', refresh_token)
+    localStorage.setItem('user_token', token) // 新增：适配请求拦截器的读取逻辑
+    localStorage.setItem('user_info', JSON.stringify({
+      user_id,
+      email,
+      nickname,
+      avatar,
+      role: 'user'
+    }))
+    localStorage.setItem('saved_login_email', loginForm.email)
+    
     routeJump('/hubviews')
+    
   } catch (error) {
-    formErrors.login.password = error.message || '登录失败'
+    console.error('登录错误详情:', error)
+    // 错误信息已经由请求适配层处理，直接显示
+    formErrors.login.password = error.message || '登录失败，请检查邮箱和密码'
   } finally {
     isLoading.value = false
   }
 }
 
-// 注册处理（对接API）
+// 注册处理 - 适配新的响应结构
 const handleRegister = async() => {
   if (!validateRegForm()) return
   try {
     isLoading.value = true
-    const res = await registerByEmail({
+    
+    // 加密密码
+    const encryptedPassword = await encryptPassword(regForm.password)
+    
+    const registerData = {
       email: regForm.email.trim(),
-      code: regForm.code.trim(),
-      password: regForm.password,
-      nickname: regForm.nickname
-    })
-    userStore.login(res.token, res.userInfo)
-    localStorage.setItem('user_token', res.token)
-    localStorage.setItem('user_info', JSON.stringify(res.userInfo))
+      password: encryptedPassword,
+      nickname: regForm.nickname.trim()
+    }
+    
+    // 如果有学号，添加到注册数据中
+    if (regForm.student_id.trim()) {
+      registerData.student_id = regForm.student_id.trim()
+    }
+    
+    console.log('发送注册数据:', registerData)
+    
+    // 注意：请求适配层会处理响应，这里直接得到处理后的数据
+    const responseData = await register(registerData)
+    
+    console.log('注册响应数据:', responseData)
+    
+    // 由于请求适配层已经处理了响应，responseData 直接就是后端返回的 data 字段
+    const { token, refresh_token, user_id, email, nickname, avatar } = responseData
+    
+    // 注册成功后自动登录
+    userStore.login(token, {
+      user_id,
+      email,
+      nickname,
+      avatar,
+      role: 'user'
+    }, refresh_token)
+    
+    // 关键修改：统一token存储key，适配请求拦截器
+    localStorage.setItem('access_token', token)
+    localStorage.setItem('refresh_token', refresh_token)
+    localStorage.setItem('user_token', token) // 新增：适配请求拦截器的读取逻辑
+    localStorage.setItem('user_info', JSON.stringify({
+      user_id,
+      email,
+      nickname,
+      avatar,
+      role: 'user'
+    }))
+    
     routeJump('/hubviews')
+    
   } catch (error) {
-    formErrors.reg.email = error.message || '注册失败'
+    console.error('注册错误详情:', error)
+    // 错误信息已经由请求适配层处理，直接显示
+    formErrors.reg.email = error.message || '注册失败，请稍后重试'
   } finally {
     isLoading.value = false
   }
 }
 
-// 第三方登录（微信）
-const handleWechatLogin = () => {
-  // TODO: 对接微信OAuth
-}
-// 第三方登录（QQ）
-const handleQQLogin = () => {
-  // TODO: 对接QQ OAuth
-}
 // 游客登录
 const handleGuestLogin = () => {
   // TODO: 游客模式逻辑
+  alert('游客模式功能开发中...')
 }
 
 // 权限同意
@@ -820,21 +829,18 @@ const handlePermissionAccept = () => {
   closeModal('perm')
 }
 
-// 忘记密码发送邮件（对接API）
+// 忘记密码发送邮件
 const handleForgotSend = async() => {
   try {
-    await sendForgotPassword(forgotForm.email.trim())
+    // TODO: 对接忘记密码API
+    alert('密码重置功能开发中...')
     closeModal('forgot')
   } catch (error) {
-    // 可根据需要提示用户
     closeModal('forgot')
   }
 }
 </script>
-
 <style scoped>
-
-
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { 
   height: 100%; 
@@ -846,8 +852,7 @@ html, body {
 a { color: var(--accent); text-decoration: none; transition: color 0.2s; }
 a:hover { color: var(--accent-2); }
 
-/* ===== 页面布局（完全还原HTML的Grid布局）===== */
-
+/* ===== 页面布局 ===== */
 .wrap { 
   max-width: 1180px; 
   margin: 36px auto; 
@@ -856,7 +861,7 @@ a:hover { color: var(--accent-2); }
   grid-template-columns: 1fr 1fr; 
   gap: 28px; 
   min-height: calc(100vh - 72px); 
-  align-items: stretch; /* 让左右两侧高度一致 */
+  align-items: stretch;
 }
 
 .brand-card, .auth-card {
@@ -866,7 +871,7 @@ a:hover { color: var(--accent-2); }
   justify-content: center;
 }
 
-/* ===== 通用组件样式（完全还原HTML）===== */
+/* ===== 通用组件样式 ===== */
 .card {
   background: var(--card);
   border-radius: var(--radius);
@@ -918,7 +923,7 @@ a:hover { color: var(--accent-2); }
   transform: none !important;
 }
 
-/* ===== 左侧品牌卡片样式（完全还原HTML的BrandCard）===== */
+/* ===== 左侧品牌卡片样式 ===== */
 .brand-card {
   display: flex;
   flex-direction: column;
@@ -1005,7 +1010,7 @@ a:hover { color: var(--accent-2); }
   width: 100%;
 }
 
-/* 装饰形状（完全还原HTML） */
+/* 装饰形状 */
 .shape-top {
   position: absolute;
   right: -60px;
@@ -1029,7 +1034,7 @@ a:hover { color: var(--accent-2); }
   border-radius: 34px;
 }
 
-/* ===== 右侧登录注册卡片样式（完全还原HTML的AuthCard）===== */
+/* ===== 右侧登录注册卡片样式 ===== */
 .auth-card {
   display: flex;
   flex-direction: column;
@@ -1070,7 +1075,7 @@ a:hover { color: var(--accent-2); }
   color: var(--accent);
 }
 
-/* 标签页样式（完全还原HTML的Tabs） */
+/* 标签页样式 */
 .tabs {
   display: flex;
   background: transparent;
@@ -1103,7 +1108,7 @@ a:hover { color: var(--accent-2); }
   background: rgba(124,87,255,0.05);
 }
 
-/* 表单样式（完全还原HTML的Form） */
+/* 表单样式 */
 .form {
   margin-top: 6px;
   display: flex;
@@ -1156,20 +1161,6 @@ input:focus {
   margin-top: 4px;
 }
 
-.row {
-  display: flex;
-  gap: 10px;
-  align-items: flex-end;
-}
-
-.row-field {
-  flex: 1;
-}
-
-.btn-row {
-  margin-bottom: 6px; /* 对齐label底部 */
-}
-
 .helper {
   display: flex;
   justify-content: space-between;
@@ -1189,47 +1180,7 @@ input:focus {
   margin-top: 8px;
 }
 
-/* 第三方登录样式（完全还原HTML的SocialLogin） */
-.socials {
-  display: flex;
-  gap: 8px;
-  margin: 8px 0;
-}
-
-.socials .btn {
-  flex: 1;
-  background: #f8faff;
-  border: 1px solid #eef2ff;
-  color: #4b5563;
-  transition: all 0.2s;
-}
-
-.socials .btn:hover {
-  background: #fff;
-  border-color: var(--accent);
-  color: var(--accent);
-  transform: translateY(-1px);
-}
-
-/* 分隔线样式 */
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 18px 0;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.divider::before,
-.divider::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: #f0f3fb;
-}
-
-/* 演示信息样式（完全还原HTML的DemoInfo） */
+/* 演示信息样式 */
 .example {
   background: #f9fbff;
   padding: 16px;
@@ -1246,7 +1197,7 @@ input:focus {
   line-height: 1.5;
 }
 
-/* 复选框样式（完全还原HTML的Checkbox） */
+/* 复选框样式 */
 .checkbox {
   display: flex;
   gap: 8px;
@@ -1265,15 +1216,7 @@ input:focus {
   line-height: 1.4;
 }
 
-/* 提示文本样式 */
-.note {
-  margin-top: 14px;
-  color: var(--muted);
-  font-size: 13px;
-  text-align: center;
-}
-
-/* 动画效果（完全还原HTML） */
+/* 动画效果 */
 .pulse {
   animation: pulse 2.8s infinite;
 }
@@ -1284,7 +1227,7 @@ input:focus {
   100% { transform: scale(1); }
 }
 
-/* ===== 模态框样式（完全还原HTML的Modal）===== */
+/* ===== 模态框样式 ===== */
 .modal {
   position: fixed;
   inset: 0;
@@ -1379,7 +1322,7 @@ input:focus {
   }
 }
 
-/* ===== 加载动画（复用项目统一逻辑）===== */
+/* ===== 加载动画 ===== */
 .loading-spinner.small {
   width: 16px;
   height: 16px;
@@ -1393,7 +1336,7 @@ input:focus {
   to { transform: rotate(360deg); }
 }
 
-/* ===== 响应式设计（完全还原HTML）===== */
+/* ===== 响应式设计 ===== */
 @media (max-width: 960px) {
   .wrap {
     grid-template-columns: 1fr;
@@ -1422,14 +1365,6 @@ input:focus {
 }
 
 @media (max-width: 480px) {
-  .row {
-    flex-direction: column;
-  }
-  
-  .socials {
-    flex-direction: column;
-  }
-  
   .helper {
     flex-direction: column;
     align-items: flex-start;
@@ -1441,7 +1376,7 @@ input:focus {
   }
 }
 
-/* ===== 无障碍支持（完全还原HTML）===== */
+/* ===== 无障碍支持 ===== */
 .visually-hidden {
   position: absolute;
   width: 1px;
