@@ -19,7 +19,7 @@ from model.capsule_model import (
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-from services.capsule_manager import CapsuleManager
+from services.capsule import CapsuleManager
 from services.file_manager import FileManager
 
 capsule_router = APIRouter(prefix='/capsule', tags=['Capsule'])
