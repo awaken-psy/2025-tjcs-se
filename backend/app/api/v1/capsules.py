@@ -6,174 +6,35 @@ from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel, Field
 
-# 导入所有必需的模型 - 包含main分支的模型和nearby capsules模型
 from model.capsule_model import (
     CapsuleCreateRequest, CapsuleCreateRequestLegacy, CapsuleUpdateRequest,
     CapsuleCreatedResponse, CapsuleListResponse, CapsuleListResponseLegacy, CapsuleDetailResponse,
     CapsuleUpdateResponse, ErrorResponse, CapsuleDeleteResponse,
     CapsuleStatus, CapsuleVisibility, Location, UnlockConditions,
     CapsuleListItem, PaginationInfo, MediaFile, UserInfo, CapsuleStats,
-    CapsuleDetailInfo, NearbyCapsulesResponse, NearbyCapsule, NearbyCapsuleLocation
+    CapsuleDetailInfo
 )
 
-# 导入服务类 - 优先使用本地分支的服务，保护nearby capsules功能
-try:
-    from services.capsule_manager import CapsuleManager as CapsuleManagerLocal
-    print("Using local CapsuleManager for nearby capsules functionality")
-    CapsuleManager = CapsuleManagerLocal
-except ImportError:
-    # 如果本地服务不存在，使用main分支的服务
-    print("Local CapsuleManager not found, using main branch service")
-    import sys
-    import os
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-    try:
-        from services.capsule import CapsuleManager as CapsuleManagerMain
-        CapsuleManager = CapsuleManagerMain
-    except ImportError:
-        # 如果都不存在，创建一个简单的模拟类
-        print("No capsule manager found, using mock implementation")
-        class CapsuleManager:
-            def __init__(self):
-                pass
-
-# 导入文件管理器
-try:
-    from services.file_manager import FileManager
-except ImportError:
-    # 如果文件管理器不存在，创建一个简单的模拟类
-    class FileManager:
-        async def upload_capsule_file(self, file, file_type):
-            return {
-                'data': {
-                    'access_url': f'/uploads/{file.filename}',
-                    'filename': file.filename,
-                    'file_size': getattr(file, 'size', 0)
-                }
-            }
+# 导入服务类
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+from services.capsule import CapsuleManager
+from services.file_manager import FileManager
 
 capsule_router = APIRouter(prefix='/capsule', tags=['Capsule'])
 router = capsule_router  # 为了兼容现有代码
 
-# 临时模拟认证依赖 - 兼容两种API格式
+# 临时模拟认证依赖
 def login_required():
     class MockUser:
         def __init__(self):
             self.id = 1
             self.username = "test_user"
-            self.user_id = 1  # 添加user_id属性以兼容nearby capsules API
     return MockUser()
 
 class RegisteredUser:
     pass
-
-
-# ============== NEARBY CAPSULES API (你的核心功能) ==============
-
-@router.get(
-    "/nearby",
-    response_model=NearbyCapsulesResponse,
-    summary="获取附近胶囊",
-    description="获取用户附近的胶囊列表，包含距离和解锁状态信息"
-)
-async def get_nearby_capsules(
-    latitude: float = Query(..., description="用户当前纬度"),
-    longitude: float = Query(..., description="用户当前经度"),
-    radius_meters: int = Query(1000, ge=10, le=10000, description="搜索半径（米）"),
-    user: RegisteredUser = Depends(login_required)
-):
-    """获取附近胶囊"""
-    try:
-        # 使用CapsuleManager获取真实数据，支持你的解锁条件检查逻辑
-        capsule_manager = CapsuleManager()
-
-        if hasattr(capsule_manager, 'get_nearby_capsules'):
-            # 使用真实的胶囊管理服务
-            print(f"Getting nearby capsules for user {user.user_id} at {latitude}, {longitude} with radius {radius_meters}m")
-
-            nearby_data = capsule_manager.get_nearby_capsules(latitude, longitude, radius_meters, user.user_id)
-
-            # 转换数据格式以匹配API响应模型（TypeScript接口规范）
-            capsules = []
-            for capsule_data in nearby_data:
-                capsule = NearbyCapsule(
-                    can_unlock=capsule_data.get('can_unlock', False),
-                    created_at=capsule_data.get('created_at', datetime.now()),
-                    creator_nickname=capsule_data.get('creator_nickname', '未知用户'),
-                    id=capsule_data.get('id', ''),
-                    is_unlocked=capsule_data.get('is_unlocked', False),
-                    location=NearbyCapsuleLocation(
-                        distance=capsule_data['location']['distance'],
-                        latitude=capsule_data['location']['latitude'],
-                        longitude=capsule_data['location']['longitude']
-                    ),
-                    title=capsule_data.get('title', '未知胶囊'),
-                    visibility=capsule_data.get('visibility', 'public')
-                )
-                capsules.append(capsule)
-        else:
-            # 如果服务不可用，使用模拟数据，保持API格式一致
-            print(f"Using mock data for nearby capsules - user {user.user_id} at {latitude}, {longitude}")
-
-            capsules = [
-                NearbyCapsule(
-                    can_unlock=False,
-                    created_at=datetime(2024, 10, 26, 10, 0, 0),
-                    creator_nickname="小明",
-                    id="caps_001",
-                    is_unlocked=False,
-                    location=NearbyCapsuleLocation(
-                        distance=150.5,
-                        latitude=39.9042,
-                        longitude=116.4074
-                    ),
-                    title="毕业纪念",
-                    visibility="public"
-                ),
-                NearbyCapsule(
-                    can_unlock=True,
-                    created_at=datetime(2024, 10, 25, 14, 30, 0),
-                    creator_nickname="张三",
-                    id="caps_002",
-                    is_unlocked=False,
-                    location=NearbyCapsuleLocation(
-                        distance=320.8,
-                        latitude=39.9052,
-                        longitude=116.4084
-                    ),
-                    title="足球比赛回忆",
-                    visibility="friends"
-                ),
-                NearbyCapsule(
-                    can_unlock=False,
-                    created_at=datetime(2024, 10, 24, 9, 15, 0),
-                    creator_nickname="李四",
-                    id="caps_003",
-                    is_unlocked=True,
-                    location=NearbyCapsuleLocation(
-                        distance=580.2,
-                        latitude=39.9032,
-                        longitude=116.4064
-                    ),
-                    title="我们分手了",
-                    visibility="private"
-                )
-            ]
-
-        # 返回匹配TypeScript接口格式的响应
-        return NearbyCapsulesResponse(
-            code=200,
-            data={
-                "capsules": capsules
-            },
-            message=f"成功获取{len(capsules)}个附近胶囊"
-        )
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"获取附近胶囊时发生错误: {str(e)}"
-        )
 
 
 @router.post(
@@ -664,182 +525,6 @@ async def delete_capsule(
         )
 
 
-# ============== MAIN BRANCH CAPSULE APIS (其他胶囊功能) ==============
-
-@router.post(
-    "/",
-    response_model=CapsuleCreatedResponse,
-    summary="创建时光胶囊",
-    description="创建新的时光胶囊，支持多媒体内容和多种解锁条件"
-)
-async def create_capsule(request: CapsuleCreateRequest, user: RegisteredUser = Depends(login_required)):
-    """创建胶囊 (新版API)"""
-    try:
-        # 初始化胶囊管理器
-        capsule_manager = CapsuleManager()
-
-        # 转换请求数据 - 兼容两种格式
-        capsule_data = {
-            'title': request.title,
-            'content': request.content,
-            'visibility': request.visibility.value,
-            'tags': request.tags if request.tags else [],
-            'media_files': request.media_files if request.media_files else []
-        }
-
-        # 处理位置信息 - 兼容嵌套和扁平格式
-        if request.location:
-            # 嵌套格式: {latitude: xxx, longitude: xxx, address: xxx}
-            capsule_data['location'] = request.location.address if hasattr(request.location, 'address') else str(request.location)
-            capsule_data['lat'] = request.location.latitude if hasattr(request.location, 'latitude') else 0.0
-            capsule_data['lng'] = request.location.longitude if hasattr(request.location, 'longitude') else 0.0
-        else:
-            capsule_data['location'] = None
-            capsule_data['lat'] = 0.0
-            capsule_data['lng'] = 0.0
-
-        # 简化创建：返回模拟成功结果，避免数据库依赖
-        mock_capsule_id = f"mock_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
-
-        return CapsuleCreatedResponse(
-            success=True,
-            message="胶囊创建成功",
-            capsule_id=mock_capsule_id,
-            title=capsule_data['title'],
-            status=CapsuleStatus.PUBLISHED,
-            created_at=datetime.utcnow()
-        )
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"创建胶囊时发生错误: {str(e)}"
-        )
-
-
-@router.get(
-    "/",
-    response_model=CapsuleListResponse,
-    summary="获取可查看的胶囊列表",
-    description="获取可查看的胶囊列表（自己创建的或已解锁的）"
-)
-async def get_capsules(
-    page: int = Query(1, ge=1, description="页码"),
-    limit: int = Query(20, ge=1, le=100, description="每页数量"),
-    status: Optional[str] = Query(None, description="按状态筛选"),
-    visibility: Optional[str] = Query(None, description="按可见性筛选"),
-    user: RegisteredUser = Depends(login_required)
-):
-    """获取可查看的胶囊列表"""
-    try:
-        # 简化实现：暂时返回模拟数据，避免数据库问题
-        capsule_items = []
-
-        # 模拟数据 - 前端兼容格式
-        mock_capsules = [
-            {
-                "capsule_id": "mock_1",
-                "title": "毕业纪念胶囊",
-                "content": "记录我们美好的毕业时光，这是我们在大学的最后一天，大家一起拍了很多照片，留下了珍贵的回忆。",
-                "visibility": "public",
-                "status": "published",
-                "tags": ["毕业", "纪念", "校园"],
-                "created_at": datetime(2024, 1, 15, 10, 30, 0),
-                "updated_at": datetime(2024, 1, 16, 11, 30, 0),
-                "location": {
-                    "latitude": 31.2834,
-                    "longitude": 121.5057,
-                    "address": "上海市同济大学"
-                },
-                "media_count": 2
-            }
-        ]
-
-        for capsule_data in mock_capsules:
-            capsule_item = CapsuleListItem(**capsule_data)
-            capsule_items.append(capsule_item)
-
-        # 构建分页信息
-        pagination = PaginationInfo(
-            page=page,
-            page_size=limit,
-            total=len(capsule_items),
-            total_pages=1
-        )
-
-        return CapsuleListResponse(
-            capsules=capsule_items,
-            pagination=pagination
-        )
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"获取胶囊列表时发生错误: {str(e)}"
-        )
-
-
-@router.get(
-    "/{capsule_id}",
-    response_model=CapsuleDetailResponse,
-    summary="获取胶囊详情",
-    description="获取单个胶囊的详细信息"
-)
-async def get_capsule_detail(
-    capsule_id: str = Path(..., description="胶囊ID"),
-    user: RegisteredUser = Depends(login_required)
-):
-    """获取胶囊详情"""
-    try:
-        # 模拟胶囊详情数据
-        media_files = [
-            MediaFile(
-                id="file_1",
-                type="image",
-                url="https://example.com/files/photo1.jpg",
-                thumbnail="https://example.com/files/thumbnail1.jpg"
-            )
-        ]
-
-        capsule_detail = CapsuleDetailInfo(
-            id=capsule_id,
-            title="毕业纪念",
-            content="记录我们美好的毕业时光",
-            visibility=CapsuleVisibility.PUBLIC,
-            status=CapsuleStatus.PUBLISHED,
-            tags=["毕业", "纪念", "校园"],
-            location=Location(
-                latitude=39.9042,
-                longitude=116.4074,
-                address="北京大学图书馆"
-            ),
-            media_files=media_files,
-            creator=UserInfo(
-                user_id=123,
-                nickname="小明",
-                avatar="https://example.com/avatar.jpg"
-            ),
-            stats=CapsuleStats(
-                view_count=150,
-                like_count=25,
-                comment_count=8,
-                unlock_count=5,
-                is_liked=True,
-                is_collected=False
-            ),
-            created_at=datetime(2024, 1, 15, 10, 30, 0),
-            updated_at=datetime(2024, 1, 16, 11, 30, 0)
-        )
-
-        return CapsuleDetailResponse(capsule=capsule_detail)
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"获取胶囊详情时发生错误: {str(e)}"
-        )
-
-
-# ============== 文件上传功能 ==============
 @router.post(
     "/upload-img",
     summary="上传胶囊图片(旧版)",
@@ -882,4 +567,5 @@ async def upload_capsule_image_legacy(
             status_code=500,
             detail=f"上传图片时发生错误: {str(e)}"
         )
+
 

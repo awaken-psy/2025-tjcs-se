@@ -6,10 +6,10 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
 
-from auth.jwt_handler import JWTHandler, JWTConfig
-from domain.user import UserFactory
+from app.auth.jwt_handler import JWTHandler, JWTConfig
+from app.domain.user import UserFactory
 
-from model.auth_model import TokenRequest, TokenResponse, RefreshTokenRequest, UserInfoResponse
+from app.model.auth_model import TokenRequest, TokenResponse, RefreshTokenRequest, UserInfoResponse
 
 from ..routes import auth_router as router
 

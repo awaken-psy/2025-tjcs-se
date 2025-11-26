@@ -46,7 +46,7 @@ async def check_unlockable_capsules(
                     title="毕业纪念",
                     created_at=datetime(2021, 1, 1, 0, 0, 0),
                     position=Location(
-                        latitude=39.9042, 
+                        latitude=39.9042,
                         longitude=116.4074,
                         address="北京市海淀区中关村")
                 )

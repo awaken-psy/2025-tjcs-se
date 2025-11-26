@@ -1,8 +1,32 @@
 from fastapi import Depends, Header
 from fastapi import HTTPException
 from typing import Optional, Union
-from app.auth.jwt_handler import JWTHandler, AccessTokenPayload, RefreshTokenPayload
-from app.domain.user import UserFactory, UserRole, BaseUser, AuthenticatedUser, AdminUser
+
+# 修复导入路径
+try:
+    from app.auth.jwt_handler import JWTHandler, AccessTokenPayload, RefreshTokenPayload
+except ImportError:
+    try:
+        from auth.jwt_handler import JWTHandler, AccessTokenPayload, RefreshTokenPayload
+    except ImportError:
+        print("Warning: Could not import JWT handler")
+        JWTHandler = None
+        AccessTokenPayload = None
+        RefreshTokenPayload = None
+
+try:
+    from app.domain.user import UserFactory, UserRole, BaseUser, RegisteredUser, AdminUser, AuthorizedUser
+except ImportError:
+    try:
+        from domain.user import UserFactory, UserRole, BaseUser, RegisteredUser, AdminUser, AuthorizedUser
+    except ImportError:
+        print("Warning: Could not import user domain models")
+        UserFactory = None
+        UserRole = None
+        BaseUser = None
+        RegisteredUser = None
+        AdminUser = None
+        AuthorizedUser = None
 
 def get_user_from_token(authorization:str) -> BaseUser:
     parts = authorization.split()
@@ -16,16 +40,21 @@ def get_user_from_token(authorization:str) -> BaseUser:
     if payload.role == UserRole.GUEST:
         return UserFactory.create_guest_user()
     elif payload.role == UserRole.USER:
-        return UserFactory.create_authenticated_user(user_id=payload.sub, username=payload.username)
+        return UserFactory.create_registered_user(user_id=payload.sub, username=payload.username)
     elif payload.role == UserRole.ADMIN:
         return UserFactory.create_admin_user(user_id=payload.sub, username=payload.username)
     else:
         raise HTTPException(status_code=401, detail="Unkown user role")
     
-def login_required(authorization: str=Header()) -> Union[AuthenticatedUser, AdminUser]:
+def login_required(authorization: str=Header()) -> AuthorizedUser:
     user = get_user_from_token(authorization)
-    if not isinstance(user, (AuthenticatedUser, AdminUser)):
+    if not isinstance(user, (RegisteredUser, AdminUser)):
         raise HTTPException(status_code=401, detail="User not authorized")
+    return user
+
+def admin_required(user: AuthorizedUser=Depends(login_required)) -> AdminUser:
+    if not isinstance(user, AdminUser):
+        raise HTTPException(status_code=403, detail="Admin required")
     return user
     
 

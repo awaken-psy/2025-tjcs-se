@@ -171,43 +171,26 @@ export const createCapsule = async (data) => {
     throw new Error('标题、内容、可见性为必填项')
   }
 
-  // 构造后端需要的数据对象 - 根据新的API结构
+  // 构造后端需要的数据对象 - 兼容旧版API格式
   const payload = {
     title: data.title,
     content: data.content,
     visibility: data.visibility,
     tags: data.tags || [],
-    location: {
-      latitude: data.lat || data.location?.latitude || 0,
-      longitude: data.lng || data.location?.longitude || 0,
-      address: data.locationName || data.location?.address || ''
-    },
-    unlock_conditions: {
-      type: data.unlockType || 'time',
-      value: data.unlockValue || data.unlockDate || new Date().toISOString(),
-      radius: data.radius || 50,
-      event_id: data.eventId || '',
-      is_unlocked: data.isUnlocked || false
-    },
-    media_files: data.mediaFiles || []
+    location: data.locationName || data.location?.address || '',
+    lat: data.lat || data.location?.latitude || 0,
+    lng: data.lng || data.location?.longitude || 0,
+    createTime: data.createTime || new Date().toISOString(),
+    updateTime: data.updateTime || new Date().toISOString(),
+    imageUrl: data.imageUrl || '',
+    likes: data.likes || 0,
+    views: data.views || 0
   }
 
-  const myHeaders = new Headers();
-  myHeaders.append("Content-Type", "application/json");
-
-  const raw = JSON.stringify(payload);
-
-  const requestOptions = {
-    method: 'POST',
-    headers: myHeaders,
-    body: raw,
-    redirect: 'follow'
-  };
-
-  // 使用fetch替代axios请求
-  const response = await fetch("/capsules", requestOptions);
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  return await response.json();
+  // 使用统一的request方法，确保认证和错误处理
+  return await request({
+    url: '/capsule/create',
+    method: 'post',
+    data: payload
+  })
 }

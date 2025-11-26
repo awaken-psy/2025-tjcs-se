@@ -3,7 +3,12 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from datetime import datetime
 
-from database.orm.config import Base
+from ..database import Base
+
+# 避免循环导入
+def get_user_model():
+    from database.orm.user import User
+    return User
 
 class Capsule(Base):
     """胶囊主模型"""
@@ -24,6 +29,9 @@ class Capsule(Base):
     visibility = Column(String(20), nullable=False, default="private", comment="可见性: private, friends, campus")
     content_type = Column(String(20), nullable=False, default="text", comment="内容类型: text, image, audio, mixed")
 
+    # 标签 (JSON格式存储)
+    tag_json = Column(JSON, nullable=True, comment="标签列表(JSON格式)")
+
     # 时间信息
     created_at = Column(DateTime, default=func.now(), nullable=False, comment="创建时间")
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False, comment="更新时间")
@@ -36,6 +44,22 @@ class Capsule(Base):
 
     def __repr__(self):
         return f"<Capsule(id={self.id}, title='{self.title}', status='{self.status}')>"
+    
+    # def to_dict(self):
+    #     return {
+    #         "id": self.id,
+    #         "title": self.title,
+    #         "text_content": self.text_content,
+    #         "user_id": self.user_id,
+    #         "latitude": self.latitude,
+    #         "longitude": self.longitude,
+    #         "address": self.address,
+    #         "status": self.status,
+    #         "visibility": self.visibility,
+    #         "content_type": self.content_type,
+    #         "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+    #         "updated_at": self.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
+    #     }
 
 
 class CapsuleMedia(Base):
@@ -57,6 +81,19 @@ class CapsuleMedia(Base):
 
     def __repr__(self):
         return f"<CapsuleMedia(id={self.id}, capsule_id={self.capsule_id}, file_name='{self.file_name}')>"
+    
+    # def to_dict(self):
+    #     return {
+    #         "id": self.id,
+    #         "capsule_id": self.capsule_id,
+    #         "file_type": self.file_type,
+    #         "file_name": self.file_name,
+    #         "file_path": self.file_path,
+    #         "file_size": self.file_size,
+    #         "mime_type": self.mime_type,
+    #         "upload_order": self.upload_order,
+    #         "created_at": self.created_at
+    #     }
 
 
 # class CapsuleAccess(Base):
