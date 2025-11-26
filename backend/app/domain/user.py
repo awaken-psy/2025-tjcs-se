@@ -14,6 +14,12 @@ class UserRole(str, Enum):
     USER = "user"  # 普通用户（已认证用户）
     ADMIN = "admin"  # 管理员
 
+class UserType(str, Enum):
+    """用户类型枚举"""
+    STUDENT = "student"  # 学生
+    TEACHER = "teacher"  # 教师
+    OTHER = "other"  # 其他
+
 
 class Permission(str, Enum):
     """权限枚举 - 系统权限定义"""
@@ -89,11 +95,12 @@ class RolePermissionMap:
 @dataclass
 class BaseUser:
     """用户基类 - 定义所有用户共有的属性"""
-    user_id: str  # 用户ID，唯一标识
+    user_id: int  # 用户ID，唯一标识
     username: str  # 用户名
     role: UserRole  # 用户角色
+
     permissions: Set[Permission] = field(default_factory=set)  # 用户权限集合
-    created_at: datetime = field(default_factory=datetime.now) # 创建时间（该用户对象在内存中创建的时间，而非数据库中创建的时间）
+    created_at: datetime = field(default_factory=datetime.now) # 创建时间
     
     def has_permission(self, permission: Permission) -> bool:
         """检查用户是否拥有指定权限"""
@@ -109,7 +116,7 @@ class BaseUser:
 
 
 @dataclass
-class AccessUser(BaseUser):
+class GuestUser(BaseUser):
     """访客用户 - 未登录用户，仅有只读权限"""
     
     def __post_init__(self):
@@ -120,13 +127,22 @@ class AccessUser(BaseUser):
 
 
 @dataclass
-class AuthenticatedUser(BaseUser):
-    """认证用户 - 已登录用户，有创建和管理自己内容的权限"""
-    last_login: Optional[datetime] = None  # 最后登录时间
-
+class RegisteredUser(BaseUser):
+    """已注册用户，有创建和管理自己内容的权限"""
+    is_active: bool = True  # 是否激活
     email: Optional[str] = None  # 邮箱
-    department: Optional[str] = None  # 部门/学院
-    student_id: Optional[str] = None  # 学号
+    nickname: Optional[str] = None  # 昵称
+    password_hash: Optional[str] = None  # 密码哈希值
+
+    user_type: Optional[UserType] = None  # 用户类型
+    is_verified: bool = True  # 是否已验证邮箱
+    is_active: bool = True  # 是否激活(当被封禁或注销时，该字段为False)
+    
+    avatar_url: Optional[str] = None  # 头像URL
+    bio: Optional[str] = None  # 个人简介
+    campus_id: Optional[str] = None  # 校园id或学号
+
+    last_login: Optional[datetime] = None  # 最后登录时间
     
     def __post_init__(self):
         """初始化时自动设置权限"""
@@ -148,8 +164,11 @@ class AuthenticatedUser(BaseUser):
 @dataclass
 class AdminUser(BaseUser):
     """管理员用户 - 拥有完全权限"""
+    email: Optional[str] = None  # 邮箱
+    password_hash: Optional[str] = None  # 密码哈希值
     last_login: Optional[datetime] = None  # 最后登录时间
     admin_level: int = 1  # 管理员级别（1-普通管理员，0-超级管理员）
+    is_active:bool = True # 是否激活
     
     def __post_init__(self):
         """初始化时自动设置权限"""
@@ -170,48 +189,74 @@ class AdminUser(BaseUser):
         return self.has_permission(Permission.MODERATE_CONTENT)
 
 
-RegisteredUser = Union[AuthenticatedUser, AdminUser]  # 注册用户类型别名
+AuthorizedUser = Union[RegisteredUser, AdminUser]  # 已认证用户类型别名
 
 class UserFactory:
     """用户工厂类 - 创建不同类型的用户对象"""
     
     @staticmethod
-    def create_guest_user(user_id: str = "guest_default") -> AccessUser:
+    def create_guest_user(user_id: int = -1) -> GuestUser:
         """创建访客用户"""
-        return AccessUser(
+        return GuestUser(
             user_id=user_id,
             username="访客",
             role=UserRole.GUEST
         )
     
     @staticmethod
-    def create_authenticated_user(
-        user_id: str,
+    def create_registered_user(
+        user_id: int,
         username: str,
         email: Optional[str] = None,
-        department: Optional[str] = None,
-        student_id: Optional[str] = None
-    ) -> AuthenticatedUser:
+        nickname: Optional[str] = None,
+        password_hash: Optional[str] = None,
+
+        user_type: Optional[UserType] = None,
+        is_active: bool = True,
+        is_verified: bool = True,
+
+        avatar_url: Optional[str] = None,
+        campus_id: Optional[str] = None,
+        bio: Optional[str] = None,
+        last_login: Optional[datetime] = None
+    ) -> RegisteredUser:
         """创建认证用户"""
-        return AuthenticatedUser(
+        return RegisteredUser(
             user_id=user_id,
             username=username,
             email=email,
-            department=department,
-            student_id=student_id,
-            role=UserRole.USER
+            nickname=nickname,
+            password_hash=password_hash,
+
+            user_type=user_type,
+            is_active=is_active,
+            is_verified=is_verified,
+
+            avatar_url=avatar_url,
+            campus_id=campus_id,
+            bio=bio,
+
+            role=UserRole.USER,
+            last_login=last_login
         )
     
     @staticmethod
     def create_admin_user(
-        user_id: str,
+        user_id: int,
         username: str,
-        admin_level: int = 1
+        email: Optional[str] = None,
+
+        password_hash: Optional[str] = None,
+        admin_level: int = 1,
+        is_active: bool = True,
     ) -> AdminUser:
         """创建管理员用户"""
         return AdminUser(
             user_id=user_id,
             username=username,
+            email=email,
+            password_hash=password_hash,
             admin_level=admin_level,
-            role=UserRole.ADMIN
+            role=UserRole.ADMIN,
+            is_active=is_active
         )

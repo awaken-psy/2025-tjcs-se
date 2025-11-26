@@ -7,7 +7,7 @@ from typing import Dict, Optional, Tuple, List, Union
 from enum import Enum
 from domain.user import UserRole, Permission
 from pydantic import BaseModel, Field, ValidationError
-from domain.user import UserRole, Permission, AccessUser, AuthenticatedUser, AdminUser, BaseUser
+from domain.user import UserRole, Permission, GuestUser, RegisteredUser, AdminUser, BaseUser
 
 
 class JWTConfig:
@@ -29,7 +29,7 @@ class JWTConfig:
 
 class AccessTokenPayload(BaseModel):
     """访问令牌"""
-    sub: str = Field(..., description="用户ID")
+    sub: int = Field(..., description="用户ID")
     username: str = Field(..., description="用户名")
     role: UserRole = Field(..., description="用户角色")
     permissions: List[Permission] = Field([], description="用户权限列表")
@@ -53,7 +53,7 @@ class AccessTokenPayload(BaseModel):
 
 class RefreshTokenPayload(BaseModel):
     """刷新令牌"""
-    sub: str = Field(..., description="用户ID")
+    sub: int = Field(..., description="用户ID")
     username: str = Field(..., description="用户名")
     token_type: JWTConfig.TokenType = Field(..., description="Token类型")
     iat: datetime = Field(..., description="发行时间")
@@ -94,7 +94,7 @@ class JWTHandler:
     
     @staticmethod
     def generate_access_token(
-        user_id: str,
+        user_id: int,
         username: str,
         role: UserRole,
         permissions: Optional[list[Permission]] = None,
@@ -154,7 +154,7 @@ class JWTHandler:
     
     @staticmethod
     def generate_refresh_token(
-        user_id: str,
+        user_id: int,
         username: str,
         expires_days: Optional[int] = None,
     ) -> str:
