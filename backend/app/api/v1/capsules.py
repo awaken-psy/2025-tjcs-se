@@ -9,8 +9,8 @@ from typing import Optional, List,Dict
 from datetime import datetime
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, HTTPException, Depends, Query, Path
-
-from model.capsule import (
+import json
+from app.model.capsule import (
     CapsuleCreateRequest, CapsuleUpdateRequest,
     Location, UnlockConditions,
     MediaFile, CapsuleStats,Creator,
@@ -27,8 +27,55 @@ from app.domain.user import AuthorizedUser
 # 创建API路由
 router = APIRouter()
 
+def _map_to_basic(capsule) -> CapsuleBasic:
+    """把ORM对象映射为CapsuleBasic"""
+    return CapsuleBasic(
+        id=str(capsule.id),
+        title=capsule.title,
+        visibility=capsule.visibility,
+        status=capsule.status,
+        created_at=capsule.created_at,
+        content_preview=(capsule.text_content[:120] if capsule.text_content else None),
+        cover_image=None,  # TODO: 从CapsuleMedia获取封面图
+        unlock_count=0,  # TODO: 从UnlockRecord统计
+        like_count=0,   # TODO: 从交互记录统计
+        comment_count=0  # TODO: 从交互记录统计
+    )
 
-capsules_store: Dict[str, CapsuleDetail] = {}
+
+def _map_to_detail(capsule, user: AuthorizedUser) -> CapsuleDetail:
+    """把ORM对象映射为CapsuleDetail"""
+    return CapsuleDetail(
+        id=str(capsule.id),
+        title=capsule.title,
+        content=capsule.text_content,
+        visibility=capsule.visibility,
+        status=capsule.status,
+        created_at=capsule.created_at,
+        tags=json.loads(capsule.tag_json) if capsule.tag_json else [],
+        location=Location(
+            latitude=capsule.latitude,
+            longitude=capsule.longitude,
+            address=capsule.address
+        ) if capsule.latitude and capsule.longitude else None,
+        unlock_conditions=None,  # TODO: 从UnlockCondition表查询
+        media_files=[],  # TODO: 从CapsuleMedia表查询
+        creator=Creator(
+            user_id=capsule.user_id,
+            nickname=getattr(user, 'nickname', '用户'),
+            avatar=getattr(user, 'avatar', None)
+        ),
+        stats=CapsuleStats(
+            view_count=0,     # TODO: 从访问记录统计
+            like_count=0,     # TODO: 从点赞记录统计
+            comment_count=0,  # TODO: 从评论记录统计
+            unlock_count=0,   # TODO: 从解锁记录统计
+            is_liked=False,   # TODO: 查询用户是否点赞
+            is_collected=False  # TODO: 查询用户是否收藏
+        ),
+        updated_at=capsule.updated_at
+    )
+
 
 def _now() -> datetime:
     return datetime.utcnow()
@@ -68,75 +115,22 @@ async def create_capsule(request: CapsuleCreateRequest, user: AuthorizedUser = D
 )
 async def get_capsule_detail(
     capsule_id: str = Path(..., description="胶囊ID"),
-    user: AuthorizedUser = Depends(login_required)
+    user: AuthorizedUser = Depends(login_required),
+    db: Session = Depends(get_db)  # 添加这行
 ):
     """获取胶囊详情"""
-    # TODO: 从数据库查询胶囊详情
-    # 目前返回模拟数据，符合CapsuleDetail模型结构
+    manager = CapsuleManager(db)
     
-    data = CapsuleDetail(
-        id=capsule_id,
-        title="时光胶囊示例",
-        content="这是胶囊的完整内容，记录了美好的回忆...",
-        visibility="public",
-        status="published",
-        created_at=datetime.utcnow(),
-        tags=["回忆", "青春", "纪念"],
-        location=Location(
-            latitude=31.2304,
-            longitude=121.4737,
-            address="上海市浦东新区"
-        ),
-        unlock_conditions=UnlockConditions(
-            type="time",
-            value="2024-12-31T23:59:59Z",
-            is_unlocked=False
-        ),
-        media_files=[
-            MediaFile(
-                id="file_123",
-                type="image",
-                url="https://example.com/files/photo.jpg",
-                thumbnail="https://example.com/files/thumb.jpg"
-            )
-        ],
-        creator=Creator(
-            user_id=user.user_id,
-            nickname=getattr(user, 'nickname', '用户'),
-            avatar=getattr(user, 'avatar', None)
-        ),
-        stats=CapsuleStats(
-            view_count=150,
-            like_count=25,
-            comment_count=8,
-            unlock_count=5,
-            is_liked=True,
-            is_collected=False
-        ),
-        updated_at=datetime.utcnow()
-    )
+    capsule = manager.get_capsule_detail(capsule_id, user.user_id)
+    if not capsule:
+        raise HTTPException(status_code=404, detail="胶囊不存在")
+    
+    data = _map_to_detail(capsule, user)
     
     return BaseResponse[CapsuleDetail].success(
         code=200,
         message="获取成功",
         data=data
-    )
-
-
-#数据库表映射到CapsuleBasic数据模型
-def _map_to_basic(c) -> CapsuleBasic:
-    """把 ORM / domain 对象映射为 CapsuleBasic"""
-    return CapsuleBasic(
-        id=str(getattr(c, "id", "")),
-        title=getattr(c, "title", ""),
-        visibility=getattr(c, "visibility", "private"),
-        status=getattr(c, "status", "draft"),
-        created_at=getattr(c, "created_at", datetime.utcnow()),
-        content_preview=(getattr(c, "text_content", "")[:120] if getattr(c, "text_content", None) else None),
-        cover_image=(getattr(c, "cover_img", None) or (getattr(c, "media_files", [None])[0].url if getattr(c, "media_files", None) else None)),
-        unlock_count=(getattr(c, "unlock_count", 0) if getattr(c, "unlock_count", None) is not None else 0),
-        like_count=(getattr(c, "like_count", 0) if getattr(c, "like_count", None) is not None else 0),
-        comment_count=(getattr(c, "comment_count", 0) if getattr(c, "comment_count", None) is not None else 0)
     )
 
 
@@ -151,24 +145,27 @@ async def get_my_capsules(
     page: int = Query(1, ge=1, description="页码"),
     limit: int = Query(20, ge=1, le=100, description="每页数量"),
     user: AuthorizedUser = Depends(login_required),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db)  # 添加这行
 ):
-    """从 DB 读取当前用户的胶囊并返回 CapsuleListResponse（CapsuleBasic 列表 + pagination）"""
+    """获取我的胶囊列表"""
     manager = CapsuleManager(db)
-    result = manager.get_user_capsules(user_id=user.user_id, page=page, limit=limit, status_filter=None)
-    items = result.get("capsules", [])
-    total = result.get("total", len(items))
-
-    basic_list = [ _map_to_basic(c) for c in items ]
-
+    
+    result = manager.get_user_capsules(user.user_id, page, limit)
+    capsules = result.get("capsules", [])
+    
+    basic_list = [_map_to_basic(c) for c in capsules]
+    
+    # 移除capsules_store，使用真实数据
+    total = result.get("total", len(capsules))
     total_pages = result.get("total_pages", (total + limit - 1) // limit if total > 0 else 1)
     pagination = Pagination(page=result.get("page", page), page_size=result.get("limit", limit), total=total, total_pages=total_pages)
-
-    return BaseResponse.success(
-        code = 200,
+    
+    return BaseResponse[CapsuleListResponse].success(
+        code=200,
         message="获取成功",
         data=CapsuleListResponse(capsules=basic_list, pagination=pagination)
     )
+
 
 
 #删除胶囊API
@@ -198,20 +195,30 @@ async def delete_capsule(
 async def edit_capsule(
     request: CapsuleUpdateRequest,
     capsule_id: str = Path(..., description="胶囊ID"),
-    user: AuthorizedUser = Depends(login_required)
+    user: AuthorizedUser = Depends(login_required),
+    db: Session = Depends(get_db)
 ):
-    """编辑胶囊"""
-    
-    # 这里可以添加数据库更新逻辑
-    # 目前先返回成功响应
-    
+    """编辑胶囊：通过 CapsuleManager.update_capsule_from_request 更新并返回结果（不使用 try/except）"""
+    manager = CapsuleManager(db)
+
+    # 直接调用 manager 的更新方法（方法在 services/capsule.py 中已实现）
+    updated = manager.update_capsule_from_request(capsule_id, request, user.user_id)
+    if not updated:
+        raise HTTPException(status_code=404, detail="胶囊不存在或无权限更新")
+
+    # 读取更新后的对象以获取 updated_at（若不可用则使用当前时间）
+    capsule = manager.get_capsule_detail(capsule_id, user.user_id)
+    updated_at = getattr(capsule, "updated_at", datetime.utcnow()) if capsule else datetime.utcnow()
+
+    resp = CapsuleUpdateResponse(
+        capsule_id=capsule_id,
+        updated_at=updated_at
+    )
+
     return BaseResponse[CapsuleUpdateResponse].success(
         code=200,
         message="更新成功",
-        data=CapsuleUpdateResponse(
-            capsule_id=capsule_id,
-            updated_at=datetime.utcnow()
-        )
+        data=resp
     )
 
 
@@ -224,21 +231,25 @@ async def edit_capsule(
 )
 async def save_draft(
     request: CapsuleDraftRequest,
-    user: AuthorizedUser = Depends(login_required)
+    user: AuthorizedUser = Depends(login_required),
+    db: Session = Depends(get_db)
 ):
     """保存草稿"""
-    draft_id = _make_capsule_id()
-    now = _now()
+    manager = CapsuleManager(db)
+    
+    capsule = manager.save_draft_from_request(request, user.user_id)
+    
     created = CapsuleDraftResponse(
-        draft_id=draft_id,
-        saved_at=now
-    )#APIFOX上需要的数据结构
-
+        draft_id=str(capsule.id),
+        saved_at=capsule.created_at
+    )
+    
     return BaseResponse[CapsuleDraftResponse].success(
-        code = 200,
-        message="操作成功",
+        code=200,
+        message="保存成功",
         data=created
     )
+
 
 #多模式浏览胶囊API
 # 多模式胶囊浏览API
@@ -255,102 +266,54 @@ async def browse_capsules(
     user: AuthorizedUser = Depends(login_required),
     db: Session = Depends(get_db)
 ):
-    """多模式浏览胶囊"""
-    # TODO: 从数据库查询胶囊数据
-    # 目前返回模拟数据
-    
+    """多模式浏览胶囊：从数据库通过 CapsuleManager 获取数据并按模型返回"""
+    manager = CapsuleManager(db)
+
     if mode == "map":
-        # 地图模式：返回带位置信息的胶囊
-        capsules = [
-            CapsuleBasic(
-                id="capsule_1",
-                title="外滩回忆",
-                visibility="public",
-                status="published",
-                created_at=datetime.utcnow(),
-                content_preview="在外滩的美好回忆...",
-                cover_image="https://picsum.photos/id/1/300/200",
-                like_count=25,
-                view_count=150
-            ),
-            CapsuleBasic(
-                id="capsule_2", 
-                title="同济时光",
-                visibility="public",
-                status="published",
-                created_at=datetime.utcnow(),
-                content_preview="在同济大学的点点滴滴...",
-                cover_image="https://picsum.photos/id/2/300/200",
-                like_count=30,
-                view_count=200
-            )
-        ]
-        
+        # 地图模式：取有位置信息的胶囊（支持分页）
+        capsules_orm = manager.get_capsules_with_location(user.user_id, page=page, limit=limit)
+        capsules = [_map_to_basic(c) for c in capsules_orm]
+
+        total = len(capsules_orm)  # 若需要真实 total，后续在 Manager 中增加 count 查询
+        total_pages = (total + limit - 1) // limit if total > 0 else 1
+        pagination = Pagination(page=page, page_size=limit, total=total, total_pages=total_pages)
+
         data = MultiModeBrowseResponse(
             mode=mode,
-            capsules=capsules
+            capsules=capsules,
+            pagination=pagination
         )
-        
+
     elif mode == "timeline":
-        # 时间轴模式：按时间分组的胶囊
-        timeline_groups = {
-            "2024年1月": [
-                CapsuleBasic(
-                    id="capsule_3",
-                    title="新年愿望",
-                    visibility="public",
-                    status="published", 
-                    created_at=datetime(2024, 1, 15, 10, 30),
-                    content_preview="2024年的新年愿望...",
-                    cover_image="https://picsum.photos/id/3/300/200",
-                    like_count=15,
-                    view_count=80
-                )
-            ],
-            "2023年12月": [
-                CapsuleBasic(
-                    id="capsule_4",
-                    title="圣诞回忆",
-                    visibility="public",
-                    status="published",
-                    created_at=datetime(2023, 12, 25, 18, 0),
-                    content_preview="圣诞节的美好时光...",
-                    cover_image="https://picsum.photos/id/4/300/200", 
-                    like_count=20,
-                    view_count=120
-                )
-            ]
-        }
-        
+        # 时间轴模式：按月份分组返回（不分页）
+        timeline_raw = manager.get_capsules_by_timeline(user.user_id)
+        timeline_groups = {}
+        for month, group in timeline_raw.items():
+            timeline_groups[month] = [_map_to_basic(c) for c in group]
+
         data = MultiModeBrowseResponse(
             mode=mode,
             timeline_groups=timeline_groups
         )
-        
+
     elif mode == "tags":
-        # 标签模式：按标签分类的胶囊
-        capsules = [
-            CapsuleBasic(
-                id="capsule_5",
-                title="毕业纪念",
-                visibility="public",
-                status="published",
-                created_at=datetime.utcnow(),
-                content_preview="毕业典礼的珍贵时刻...",
-                cover_image="https://picsum.photos/id/5/300/200",
-                like_count=50,
-                view_count=300
-            )
-        ]
-        
+        # 标签模式：按标签/分页返回
+        capsules_orm = manager.get_capsules_by_tags(user.user_id, page=page, limit=limit)
+        capsules = [_map_to_basic(c) for c in capsules_orm]
+
+        total = len(capsules_orm)
+        total_pages = (total + limit - 1) // limit if total > 0 else 1
+        pagination = Pagination(page=page, page_size=limit, total=total, total_pages=total_pages)
+
         data = MultiModeBrowseResponse(
             mode=mode,
-            capsules=capsules
+            capsules=capsules,
+            pagination=pagination
         )
-        
+
     else:
         raise HTTPException(status_code=400, detail="不支持的浏览模式")
-    
+
     return BaseResponse[MultiModeBrowseResponse].success(
         code=200,
         message="获取成功",
