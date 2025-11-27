@@ -25,7 +25,7 @@ from app.auth.dependencies import login_required
 from app.domain.user import AuthorizedUser
 
 # 创建API路由
-router = APIRouter()
+router = APIRouter(prefix='/capsules', tags=['Capsules'])
 
 def _map_to_basic(capsule) -> CapsuleBasic:
     """把ORM对象映射为CapsuleBasic"""
