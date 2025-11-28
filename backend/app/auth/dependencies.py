@@ -3,30 +3,8 @@ from fastapi import HTTPException
 from typing import Optional, Union
 
 # 修复导入路径
-try:
-    from app.auth.jwt_handler import JWTHandler, AccessTokenPayload, RefreshTokenPayload
-except ImportError:
-    try:
-        from auth.jwt_handler import JWTHandler, AccessTokenPayload, RefreshTokenPayload
-    except ImportError:
-        print("Warning: Could not import JWT handler")
-        JWTHandler = None
-        AccessTokenPayload = None
-        RefreshTokenPayload = None
-
-try:
-    from app.domain.user import UserFactory, UserRole, BaseUser, RegisteredUser, AdminUser, AuthorizedUser
-except ImportError:
-    try:
-        from domain.user import UserFactory, UserRole, BaseUser, RegisteredUser, AdminUser, AuthorizedUser
-    except ImportError:
-        print("Warning: Could not import user domain models")
-        UserFactory = None
-        UserRole = None
-        BaseUser = None
-        RegisteredUser = None
-        AdminUser = None
-        AuthorizedUser = None
+from app.auth.jwt_handler import JWTHandler, AccessTokenPayload, RefreshTokenPayload
+from app.domain.user import UserFactory, UserRole, BaseUser, RegisteredUser, AdminUser, AuthorizedUser
 
 def get_user_from_token(authorization:str) -> BaseUser:
     parts = authorization.split()

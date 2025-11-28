@@ -138,3 +138,10 @@ class MyCapsulesQuery(BaseModel):
     page: int = Field(1, ge=1)
     page_size: int = Field(20, ge=1, le=100)
     status: str = Field("all", pattern="^(all|draft|published)$")
+
+
+class MultiModeBrowseResponse(BaseModel):
+    """多模式浏览响应模型"""
+    mode: str  # "map", "timeline", "tags"
+    capsules: List[CapsuleBasic] | None = None
+    timeline_groups: dict | None = None  # timeline模式使用 {"2024年1月": [...], "2023年12月": [...]}
