@@ -14,14 +14,10 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
-
 # 修复数据库导入路径
 from database.database import create_tables
-
-
 # 修复API路由导入路径 - 使用相对导入
-try:
-    from api.v1 import (
+from app.api.v1 import (
         admin_router,
         auth_router,
         capsule_router,
@@ -32,27 +28,7 @@ try:
         upload_router,
         report_router
     )
-except ImportError as e:
-    print(f"Warning: Could not import from api.v1: {e}")
-    admin_router = auth_router = capsule_router = None
-    unlock_router = interaction_router = user_router = None
-    friend_router = upload_router = report_router = None
 
-# 尝试导入旧的路由结构以保持兼容性
-try:
-    from api.v1.routes import (
-        auth_router as legacy_auth_router,
-        event_router,
-        hub_router,
-        map_router,
-        user_router as legacy_user_router
-    )
-    # 使用新的路由器，如果不存在则使用旧的
-    auth_router = auth_router or legacy_auth_router
-    user_router = user_router or legacy_user_router
-except ImportError as e:
-    print(f"Warning: Could not import legacy routes: {e}")
-    event_router = hub_router = map_router = None
 
 # 创建 FastAPI 应用实例
 app = FastAPI(
@@ -83,14 +59,6 @@ if upload_router:
     app.include_router(upload_router, prefix="/api/v1")
 if report_router:
     app.include_router(report_router, prefix="/api/v1")
-
-# 注册旧的路由以保持兼容性
-if event_router:
-    app.include_router(event_router, prefix="/api/v1")
-if hub_router:
-    app.include_router(hub_router, prefix="/api/v1")
-if map_router:
-    app.include_router(map_router, prefix="/api/v1")
 
 
 # 配置静态文件服务
