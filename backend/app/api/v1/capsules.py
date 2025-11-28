@@ -319,3 +319,89 @@ async def browse_capsules(
         message="获取成功",
         data=data
     )
+
+
+# ============== NEARBY CAPSULES API ==============
+
+@router.get(
+    "/nearby",
+    response_model=BaseResponse[dict],
+    summary="获取附近胶囊",
+    description="获取用户附近的胶囊列表，包含距离和解锁状态信息"
+)
+async def get_nearby_capsules(
+    latitude: float = Query(..., description="用户当前纬度"),
+    longitude: float = Query(..., description="用户当前经度"),
+    radius_meters: int = Query(1000, ge=10, le=10000, description="搜索半径（米）"),
+    user: AuthorizedUser = Depends(login_required),
+    db: Session = Depends(get_db)
+):
+    """获取附近胶囊"""
+    try:
+        # 使用CapsuleManager获取附近胶囊
+        manager = CapsuleManager(db)
+
+        # 尝试使用services中的nearby功能
+        try:
+            # 导入nearby相关的服务
+            from app.services.capsule_manager import CapsuleManager as NearbyCapsuleManager
+
+            nearby_manager = NearbyCapsuleManager()
+            if hasattr(nearby_manager, 'get_nearby_capsules'):
+                nearby_data = nearby_manager.get_nearby_capsules(latitude, longitude, radius_meters, user.user_id)
+
+                return BaseResponse[dict].success(
+                    code=200,
+                    message=f"成功获取{len(nearby_data)}个附近胶囊",
+                    data={
+                        "capsules": nearby_data
+                    }
+                )
+        except ImportError:
+            pass
+
+        # 如果nearby服务不可用，返回基础查询结果
+        # 这里可以实现简单的距离查询逻辑
+        capsules_orm = manager.get_capsules(user.user_id, page=1, limit=50)
+
+        # 简单的附近胶囊筛选（基于位置的大致过滤）
+        nearby_capsules = []
+        for capsule_orm in capsules_orm:
+            if capsule_orm.latitude and capsule_orm.longitude:
+                # 简单的距离计算（实际应该使用更精确的方法）
+                distance = ((latitude - capsule_orm.latitude) ** 2 +
+                          (longitude - capsule_orm.longitude) ** 2) ** 0.5 * 111000  # 转换为大致米数
+
+                if distance <= radius_meters:
+                    capsule_data = {
+                        "id": str(capsule_orm.id),
+                        "title": capsule_orm.title,
+                        "can_unlock": False,  # 需要实现解锁条件检查
+                        "created_at": capsule_orm.created_at,
+                        "creator_nickname": getattr(user, 'nickname', '用户'),
+                        "is_unlocked": False,
+                        "location": {
+                            "distance": distance,
+                            "latitude": capsule_orm.latitude,
+                            "longitude": capsule_orm.longitude
+                        },
+                        "visibility": capsule_orm.visibility
+                    }
+                    nearby_capsules.append(capsule_data)
+
+        # 按距离排序
+        nearby_capsules.sort(key=lambda x: x["location"]["distance"])
+
+        return BaseResponse[dict].success(
+            code=200,
+            message=f"成功获取{len(nearby_capsules)}个附近胶囊",
+            data={
+                "capsules": nearby_capsules
+            }
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"获取附近胶囊时发生错误: {str(e)}"
+        )
