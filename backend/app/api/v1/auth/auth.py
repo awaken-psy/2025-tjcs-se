@@ -9,7 +9,7 @@ from datetime import datetime
 from app.auth.jwt_handler import JWTHandler, JWTConfig
 from app.domain.user import UserFactory
 
-from app.model.auth_model import TokenRequest, TokenResponse, RefreshTokenRequest, UserInfoResponse
+from app.model.auth import TokenRequest, TokenResponse, RefreshTokenRequest, UserInfoResponse
 
 from ..routes import auth_router as router
 
