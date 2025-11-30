@@ -4,6 +4,7 @@ Unlock API interface - 解锁功能实现
 from fastapi import APIRouter, Depends, Path, Query
 from typing import Optional
 from datetime import datetime
+from pydantic import BaseModel
 import secrets
 
 # 导入解锁相关的模型

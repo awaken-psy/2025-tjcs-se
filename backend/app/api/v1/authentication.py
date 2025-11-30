@@ -118,7 +118,7 @@ async def login(
         # 执行用户登录
         success, message, user_data = LoginManager().login_user(
             email_or_username=request.email,
-            password_hash=request.password
+            password=request.password
         )
 
         if success and user_data:

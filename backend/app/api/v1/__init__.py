@@ -12,8 +12,7 @@ from .friends import router as friend_router
 from .upload import router as upload_router
 from .reports import router as report_router
 
-# 导入胶囊相关路由（保持向后兼容）
-# 使用新的路由器，如果不存在则使用旧的
+# 导出路由器
 capsule_router = capsule_router
 unlock_router = unlock_router
 

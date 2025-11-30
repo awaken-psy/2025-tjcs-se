@@ -69,7 +69,6 @@ coverage.xml
 
 # 本地配置文件（如敏感信息）
 *.local
-*.env
 .env.local
 .env.*.local
 

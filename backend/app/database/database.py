@@ -1,4 +1,5 @@
 import os
+from urllib.parse import quote_plus
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
@@ -37,15 +38,18 @@ DATABASE_CONFIG = {
 
 def get_database_url():
     """获取数据库连接URL"""
-    db_type = os.getenv("DB_TYPE", "sqlite").lower()
+    db_type = os.getenv("DB_TYPE", "mysql").lower()
 
-    if db_type == "sqlite":
+    if db_type == "mysql":
+        config = DATABASE_CONFIG["mysql"]
+        # 对用户名和密码进行URL编码以处理特殊字符
+        username_encoded = quote_plus(config['username'])
+        password_encoded = quote_plus(config['password'])
+        return f"{config['driver']}://{username_encoded}:{password_encoded}@{config['host']}:{config['port']}/{config['database']}?charset={config['charset']}"
+    else:
+        # 默认使用SQLite
         config = DATABASE_CONFIG["sqlite"]
         return f"sqlite:///{config['database']}"
-
-    # 简化：默认使用SQLite，避免MySQL依赖问题
-    config = DATABASE_CONFIG["sqlite"]
-    return f"sqlite:///{config['database']}"
 
 
 def create_engine_with_config()->Engine:

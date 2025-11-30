@@ -206,7 +206,7 @@ import {
   getCapsuleMarkers,
   getHeatmapData,
   getUserLocation
-} from '@/api/mapApi.js'
+} from '@/api/new/capsulesApi.js'
 
 /**
  * 页面作用：

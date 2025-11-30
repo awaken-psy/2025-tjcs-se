@@ -351,7 +351,7 @@
 
 <script setup>
 import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
-import { createCapsule } from '../api/mapApi.js'
+import { createCapsule } from '../api/new/capsulesApi.js'
 import { uploadCapsuleImage } from '../api/myCapsuleApi.js'
 
 // Props
@@ -381,7 +381,9 @@ const formData = reactive({
   location: '',
   lat: null,
   lng: null,
-  image: null
+  image: null,
+  imageUrl: '',
+  imageFileId: ''
 })
 
 // 表单错误
@@ -501,15 +503,17 @@ watch(() => props.editData, (newData) => {
       visibility: newData.visibility || 'public',
       location: newData.location || '',
       lat: newData.lat || null,
-      lng: newData.lng || null
+      lng: newData.lng || null,
+      imageUrl: newData.imageUrl || newData.img || '',
+      imageFileId: newData.imageFileId || ''
     })
-    
+
     if (newData.tags) {
       selectedTags.value = Array.isArray(newData.tags) ? [...newData.tags] : []
     }
-    
-    if (newData.image) {
-      previewImage.value = newData.image
+
+    if (newData.image || newData.imageUrl || newData.img) {
+      previewImage.value = newData.image || newData.imageUrl || newData.img
     }
   }
 }, { immediate: true })
@@ -523,7 +527,9 @@ const resetForm = () => {
     location: '',
     lat: null,
     lng: null,
-    image: null
+    image: null,
+    imageUrl: '',
+    imageFileId: ''
   })
   selectedTags.value = []
   tagInput.value = ''
@@ -663,7 +669,7 @@ const handleImageUpload = async (event) => {
   }
 
   // 显示上传进度
-  uploadProgress.value = 1
+  uploadProgress.value = 20
 
   try {
     // 创建预览（立即显示，不等待上传完成）
@@ -673,35 +679,64 @@ const handleImageUpload = async (event) => {
     }
     reader.readAsDataURL(file)
 
-    // 上传图片到服务器
-    const uploadResult = await uploadCapsuleImage(file)
+    uploadProgress.value = 50
 
-    if (uploadResult.code === 200 || uploadResult.success) {
-      // 上传成功，保存图片URL
-      formData.imageUrl = uploadResult.data?.url || uploadResult.data?.access_url
-      formData.image = file  // 保留File对象以备后用
+    // 上传图片到服务器
+    console.log('开始上传图片:', file.name, file.size, 'bytes')
+    const uploadResult = await uploadCapsuleImage(file)
+    console.log('图片上传API响应:', uploadResult)
+
+    uploadProgress.value = 80
+
+    // 处理响应数据 - 适配后端返回的数据结构
+    if (uploadResult && uploadResult.file_id) {
+      // 新API返回格式：直接返回data对象
+      formData.imageFileId = uploadResult.file_id
+      formData.imageUrl = uploadResult.url
+      formData.image = file
 
       showAlertMessage('图片上传成功', 'success')
-      console.log('图片上传结果:', uploadResult)
+      console.log('保存的图片信息:', {
+        fileId: formData.imageFileId,
+        url: formData.imageUrl,
+        size: uploadResult.size
+      })
+    } else if (uploadResult && uploadResult.success && uploadResult.data) {
+      // 备用格式：data包装的响应
+      formData.imageFileId = uploadResult.data.file_id || uploadResult.data.filename
+      formData.imageUrl = uploadResult.data.url || uploadResult.data.access_url
+      formData.image = file
+
+      showAlertMessage('图片上传成功', 'success')
+      console.log('保存的图片信息:', {
+        fileId: formData.imageFileId,
+        url: formData.imageUrl
+      })
     } else {
-      throw new Error(uploadResult.message || '图片上传失败')
+      throw new Error(uploadResult?.message || '图片上传失败：未返回文件信息')
     }
+
+    uploadProgress.value = 100
 
   } catch (error) {
     console.error('图片上传失败:', error)
-    showAlertMessage(`图片上传失败: ${error.message}`, 'error')
+    showAlertMessage(`图片上传失败: ${error.message || error}`, 'error')
 
     // 上传失败时，清除预览
     previewImage.value = ''
     formData.image = null
     formData.imageUrl = ''
+    formData.imageFileId = ''
 
     // 重置文件输入
     if (fileInput.value) {
       fileInput.value.value = ''
     }
   } finally {
-    uploadProgress.value = 0
+    // 延迟清除进度条，让用户看到完成状态
+    setTimeout(() => {
+      uploadProgress.value = 0
+    }, 1000)
   }
 }
 
@@ -709,6 +744,8 @@ const removeImage = () => {
   previewImage.value = ''
   formData.image = null
   formData.imageUrl = ''
+  formData.imageFileId = ''
+  uploadProgress.value = 0
   if (fileInput.value) {
     fileInput.value.value = ''
   }
@@ -801,31 +838,19 @@ const handleSubmit = async() => {
       lng = 116.302 // 默认经纬度
     }
 
-    // 构造完整的提交数据（去除用户信息字段，严格对齐后端模型）
+    // 构造新API格式的提交数据
     const submitData = {
-      // 基础信息
       title: formData.title.trim(),
       content: formData.content.trim(),
       visibility: formData.visibility,
       tags: [...selectedTags.value],
-
-      // 位置信息
-      location,
-      lat,
-      lng,
-
-      // 时间信息（自动生成，不暴露给用户）
-      createTime: new Date().toISOString(),
-      updateTime: new Date().toISOString(),
-
-      // 图片信息
-      image: formData.image,
-      imageUrl: previewImage.value,
-
-      // 统计信息（初始化）
-      likes: 0,
-      views: 0,
-      status: 'active'
+      location: {
+        latitude: lat,
+        longitude: lng,
+        address: location
+      },
+      unlock_conditions: null,
+      media_files: formData.imageFileId ? [formData.imageFileId] : []
     }
 
     console.log('提交的胶囊数据:', submitData)
@@ -834,16 +859,17 @@ const handleSubmit = async() => {
     const result = await createCapsule(submitData)
     console.log('创建胶囊结果:', result)
 
-    if (result.code === 200) {
+    // 如果没有抛出异常，说明创建成功（request拦截器已处理状态码）
+    if (result && result.capsule_id) {
       showAlertMessage('胶囊创建成功！', 'success')
-      
+
       // 延迟关闭模态框，让用户看到成功消息
       setTimeout(() => {
         emit('submit', submitData)
         handleClose()
       }, 1500)
     } else {
-      throw new Error(result.message || '创建胶囊失败')
+      throw new Error('创建胶囊失败：未返回胶囊ID')
     }
 
   } catch (error) {

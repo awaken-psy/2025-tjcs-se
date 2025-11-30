@@ -5,9 +5,8 @@ import jwt
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional, Tuple, List, Union
 from enum import Enum
-from domain.user import UserRole, Permission
 from pydantic import BaseModel, Field, ValidationError
-from domain.user import UserRole, Permission, GuestUser, RegisteredUser, AdminUser, BaseUser
+from app.domain.user import UserRole, Permission, GuestUser, RegisteredUser, AdminUser, BaseUser
 
 
 class JWTConfig:
@@ -29,13 +28,13 @@ class JWTConfig:
 
 class AccessTokenPayload(BaseModel):
     """访问令牌"""
-    sub: int = Field(..., description="用户ID")
+    sub: str = Field(..., description="用户ID")  # 改为字符串类型以符合JWT标准
     username: str = Field(..., description="用户名")
     role: UserRole = Field(..., description="用户角色")
     permissions: List[Permission] = Field([], description="用户权限列表")
     token_type: JWTConfig.TokenType = Field(..., description="Token类型")
-    iat: datetime = Field(..., description="发行时间")
-    exp: datetime = Field(..., description="过期时间")
+    iat: int = Field(..., description="发行时间")
+    exp: int = Field(..., description="过期时间")
 
     # @staticmethod
     # def from_user(user: AuthenticatedUser|AdminUser):
@@ -53,11 +52,11 @@ class AccessTokenPayload(BaseModel):
 
 class RefreshTokenPayload(BaseModel):
     """刷新令牌"""
-    sub: int = Field(..., description="用户ID")
+    sub: str = Field(..., description="用户ID")  # 改为字符串类型以符合JWT标准
     username: str = Field(..., description="用户名")
     token_type: JWTConfig.TokenType = Field(..., description="Token类型")
-    iat: datetime = Field(..., description="发行时间")
-    exp: datetime = Field(..., description="过期时间")
+    iat: int = Field(..., description="发行时间")
+    exp: int = Field(..., description="过期时间")
 
     # @staticmethod
     # def from_user(user: AuthenticatedUser|AdminUser):
@@ -119,13 +118,13 @@ class JWTHandler:
 
 
         payload = AccessTokenPayload(
-            sub=user_id,  # Subject - 用户ID
+            sub=str(user_id),  # Subject - 用户ID，转换为字符串符合JWT标准
             username=username,
             role=role,
             permissions=permissions or [],
             token_type=JWTConfig.TokenType.TOKEN_TYPE_ACCESS,
-            iat=datetime.now(timezone.utc),  # 发行时间
-            exp=datetime.now(timezone.utc) + timedelta(hours=expires_hours),  # 过期时间
+            iat=int(datetime.now(timezone.utc).timestamp()),  # 发行时间
+            exp=int((datetime.now(timezone.utc) + timedelta(hours=expires_hours)).timestamp()),  # 过期时间
         )
         
         return JWTHandler.generate_token(payload)
@@ -174,11 +173,11 @@ class JWTHandler:
         
 
         payload = RefreshTokenPayload(
-            sub=user_id,
+            sub=str(user_id),  # 转换为字符串符合JWT标准
             username=username,
             token_type=JWTConfig.TokenType.TOKEN_TYPE_REFRESH,
-            iat=datetime.now(timezone.utc),  # 发行时间
-            exp=datetime.now(timezone.utc) + timedelta(days=expires_days),  # 过期时间
+            iat=int(datetime.now(timezone.utc).timestamp()),  # 发行时间
+            exp=int((datetime.now(timezone.utc) + timedelta(days=expires_days)).timestamp()),  # 过期时间
         )
         
         return JWTHandler.generate_token(payload)
@@ -300,7 +299,7 @@ class JWTHandler:
         
         # 生成新的 access token
         new_access_token = JWTHandler.generate_access_token(
-            user_id=payload.sub,
+            user_id=int(payload.sub),  # 转换回整数类型
             username=payload.username,
             role=UserRole.USER,  # TODO: 默认为 USER，实际应从数据库获取
             permissions=[]

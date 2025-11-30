@@ -18,13 +18,13 @@ def get_user_from_token(authorization:str) -> BaseUser:
     if payload.role == UserRole.GUEST:
         return UserFactory.create_guest_user()
     elif payload.role == UserRole.USER:
-        return UserFactory.create_registered_user(user_id=payload.sub, username=payload.username)
+        return UserFactory.create_registered_user(user_id=int(payload.sub), username=payload.username)
     elif payload.role == UserRole.ADMIN:
-        return UserFactory.create_admin_user(user_id=payload.sub, username=payload.username)
+        return UserFactory.create_admin_user(user_id=int(payload.sub), username=payload.username)
     else:
         raise HTTPException(status_code=401, detail="Unkown user role")
     
-def login_required(authorization: str=Header()) -> AuthorizedUser:
+def login_required(authorization: str=Header(alias="Authorization")) -> AuthorizedUser:
     user = get_user_from_token(authorization)
     if not isinstance(user, (RegisteredUser, AdminUser)):
         raise HTTPException(status_code=401, detail="User not authorized")

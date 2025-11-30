@@ -35,9 +35,9 @@ class CapsuleManager:
             text_content=request.content,
             user_id=user_id,
             visibility=request.visibility,
-            latitude=request.location.latitude if request.location else None,
-            longitude=request.location.longitude if request.location else None,
-            address=request.location.address if request.location else None,
+            latitude=request.location.latitude if request.location else 0.0,
+            longitude=request.location.longitude if request.location else 0.0,
+            address=request.location.address if request.location else "未指定位置",
             status='draft'
         )
         
@@ -277,6 +277,9 @@ class CapsuleManager:
             text_content=request.content or "",
             user_id=user_id,
             visibility=request.visibility or 'private',
+            latitude=0.0,
+            longitude=0.0,
+            address="未指定位置",
             status='draft'
         )
         

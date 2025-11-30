@@ -13,30 +13,25 @@ export const createCapsule = async (data) => {
     throw new Error('标题、内容、可见性为必填项')
   }
 
-  // 构造后端需要的数据对象 - 严格匹配后端模型
+  // 构造新API格式的数据对象
   const payload = {
     title: data.title,
     content: data.content,
     visibility: data.visibility,
     tags: data.tags || [],
-    location: data.location || '',
-    lat: data.lat || 0,
-    lng: data.lng || 0,
-    createTime: data.createTime,
-    updateTime: data.updateTime,
-    imageUrl: data.imageUrl || '',  // 只发送imageUrl，不发送imag
-    likes: data.likes || 0,
-    views: data.views || 0
-    // 注意：完全移除以下字段
-    // - image (File对象无法序列化)
-    // - status (后端自动设置)
-    // - userId, userEmail, userName (后端自动获取)
+    location: (data.lat && data.lng) ? {
+      latitude: data.lat,
+      longitude: data.lng,
+      address: data.location || ''
+    } : null,
+    unlock_conditions: data.unlock_conditions || null,
+    media_files: data.media_files || []
   }
 
-  console.log('发送到后端的胶囊数据:', payload)
+  console.log('发送到后端的胶囊数据（新API格式）:', payload)
 
   return await request({
-    url: '/capsule/create',
+    url: '/capsules',
     method: 'post',
     data: payload
   })
@@ -49,7 +44,7 @@ export const createCapsule = async (data) => {
  */
 export const getMyCapsules = async (params = {}) => {
   return await request({
-    url: '/capsule/my',
+    url: '/capsules/my',
     method: 'get',
     params
   })
@@ -62,7 +57,7 @@ export const getMyCapsules = async (params = {}) => {
  */
 export const getCapsuleDetail = async (capsuleId) => {
   return await request({
-    url: `/capsule/detail/${capsuleId}`,
+    url: `/capsules/${capsuleId}`,
     method: 'get'
   })
 }
