@@ -4,12 +4,27 @@
 import request from '@/utils/request'
 
 /**
+ * 发送验证码
+ * @param {Object} emailData - 邮箱数据
+ * @param {string} emailData.email - 邮箱地址
+ * @returns {Promise}
+ */
+export const sendCode = (emailData) => {
+  return request({
+    url: '/auth/sendcode',
+    method: 'post',
+    data: emailData
+  })
+}
+
+/**
  * 用户注册
  * @param {Object} registerData - 注册数据
  * @param {string} registerData.email - 邮箱
  * @param {string} registerData.password - 加密后的密码
  * @param {string} registerData.nickname - 昵称
  * @param {string} registerData.student_id - 学号
+ * @param {string} registerData.verify_code - 验证码
  * @returns {Promise}
  */
 export const register = (registerData) => {

@@ -232,28 +232,6 @@ async def upload_file(
         )
 
 
-@router.post("/file", response_model=UploadResponse)
-async def upload_file_legacy(
-    file: UploadFile = File(...)
-):
-    """上传文件 - 兼容接口"""
-    return await upload_file(file=file)
-
-
-@router.post("/image", response_model=UploadResponse)
-async def upload_image_legacy(
-    file: UploadFile = File(...)
-):
-    """上传图片 - 兼容接口"""
-    return await upload_file(file=file, type=Type.Image)
-
-
-@router.post("/audio", response_model=UploadResponse)
-async def upload_audio_legacy(
-    file: UploadFile = File(...)
-):
-    """上传音频 - 兼容接口"""
-    return await upload_file(file=file, type=Type.Audio)
 
 
 @router.delete("/file/{file_id}", response_model=UploadResponse)

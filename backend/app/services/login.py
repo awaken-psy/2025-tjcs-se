@@ -20,14 +20,14 @@ class LoginManager:
     def login_user(
         self,
         email_or_username: str,
-        password_hash: str
+        password: str
     ) -> Tuple[bool, str, Optional[dict]]:
         """
         用户登录
 
         Args:
             email_or_username: 邮箱或用户名
-            password: 密码
+            password: 密码 (来自前端的SHA-256哈希值)
 
         Returns:
             (success, message, user_data): 是否成功、消息和用户数据
@@ -42,8 +42,9 @@ class LoginManager:
             if not user_domain.is_active:
                 return False, "用户账户已被禁用或未激活", None
 
-            # 3. 验证密码
-            if user_domain.password_hash != password_hash:
+            # 3. 验证密码 (前端发送的是SHA-256哈希，需要用bcrypt验证)
+            password_valid, password_message = PasswordManager.verify_password(password, user_domain.password_hash)
+            if not password_valid:
                 return False, "用户不存在或密码错误", None
 
             # 4. 更新最后登录时间

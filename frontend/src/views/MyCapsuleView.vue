@@ -164,8 +164,8 @@
         </div>
         <div class="modal-body">
           <div class="detail-meta">
-            <span><i class="fas fa-clock" /> {{ formatStandard(currentDetailData.time) }}</span>
-            <span><i class="fas fa-lock" /> {{ getVisText(currentDetailData.vis) }}</span>
+            <span v-if="currentDetailData.time"><i class="fas fa-clock" /> {{ formatStandard(currentDetailData.time) }}</span>
+            <span v-if="currentDetailData.vis"><i class="fas fa-lock" /> {{ getVisText(currentDetailData.vis) }}</span>
             <span><i class="fas fa-unlock-alt" /> {{ getUnlockText(currentDetailData.unlockType, currentDetailData.unlockValue) }}</span>
             <span><i class="fas fa-map-marker-alt" /> {{ currentDetailData.location || '未知位置' }}</span>
           </div>
@@ -180,10 +180,10 @@
             >
           </div>
           <div class="detail-desc">
-            {{ currentDetailData.desc }}
+            {{ currentDetailData.desc || '无内容描述' }}
           </div>
-          <div class="detail-tags">
-            <span 
+          <div v-if="currentDetailData.tags && currentDetailData.tags.length > 0" class="detail-tags">
+            <span
               v-for="(tag, idx) in currentDetailData.tags"
               :key="idx"
               class="tag-item"
@@ -192,8 +192,8 @@
             </span>
           </div>
           <div class="detail-stats">
-            <span class="stat-item"><i class="fas fa-heart" /> {{ currentDetailData.likes }} 点赞</span>
-            <span class="stat-item"><i class="fas fa-eye" /> {{ currentDetailData.views }} 浏览</span>
+            <span class="stat-item"><i class="fas fa-heart" /> {{ currentDetailData.likes || 0 }} 点赞</span>
+            <span class="stat-item"><i class="fas fa-eye" /> {{ currentDetailData.views || 0 }} 浏览</span>
           </div>
         </div>
         <div class="modal-actions">
@@ -228,6 +228,7 @@ import CapsuleForm from '@/components/CapsuleForm.vue'; // 使用与中枢页相
 import Sidebar from '@/components/Sidebar.vue'
 // 引入API - 使用与中枢页相同的胶囊创建API
 import { deleteCapsule, getMyCapsules } from '@/api/myCapsuleApi.js'
+import { getCapsuleDetail } from '@/api/new/capsulesApi.js'
 
 /**
  * 页面作用：
@@ -331,20 +332,42 @@ const fetchCapsuleList = async() => {
   try {
     const res = await getMyCapsules({
       page: currentPage.value,
-      size: pageSize.value,
+      limit: pageSize.value,
       vis: filter.value.vis
     })
-    // 兼容后端返回data为数组或分页对象
-    if (Array.isArray(res.data)) {
-      capsuleList.value = res.data
+    // 处理后端返回的数据结构 {data: {capsules: [], pagination: {}}}
+    let rawCapsules = []
+    if (res && res.capsules && Array.isArray(res.capsules)) {
+      rawCapsules = res.capsules
+      capsuleTotal.value = res.pagination?.total || res.capsules.length
+    } else if (Array.isArray(res.data)) {
+      // 兼容旧格式
+      rawCapsules = res.data
       capsuleTotal.value = res.data.length
     } else if (res.data && Array.isArray(res.data.list)) {
-      capsuleList.value = res.data.list
+      // 兼容另一种格式
+      rawCapsules = res.data.list
       capsuleTotal.value = res.data.total || res.data.list.length
     } else {
-      capsuleList.value = []
+      rawCapsules = []
       capsuleTotal.value = 0
     }
+
+    // 映射后端字段到前端期望的字段格式
+    capsuleList.value = rawCapsules.map(capsule => ({
+      id: capsule.id,
+      title: capsule.title,
+      desc: capsule.content_preview || '', // 映射 content_preview -> desc
+      vis: capsule.visibility, // 映射 visibility -> vis
+      time: capsule.created_at, // 映射 created_at -> time
+      likes: capsule.like_count || 0, // 映射 like_count -> likes
+      views: capsule.unlock_count || 0,
+      tags: capsule.tags || [],
+      status: capsule.status,
+      cover: capsule.cover_image,
+      // 保留原始数据以备其他用途
+      ...capsule
+    }))
   } catch (error) {
     console.error('加载我的胶囊列表失败：', error)
     // 错误降级：显示基础模拟数据
@@ -388,9 +411,12 @@ const getVisText = (vis) => {
  * 辅助函数：获取解锁条件文本
  */
 const getUnlockText = (type, value) => {
+  // 如果没有触发条件（type为null或undefined），显示"无特殊条件"
+  if (!type) return '无特殊条件'
+
   switch (type) {
   case 'time': return `时间触发（${formatStandard(value)}后）`
-  case 'event': 
+  case 'event':
     const eventMap = { 'graduation': '毕业典礼', 'freshman': '新生入学', 'anniversary': '校庆' }
     return `事件触发（${eventMap[value] || value}）`
   case 'location': return '地点触发（靠近5米内）'
@@ -472,11 +498,40 @@ const handlePageChange = async(page) => {
 }
 
 // —— 共用组件 CapsuleActionButtons 事件处理 ——
-const handleViewCapsule = (capsuleId) => {
-  const capsule = capsuleList.value.find(c => c.id === capsuleId)
-  if (capsule) {
-    currentDetailData.value = capsule
+const handleViewCapsule = async (capsuleId) => {
+  try {
+    // 调用详情API获取完整数据
+    // 注意：response 已经是解构后的 data 对象，因为响应拦截器已处理过
+    const detail = await getCapsuleDetail(capsuleId)
+    console.log('获取到的胶囊详情数据：', detail)
+
+    // 映射API数据到前端显示格式
+    currentDetailData.value = {
+      id: detail.id,
+      title: detail.title || '无标题',
+      desc: detail.content || '无描述',
+      time: detail.created_at,
+      vis: detail.visibility,
+      tags: detail.tags || [],
+      likes: detail.stats?.like_count || 0,
+      views: detail.stats?.view_count || 0,
+      location: detail.location?.address || (detail.location ? `${detail.location.latitude}, ${detail.location.longitude}` : '未知位置'),
+      unlockType: detail.unlock_conditions?.type || null,
+      unlockValue: detail.unlock_conditions?.value || null,
+      img: detail.media_files && detail.media_files.length > 0 ? detail.media_files[0].url : null
+    }
+    console.log('映射后的详情数据：', currentDetailData.value)
     showDetailModal.value = true
+  } catch (error) {
+    console.error('获取胶囊详情失败：', error)
+    // 降级到使用列表中的数据
+    const capsule = capsuleList.value.find(c => c.id === capsuleId)
+    if (capsule) {
+      currentDetailData.value = capsule
+      showDetailModal.value = true
+    } else {
+      alert('无法获取胶囊详情，请稍后重试')
+    }
   }
 }
 

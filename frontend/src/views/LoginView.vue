@@ -280,14 +280,43 @@
 
         <div class="field">
           <label for="reg-student-id">学号（可选）</label>
-          <input 
-            id="reg-student-id" 
-            v-model="regForm.student_id" 
+          <input
+            id="reg-student-id"
+            v-model="regForm.student_id"
             type="text"
             placeholder="2024123456"
           >
         </div>
-        
+
+        <div class="field">
+          <label for="reg-verify-code">邮箱验证码</label>
+          <div class="verify-code-group">
+            <input
+              id="reg-verify-code"
+              v-model="regForm.verify_code"
+              type="text"
+              :class="{ 'input-error': formErrors.reg.verify_code }"
+              placeholder="请输入6位验证码"
+              maxlength="6"
+              required
+            >
+            <button
+              type="button"
+              class="btn verify-btn"
+              :disabled="isLoading || !regForm.email || verifyCodeCooldown > 0"
+              @click="handleSendVerifyCode"
+            >
+              {{ verifyCodeCooldown > 0 ? `${verifyCodeCooldown}s后重发` : '发送验证码' }}
+            </button>
+          </div>
+          <p
+            v-if="formErrors.reg.verify_code"
+            class="error-tip"
+          >
+            {{ formErrors.reg.verify_code }}
+          </p>
+        </div>
+
         <div class="field checkbox">
           <input 
             id="agree" 
@@ -514,7 +543,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useUserStore } from '@/store/user'
 import { routeJump } from '@/utils/routeUtils'
-import { login, register } from '@/api/new/authenticationApi'
+import { login, register, sendCode } from '@/api/new/authenticationApi'
 import { encryptPassword } from '@/utils/encryptionUtils'
 
 // 初始化依赖
@@ -542,6 +571,7 @@ const regForm = reactive({
   password2: '',
   nickname: '',
   student_id: '',
+  verify_code: '',
   agree: false
 })
 const forgotForm = reactive({
@@ -551,8 +581,11 @@ const forgotForm = reactive({
 // 表单错误提示
 const formErrors = reactive({
   login: { email: '', password: '' },
-  reg: { email: '', password: '', password2: '', nickname: '', agree: '' }
+  reg: { email: '', password: '', password2: '', nickname: '', verify_code: '', agree: '' }
 })
+
+// 验证码倒计时
+const verifyCodeCooldown = ref(0)
 
 // ===== 页面挂载 =====
 onMounted(() => {
@@ -688,6 +721,17 @@ const validateRegForm = () => {
     formErrors.reg.nickname = ''
   }
 
+  // 验证码验证
+  if (!regForm.verify_code.trim()) {
+    formErrors.reg.verify_code = '请输入验证码'
+    isValid = false
+  } else if (regForm.verify_code.trim().length !== 6) {
+    formErrors.reg.verify_code = '验证码必须是6位数字'
+    isValid = false
+  } else {
+    formErrors.reg.verify_code = ''
+  }
+
   // 同意条款验证
   if (!regForm.agree) {
     formErrors.reg.agree = '请先同意隐私政策'
@@ -768,9 +812,10 @@ const handleRegister = async() => {
     const registerData = {
       email: regForm.email.trim(),
       password: encryptedPassword,
-      nickname: regForm.nickname.trim()
+      nickname: regForm.nickname.trim(),
+      verify_code: regForm.verify_code.trim()
     }
-    
+
     // 如果有学号，添加到注册数据中
     if (regForm.student_id.trim()) {
       registerData.student_id = regForm.student_id.trim()
@@ -827,6 +872,41 @@ const handleGuestLogin = () => {
 // 权限同意
 const handlePermissionAccept = () => {
   closeModal('perm')
+}
+
+// 发送验证码
+const handleSendVerifyCode = async() => {
+  if (!regForm.email.trim()) {
+    formErrors.reg.email = '请先输入邮箱'
+    return
+  }
+
+  const emailReg = /^[\w.-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/
+  if (!emailReg.test(regForm.email.trim())) {
+    formErrors.reg.email = '请输入有效的邮箱地址'
+    return
+  }
+
+  try {
+    const responseData = await sendCode({ email: regForm.email.trim() })
+    console.log('验证码发送响应:', responseData)
+
+    // 开始倒计时
+    verifyCodeCooldown.value = 60
+    const countdown = setInterval(() => {
+      verifyCodeCooldown.value--
+      if (verifyCodeCooldown.value <= 0) {
+        clearInterval(countdown)
+      }
+    }, 1000)
+
+    formErrors.reg.email = ''
+    // 可以添加成功提示
+    alert('验证码已发送，请查收邮件')
+  } catch (error) {
+    console.error('发送验证码失败:', error)
+    formErrors.reg.email = error.message || '发送验证码失败，请稍后重试'
+  }
 }
 
 // 忘记密码发送邮件
@@ -1195,6 +1275,39 @@ input:focus {
   margin-top: 6px;
   font-size: 13px;
   line-height: 1.5;
+}
+
+/* 验证码输入组样式 */
+.verify-code-group {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.verify-code-group input {
+  flex: 1;
+}
+
+.verify-btn {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
+  white-space: nowrap;
+  min-width: 100px;
+  font-size: 13px;
+  padding: 12px 16px;
+}
+
+.verify-btn:disabled {
+  background: #e7ecf6;
+  color: var(--muted);
+  border-color: #e7ecf6;
+  cursor: not-allowed;
+}
+
+.verify-btn:hover:not(:disabled) {
+  background: var(--accent-2);
+  border-color: var(--accent-2);
 }
 
 /* 复选框样式 */

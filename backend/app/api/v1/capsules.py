@@ -13,11 +13,11 @@ import json
 from app.model.capsule import (
     CapsuleCreateRequest, CapsuleUpdateRequest,
     Location, UnlockConditions,
-    MediaFile, CapsuleStats,Creator,
+    MediaFile, CapsuleStats, Creator,
     CapsuleDraftRequest,
     CapsuleCreateResponse, CapsuleDetail,
-    CapsuleUpdateResponse, CapsuleListResponse,CapsuleBasic
-    , CapsuleDraftResponse,MultiModeBrowseResponse
+    CapsuleUpdateResponse, CapsuleListResponse, CapsuleBasic,
+    CapsuleDraftResponse, MultiModeBrowseResponse
 )
 from app.model.base import Pagination
 from app.model.base import BaseResponse
@@ -54,16 +54,16 @@ def _map_to_detail(capsule, user: AuthorizedUser) -> CapsuleDetail:
         created_at=capsule.created_at,
         tags=json.loads(capsule.tag_json) if capsule.tag_json else [],
         location=Location(
-            latitude=capsule.latitude,
-            longitude=capsule.longitude,
-            address=capsule.address
-        ) if capsule.latitude and capsule.longitude else None,
-        unlock_conditions=None,  # TODO: 从UnlockCondition表查询
+            latitude=float(capsule.latitude),
+            longitude=float(capsule.longitude),
+            address=capsule.address or "未指定地址"
+        ) if capsule.latitude is not None and capsule.longitude is not None else None,
+        unlock_conditions=None,  # 大部分胶囊没有特殊解锁条件
         media_files=[],  # TODO: 从CapsuleMedia表查询
         creator=Creator(
             user_id=capsule.user_id,
-            nickname=getattr(user, 'nickname', '用户'),
-            avatar=getattr(user, 'avatar', None)
+            nickname=user.nickname if hasattr(user, 'nickname') and user.nickname else '用户',
+            avatar=getattr(user, 'avatar_url', None) if hasattr(user, 'avatar_url') else None
         ),
         stats=CapsuleStats(
             view_count=0,     # TODO: 从访问记录统计
@@ -88,50 +88,33 @@ def _make_capsule_id() -> str:
     summary="创建时光胶囊",
     description="创建新的时光胶囊，支持多媒体内容和多种解锁条件"
 )
-async def create_capsule(request: CapsuleCreateRequest, user: AuthorizedUser = Depends(login_required)):
+async def create_capsule(request: CapsuleCreateRequest, user: AuthorizedUser = Depends(login_required), db: Session = Depends(get_db)):
     """创建胶囊"""
-    capsule_id = _make_capsule_id()
-    now = _now()
-    created = CapsuleCreateResponse(
-        capsule_id=capsule_id,
-        title=request.title,
-        status="draft",
-        created_at=datetime.utcnow()
-    )#APIFOX上需要的数据结构
+    try:
+        # 使用CapsuleManager创建胶囊
+        manager = CapsuleManager(db)
+        capsule = manager.create_capsule_from_request(request, user.user_id)
 
-    return BaseResponse[CapsuleCreateResponse].success(
-        code = 200,
-        message="操作成功",
-        data=created
-    )
+        # 构建响应数据
+        created = CapsuleCreateResponse(
+            capsule_id=str(capsule.id),
+            title=capsule.title,
+            status=capsule.status,
+            created_at=capsule.created_at
+        )
+
+        return BaseResponse[CapsuleCreateResponse].success(
+            code=200,
+            message="胶囊创建成功",
+            data=created
+        )
+
+    except Exception as e:
+        # 如果创建失败，回滚事务并返回错误
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"创建胶囊失败: {str(e)}")
 
 
-# 获取胶囊详情API - 返回标准CapsuleDetail模型
-@router.get(
-    "/{capsule_id}",
-    response_model=BaseResponse[CapsuleDetail],
-    summary="获取胶囊详情",
-    description="获取单个胶囊的详细信息"
-)
-async def get_capsule_detail(
-    capsule_id: str = Path(..., description="胶囊ID"),
-    user: AuthorizedUser = Depends(login_required),
-    db: Session = Depends(get_db)  # 添加这行
-):
-    """获取胶囊详情"""
-    manager = CapsuleManager(db)
-    
-    capsule = manager.get_capsule_detail(capsule_id, user.user_id)
-    if not capsule:
-        raise HTTPException(status_code=404, detail="胶囊不存在")
-    
-    data = _map_to_detail(capsule, user)
-    
-    return BaseResponse[CapsuleDetail].success(
-        code=200,
-        message="获取成功",
-        data=data
-    )
 
 
 #获取我的列表
@@ -167,6 +150,33 @@ async def get_my_capsules(
     )
 
 
+# 获取胶囊详情API - 返回标准CapsuleDetail模型
+@router.get(
+    "/{capsule_id}",
+    response_model=BaseResponse[CapsuleDetail],
+    summary="获取胶囊详情",
+    description="获取单个胶囊的详细信息"
+)
+async def get_capsule_detail(
+    capsule_id: str = Path(..., description="胶囊ID"),
+    user: AuthorizedUser = Depends(login_required),
+    db: Session = Depends(get_db)
+):
+    """获取胶囊详情"""
+    manager = CapsuleManager(db)
+
+    capsule = manager.get_capsule_detail(capsule_id, user.user_id)
+    if not capsule:
+        raise HTTPException(status_code=404, detail="胶囊不存在")
+
+    data = _map_to_detail(capsule, user)
+
+    return BaseResponse[CapsuleDetail].success(
+        code=200,
+        message="获取成功",
+        data=data
+    )
+
 
 #删除胶囊API
 @router.delete(
@@ -177,13 +187,28 @@ async def get_my_capsules(
 )
 async def delete_capsule(
     capsule_id: str = Path(..., description="胶囊ID"),
-    user: AuthorizedUser = Depends(login_required)
+    user: AuthorizedUser = Depends(login_required),
+    db: Session = Depends(get_db)
 ):
     """删除胶囊"""
-    return BaseResponse.success(
-        code = 200,
-        message="删除成功"
-    )
+    try:
+        manager = CapsuleManager(db)
+
+        # 尝试删除胶囊
+        success = manager.delete_capsule(capsule_id, user.user_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="胶囊不存在或无权限删除")
+
+        return BaseResponse.success(
+            code=200,
+            message="删除成功"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"删除胶囊时发生错误: {str(e)}")
 
 # 编辑胶囊API
 @router.put(
@@ -224,7 +249,7 @@ async def edit_capsule(
 
 #保存草稿API
 @router.post(
-    "/draft",
+    "/drafts",
     response_model=BaseResponse[CapsuleDraftResponse],
     summary="保存草稿",
     description="保存胶囊草稿"
@@ -361,8 +386,8 @@ async def get_nearby_capsules(
             pass
 
         # 如果nearby服务不可用，返回基础查询结果
-        # 这里可以实现简单的距离查询逻辑
-        capsules_orm = manager.get_capsules(user.user_id, page=1, limit=50)
+        # 使用get_capsules_with_location获取有位置信息的胶囊
+        capsules_orm = manager.get_capsules_with_location(user.user_id, page=1, limit=50)
 
         # 简单的附近胶囊筛选（基于位置的大致过滤）
         nearby_capsules = []
@@ -405,3 +430,5 @@ async def get_nearby_capsules(
             status_code=500,
             detail=f"获取附近胶囊时发生错误: {str(e)}"
         )
+
+

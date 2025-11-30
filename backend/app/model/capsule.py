@@ -92,6 +92,8 @@ class CapsuleCreateRequest(BaseModel):
     media_files: List[str] | None = None  # file IDs
 
 
+
+
 class CapsuleUpdateRequest(BaseModel):
     """更新胶囊请求模型"""
     title: str | None = Field(None, min_length=1, max_length=100)

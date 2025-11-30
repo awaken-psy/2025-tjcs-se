@@ -8,6 +8,10 @@ from datetime import datetime
 from pydantic import BaseModel
 import os
 import sys
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 # 添加当前目录到Python路径，确保可以找到app模块
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -42,23 +46,23 @@ app = FastAPI(
 
 # 注册 API 路由
 if admin_router:
-    app.include_router(admin_router, prefix="/api/v1")
+    app.include_router(admin_router, prefix="/api")
 if auth_router:
-    app.include_router(auth_router, prefix="/api/v1")
+    app.include_router(auth_router, prefix="/api")
 if capsule_router:
-    app.include_router(capsule_router, prefix="/api/v1")
+    app.include_router(capsule_router, prefix="/api")
 if unlock_router:  # 只有在unlock_router存在时才注册
-    app.include_router(unlock_router, prefix="/api/v1")
+    app.include_router(unlock_router, prefix="/api")
 if interaction_router:
-    app.include_router(interaction_router, prefix="/api/v1")
+    app.include_router(interaction_router, prefix="/api")
 if user_router:
-    app.include_router(user_router, prefix="/api/v1")
+    app.include_router(user_router, prefix="/api")
 if friend_router:
-    app.include_router(friend_router, prefix="/api/v1")
+    app.include_router(friend_router, prefix="/api")
 if upload_router:
-    app.include_router(upload_router, prefix="/api/v1")
+    app.include_router(upload_router, prefix="/api")
 if report_router:
-    app.include_router(report_router, prefix="/api/v1")
+    app.include_router(report_router, prefix="/api")
 
 
 # 配置静态文件服务
@@ -82,12 +86,15 @@ async def root():
         "version": "1.0.0",
         "docs": "/docs",
         "available_endpoints": [
-            "POST /api/v1/capsule/create - 创建胶囊",
-            "GET /api/v1/capsule/my - 获取我的胶囊",
-            "GET /api/v1/capsule/detail/{id} - 获取胶囊详情",
-            "POST /api/v1/capsule/edit/{id} - 编辑胶囊",
-            "POST /api/v1/capsule/delete/{id} - 删除胶囊",
-            "POST /api/v1/capsule/upload-img - 上传图片"
+            "POST /api/capsules/ - 创建胶囊",
+            "GET /api/capsules/my - 获取我的胶囊",
+            "GET /api/capsules/{id} - 获取胶囊详情",
+            "PUT /api/capsules/{id} - 编辑胶囊",
+            "DELETE /api/capsules/{id} - 删除胶囊",
+            "POST /api/capsules/drafts - 保存草稿",
+            "GET /api/capsules/browse - 多模式浏览胶囊",
+            "POST /api/upload/ - 上传文件（图片/音频）",
+            "DELETE /api/upload/file/{file_id} - 删除文件"
         ]
     }
 
@@ -113,7 +120,7 @@ if __name__ == "__main__":
 
     uvicorn.run(
         "main:app",
-        host="127.0.0.1",
+        host="0.0.0.0",
         port=8000,
         reload=True
     )

@@ -71,8 +71,18 @@ class EmailVerifyCodeManager:
             if current_time < existing_code.expire_time - (self.expire_minutes - 1) * 60:
                 return False, "验证码发送过于频繁，请稍后再试"
 
-        # 生成验证码
-        code = self._generate_code()
+        # 开发模式：使用固定验证码123456，避免SMTP配置问题
+        import os
+        is_dev_mode = os.getenv("APP_ENV", "development") == "development"
+
+        if is_dev_mode:
+            # 开发模式：固定验证码
+            code = "123456"
+            logger.info(f"开发模式：为邮箱 {email} 生成固定验证码: {code}")
+        else:
+            # 生产模式：随机验证码
+            code = self._generate_code()
+
         expire_time = time.time() + self.expire_minutes * 60
 
         # 创建验证码对象
@@ -81,9 +91,14 @@ class EmailVerifyCodeManager:
         # 保存验证码
         self.verify_codes[email] = verify_code
 
-        # 发送邮件
-        subject = "时光胶囊·校园 - 验证码"
-        content = f"""
+        if is_dev_mode:
+            # 开发模式：跳过邮件发送
+            logger.info(f"开发模式：跳过邮件发送，验证码已保存: {email} -> {code}")
+            return True, f"开发模式：验证码是 123456（有效期 {self.expire_minutes} 分钟）"
+        else:
+            # 生产模式：发送邮件
+            subject = "时光胶囊·校园 - 验证码"
+            content = f"""
 亲爱的用户：
 
 您正在注册时光胶囊·校园，验证码为：{code}
@@ -93,17 +108,17 @@ class EmailVerifyCodeManager:
 如非本人操作，请忽略此邮件。
 
 时光胶囊·校园团队
-        """.strip()
+            """.strip()
 
-        success = self._send_email(email, subject, content)
+            success = self._send_email(email, subject, content)
 
-        if success:
-            return True, "验证码发送成功"
-        else:
-            # 如果发送失败，移除验证码记录
-            if email in self.verify_codes:
-                del self.verify_codes[email]
-            return False, "验证码发送失败，请检查邮箱地址或稍后重试"
+            if success:
+                return True, "验证码发送成功"
+            else:
+                # 如果发送失败，移除验证码记录
+                if email in self.verify_codes:
+                    del self.verify_codes[email]
+                return False, "验证码发送失败，请检查邮箱地址或稍后重试"
 
     def verify_code(self, email: str, code: str) -> tuple[bool, str]:
         """

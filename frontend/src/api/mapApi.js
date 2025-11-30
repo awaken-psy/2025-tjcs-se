@@ -171,25 +171,26 @@ export const createCapsule = async (data) => {
     throw new Error('标题、内容、可见性为必填项')
   }
 
-  // 构造后端需要的数据对象 - 兼容旧版API格式
+  // 构造新API格式的数据对象
   const payload = {
     title: data.title,
     content: data.content,
     visibility: data.visibility,
     tags: data.tags || [],
-    location: data.locationName || data.location?.address || '',
-    lat: data.lat || data.location?.latitude || 0,
-    lng: data.lng || data.location?.longitude || 0,
-    createTime: data.createTime || new Date().toISOString(),
-    updateTime: data.updateTime || new Date().toISOString(),
-    imageUrl: data.imageUrl || '',
-    likes: data.likes || 0,
-    views: data.views || 0
+    location: (data.location?.latitude && data.location?.longitude) ? {
+      latitude: data.location.latitude,
+      longitude: data.location.longitude,
+      address: data.location.address || ''
+    } : null,
+    unlock_conditions: data.unlock_conditions || null,
+    media_files: data.media_files || []
   }
+
+  console.log('发送到后端的胶囊数据（新API格式）:', payload)
 
   // 使用统一的request方法，确保认证和错误处理
   return await request({
-    url: '/capsule/create',
+    url: '/capsules',
     method: 'post',
     data: payload
   })
