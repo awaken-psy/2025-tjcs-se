@@ -14,8 +14,8 @@
         v-if="isProcessing.view"
         class="loading-spinner small"
       />
-      <i class="fas fa-eye" />
-      查看详情
+      <span class="icon">👁️</span>
+      详情
     </button>
 
     <!-- 点赞（所有页面通用） -->
@@ -29,11 +29,8 @@
         v-if="isProcessing.like"
         class="loading-spinner small"
       />
-      <i
-        class="fas"
-        :class="capsule.liked ? 'fa-heart' : 'fa-heart-outline'"
-      />
-      {{ capsule.likes || 0 }}
+      <span class="icon">{{ capsule.liked ? '❤️' : '🤍' }}</span>
+      {{ capsule.like_count || 0 }}
     </button>
 
     <!-- 编辑（仅胶囊所有者可见，如我的胶囊页） -->
@@ -47,7 +44,7 @@
         v-if="isProcessing.edit"
         class="loading-spinner small"
       />
-      <i class="fas fa-edit" />
+      <span class="icon">✏️</span>
       编辑
     </button>
 
@@ -62,7 +59,7 @@
         v-if="isProcessing.delete"
         class="loading-spinner small"
       />
-      <i class="fas fa-trash" />
+      <span class="icon">🗑️</span>
       删除
     </button>
 
@@ -76,7 +73,7 @@
         v-if="isProcessing.share"
         class="loading-spinner small"
       />
-      <i class="fas fa-share-alt" />
+      <span class="icon">📤</span>
       分享
     </button>
 
@@ -92,21 +89,16 @@
         v-if="isProcessing.collect"
         class="loading-spinner small"
       />
-      <i
-        class="fas"
-        :class="capsule.collected ? 'fa-bookmark' : 'fa-bookmark-outline'"
-      />
+      <span class="icon">{{ capsule.collected ? '⭐' : '☆' }}</span>
       收藏
     </button>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-
 /**
  * 组件作用：
- * 1. 统一所有页面的胶囊操作逻辑，替代各页面中重复的按钮组代码（如MyCapsuleView、TimelineView）
+ * 1. 统一所有页面的胶囊操作逻辑，替代各页面中重复的按钮组代码
  * 2. 支持根据权限（isOwner）显示/隐藏编辑/删除按钮（仅所有者可见）
  * 3. 支持控制是否显示收藏按钮（showCollect），适配不同页面需求
  * 4. 统一处理按钮加载状态（isProcessing），避免重复的加载逻辑
@@ -115,10 +107,10 @@ import { ref } from 'vue'
  * @param {Object} capsule - 胶囊基础数据（必传）
  *   {
  *     id: String, // 胶囊ID
- *     likes: Number, // 点赞数
- *     liked: Boolean, // 是否已点赞
- *     collected: Boolean, // 是否已收藏（可选）
- *     vis: String // 可见性（用于权限判断，可选）
+ *     like_count: Number, // 点赞数
+ *     liked: Boolean, // 是否已点赞（前端状态）
+ *     collected: Boolean, // 是否已收藏（前端状态）
+ *     visibility: String // 可见性（用于权限判断）
  *   }
  * @param {Boolean} isOwner - 是否为胶囊所有者（控制编辑/删除显示，默认false）
  * @param {String} viewMode - 视图模式（grid/list，控制按钮布局，默认grid）
@@ -137,7 +129,7 @@ const props = defineProps({
   capsule: {
     type: Object,
     required: true,
-    validator: (val) => val.id && typeof val.likes === 'number'
+    validator: (val) => val.id && typeof val.like_count === 'number'
   },
   isOwner: {
     type: Boolean,
@@ -206,6 +198,12 @@ const emit = defineEmits(['view', 'like', 'edit', 'delete', 'share', 'collect'])
   justify-content: center;
   gap: 6px;
   transition: all 0.2s;
+}
+
+/* 图标样式 */
+.icon {
+  font-size: 14px;
+  line-height: 1;
 }
 
 /* 按钮颜色区分 */

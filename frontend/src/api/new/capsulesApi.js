@@ -124,6 +124,7 @@ export const createCapsuleDraft = (draftData) => {
   })
 }
 
+<<<<<<< HEAD
 /**
  * 获取附近胶囊
  * @param {Object} params - 查询参数
@@ -224,5 +225,17 @@ export const getUserLocation = () => {
   return Promise.resolve({
     lat: 39.900500,
     lng: 116.302000
+=======
+//TODO:newapi
+/**
+ * 点赞/取消点赞胶囊
+ * @param {string} capsuleId - 胶囊ID
+ * @returns {Promise}
+ */
+export const likeCapsule = (capsuleId) => {
+  return request({
+    url: `/capsules/${capsuleId}/like`, // 假设的API路径
+    method: 'post' // 或 put
+>>>>>>> 261fedc (修改胶囊列表，详情弹窗等内容，更改capsuleform)
   })
 }

@@ -30,12 +30,12 @@ request.interceptors.request.use(config => {
 // 响应拦截器（适配统一响应模型）
 request.interceptors.response.use(response => {
   const result = response.data
-  console.log('API响应原始数据:', result)
 
   // 检查是否为统一响应格式
   if (result && typeof result === 'object' && 'code' in result) {
     // 业务成功
     if (result.code === 200) {
+      console.log('请求成功:', result)
       return result.data  // 直接返回业务数据
     } else {
       // 业务逻辑错误 - 创建错误对象，包含完整响应信息
