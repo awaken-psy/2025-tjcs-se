@@ -1,0 +1,10 @@
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://localhost:4141",
+    "ANTHROPIC_AUTH_TOKEN": "dummy",
+    "ANTHROPIC_MODEL": "gpt-4.1-2025-04-14",             // 主模型改为 gpt-4.1
+    "ANTHROPIC_SMALL_FAST_MODEL": "gpt-4.1-2025-04-14", // 建议小型/快速模型使用列表中的快速模型，例如 gpt-4o-mini
+    "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "1",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+  }
+}

@@ -91,5 +91,6 @@ dmypy.json
 
 # AI工具
 CLAUDE.md
+.claude/
 
 git.txt
