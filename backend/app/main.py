@@ -86,17 +86,6 @@ async def root():
         "message": "欢迎使用时光胶囊·校园 API",
         "version": "1.0.0",
         "docs": "/docs",
-        "available_endpoints": [
-            "POST /api/capsules/ - 创建胶囊",
-            "GET /api/capsules/my - 获取我的胶囊",
-            "GET /api/capsules/{id} - 获取胶囊详情",
-            "PUT /api/capsules/{id} - 编辑胶囊",
-            "DELETE /api/capsules/{id} - 删除胶囊",
-            "POST /api/capsules/drafts - 保存草稿",
-            "GET /api/capsules/browse - 多模式浏览胶囊",
-            "POST /api/upload/ - 上传文件（图片/音频）",
-            "DELETE /api/upload/file/{file_id} - 删除文件"
-        ]
     }
 
 # 健康检查端点
