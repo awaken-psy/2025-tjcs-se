@@ -124,105 +124,15 @@ export const createCapsuleDraft = (draftData) => {
   })
 }
 
+//TODO:newapi
 /**
- * 获取附近胶囊
- * @param {Object} params - 查询参数
- * @param {number} params.latitude - 纬度
- * @param {number} params.longitude - 经度
- * @param {number} params.radius_meters - 搜索半径（米）
+ * 点赞/取消点赞胶囊
+ * @param {string} capsuleId - 胶囊ID
  * @returns {Promise}
  */
-export const getNearbyCapsules = (params) => {
+export const likeCapsule = (capsuleId) => {
   return request({
-    url: '/capsules/nearby',
-    method: 'get',
-    params
-  })
-}
-
-/**
- * 获取胶囊地理标记数据（兼容旧API）
- * @param {Object} params - 查询参数
- * @param {number} params.lat - 纬度
- * @param {number} params.lng - 经度
- * @param {number} params.range - 搜索范围（米）
- * @returns {Promise}
- */
-export const getCapsuleMarkers = (params = { lat: 39.9005, lng: 116.302, range: 1000 }) => {
-  // 转换参数格式适配新API
-  return getNearbyCapsules({
-    latitude: params.lat,
-    longitude: params.lng,
-    radius_meters: params.range
-  }).then(result => {
-    // 转换响应格式兼容旧代码
-    if (result && result.capsules) {
-      return result.capsules.map(capsule => ({
-        id: capsule.id,
-        title: capsule.title,
-        lat: capsule.location?.latitude || params.lat,
-        lng: capsule.location?.longitude || params.lng,
-        time: capsule.created_at,
-        vis: capsule.visibility,
-        desc: capsule.title,
-        tags: [],
-        likes: 0,
-        views: 0,
-        location: capsule.location?.address || '未知位置',
-        distance: capsule.location?.distance ? `${Math.round(capsule.location.distance)}m` : '计算中',
-        img: 'https://picsum.photos/id/24/300/200',
-        unlockType: 'location'
-      }))
-    }
-    return []
-  }).catch(() => {
-    // 返回默认演示数据作为兼容
-    return [
-      {
-        id: 1,
-        title: '图书馆通宵回忆',
-        lat: 39.900820,
-        lng: 116.301950,
-        time: '2024-06-15T22:30:00',
-        vis: 'public',
-        desc: '毕业前的最后一个夜晚，在图书馆度过了四年最难忘的时光...',
-        tags: ['学习', '图书馆', '毕业'],
-        likes: 42,
-        views: 328,
-        location: '图书馆西侧',
-        distance: '100m',
-        img: 'https://picsum.photos/id/24/300/200',
-        unlockType: 'location'
-      }
-    ]
-  })
-}
-
-/**
- * 获取热力图数据
- * @returns {Promise}
- */
-export const getHeatmapData = () => {
-  // 暂时返回模拟数据，可以后续扩展为真实API
-  return Promise.resolve([
-    [116.301950, 39.900820, 8],
-    [116.303100, 39.901250, 6],
-    [116.302050, 39.899780, 10],
-    [116.299850, 39.902100, 4],
-    [116.304200, 39.900320, 7],
-    [116.302500, 39.901500, 5],
-    [116.301200, 39.900100, 3]
-  ])
-}
-
-/**
- * 获取用户位置
- * @returns {Promise}
- */
-export const getUserLocation = () => {
-  // 暂时返回默认位置，可以后续扩展为真实定位API
-  return Promise.resolve({
-    lat: 39.900500,
-    lng: 116.302000
+    url: `/capsules/${capsuleId}/like`, // 假设的API路径
+    method: 'post' // 或 put
   })
 }

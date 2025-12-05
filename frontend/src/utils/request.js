@@ -4,8 +4,8 @@
 import axios from 'axios'
 
 const request = axios.create({
-  baseURL: '/api', // 统一前缀，所有API都走/api
-  //baseURL:'http://127.0.0.1:4523/m1/7397469-7130026-default', // 注释掉外部 mock 服务器
+  //baseURL: '/api', // 统一前缀，所有API都走/api
+  baseURL:'http://127.0.0.1:4523/m1/7397469-7130026-default', // 注释掉外部 mock 服务器
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -30,12 +30,12 @@ request.interceptors.request.use(config => {
 // 响应拦截器（适配统一响应模型）
 request.interceptors.response.use(response => {
   const result = response.data
-  console.log('API响应原始数据:', result)
 
   // 检查是否为统一响应格式
   if (result && typeof result === 'object' && 'code' in result) {
     // 业务成功
     if (result.code === 200) {
+      console.log('请求成功:', result)
       return result.data  // 直接返回业务数据
     } else {
       // 业务逻辑错误 - 创建错误对象，包含完整响应信息

@@ -11,8 +11,8 @@
       class="capsule-thumb"
     >
       <img 
-        v-if="capsule.img" 
-        :src="capsule.img" 
+        v-if="capsule.cover_image" 
+        :src="capsule.cover_image" 
         :alt="capsule.title"
         class="thumb-img"
       >
@@ -20,11 +20,11 @@
         v-else
         class="thumb-placeholder"
       >
-        {{ getVisibilityIcon(capsule.vis) }}
+        {{ getVisibilityIcon(capsule.visibility) }}
       </div>
       <!-- 可见性标签 -->
       <div class="capsule-visibility">
-        {{ getVisibilityText(capsule.vis) }}
+        {{ getVisibilityText(capsule.visibility) }}
       </div>
     </div>
 
@@ -37,51 +37,38 @@
           v-if="viewMode === 'list'"
           class="visibility-icon"
         >
-          {{ getVisibilityIcon(capsule.vis) }}
+          {{ getVisibilityIcon(capsule.visibility) }}
         </span>
       </h3>
 
-      <!-- 元信息（时间、位置） -->
+      <!-- 元信息（时间、状态） -->
       <div class="capsule-meta">
-        <span class="meta-time">{{ formatTime(capsule.time) }}</span>
-        <span
-          v-if="capsule.location"
-          class="meta-separator"
-        >·</span>
-        <span
-          v-if="capsule.location"
-          class="meta-location"
-        >{{ capsule.location }}</span>
+        <span class="meta-time">{{ formatTime(capsule.created_at) }}</span>
+        <span class="meta-separator">·</span>
+        <span class="meta-status">{{ getStatusText(capsule.status) }}</span>
       </div>
 
       <!-- 描述（超出省略） -->
       <p class="capsule-desc">
-        {{ capsule.desc }}
+        {{ capsule.content_preview }}
       </p>
 
-      <!-- 标签 -->
-      <div class="capsule-tags">
-        <span 
-          v-for="(tag, idx) in capsule.tags" 
-          :key="idx"
-          class="tag-item"
-        >
-          {{ tag }}
-        </span>
-      </div>
-
-      <!-- 统计信息（点赞、浏览） -->
+      <!-- 统计信息（点赞、解锁、评论） -->
       <div class="capsule-stats">
         <span class="stat-item">
-          👍 {{ capsule.likes || 0 }}
+          👍 {{ capsule.like_count || 0 }}
         </span>
         <span class="stat-separator">·</span>
         <span class="stat-item">
-          👁️ {{ capsule.views || 0 }}
+          🔓 {{ capsule.unlock_count || 0 }}
+        </span>
+        <span class="stat-separator">·</span>
+        <span class="stat-item">
+          💬 {{ capsule.comment_count || 0 }}
         </span>
       </div>
 
-      <!-- 操作按钮（查看、点赞） -->
+      <!-- 操作按钮（查看、点赞）
       <div class="capsule-actions">
         <button 
           class="action-btn view-btn"
@@ -91,10 +78,15 @@
         </button>
         <button 
           class="action-btn like-btn"
+          :class="{ liked: capsule.liked }"
           @click.stop="handleLikeClick"
         >
-          👍 {{ capsule.likes || 0 }}
+          👍 {{ capsule.like_count || 0 }}
         </button>
+      </div> -->
+      <!-- ⭐ 重要：这里改为插槽，用于插入操作按钮 -->
+      <div class="capsule-actions">
+        <slot name="actions"></slot>
       </div>
     </div>
   </div>
@@ -106,7 +98,7 @@ import { formatRelative } from '@/utils/formatTime.js'
 /**
  * 组件作用：
  * 1. 统一展示胶囊基础信息，支持网格/列表两种视图切换
- * 2. 封装胶囊可见性、标签、统计信息的展示逻辑
+ * 2. 封装胶囊可见性、状态、统计信息的展示逻辑
  * 3. 触发查看详情、点赞事件，由父页面处理具体业务逻辑
  * 
  * 组件接口（Props）：
@@ -114,14 +106,15 @@ import { formatRelative } from '@/utils/formatTime.js'
  *   {
  *     id: String, // 胶囊ID
  *     title: String, // 胶囊标题
- *     time: String, // ISO时间字符串（如"2024-06-15T22:30:00"）
- *     vis: String, // 可见性（"public"/"friend"/"private"）
- *     desc: String, // 胶囊描述
- *     tags: Array, // 标签列表（如["毕业","图书馆"]）
- *     likes: Number, // 点赞数
- *     views: Number, // 浏览数
- *     location: String, // 位置（可选，如"图书馆四楼"）
- *     img: String // 缩略图URL（可选）
+ *     created_at: String, // ISO时间字符串
+ *     visibility: String, // 可见性（"public"/"friends"/"private"）
+ *     status: String, // 状态（"draft"/"pending"/"published"）
+ *     content_preview: String, // 内容预览
+ *     like_count: Number, // 点赞数
+ *     unlock_count: Number, // 解锁次数
+ *     comment_count: Number, // 评论数
+ *     cover_image: String // 封面图URL（可选）
+ *     liked: Boolean // 是否已点赞（前端状态）
  *   }
  * @param {String} viewMode - 视图模式（"grid"网格 / "list"列表）
  * 
@@ -136,7 +129,7 @@ const props = defineProps({
     required: true,
     validator: (value) => {
       // 校验胶囊必填字段
-      return value.id && value.title && value.time && value.vis
+      return value.id && value.title && value.created_at && value.visibility && value.status
     }
   },
   viewMode: {
@@ -150,27 +143,41 @@ const emit = defineEmits(['view', 'like', 'click'])
 
 /**
  * 辅助函数：获取可见性图标
- * @param {String} vis - 可见性（"public"/"friend"/"private"）
+ * @param {String} visibility - 可见性（"public"/"friends"/"private"）
  * @returns {String} 图标字符串
  */
-const getVisibilityIcon = (vis) => {
-  switch (vis) {
-  case 'private': return '🔒'
-  case 'friend': return '👥'
-  default: return '🌐'
+const getVisibilityIcon = (visibility) => {
+  switch (visibility) {
+    case 'private': return '🔒'
+    case 'friends': return '👥'
+    default: return '🌐'
   }
 }
 
 /**
  * 辅助函数：获取可见性文字
- * @param {String} vis - 可见性（"public"/"friend"/"private"）
+ * @param {String} visibility - 可见性（"public"/"friends"/"private"）
  * @returns {String} 文字描述
  */
-const getVisibilityText = (vis) => {
-  switch (vis) {
-  case 'private': return '仅自己可见'
-  case 'friend': return '好友可见'
-  default: return '公开'
+const getVisibilityText = (visibility) => {
+  switch (visibility) {
+    case 'private': return '仅自己可见'
+    case 'friends': return '好友可见'
+    default: return '公开'
+  }
+}
+
+/**
+ * 辅助函数：获取状态文字
+ * @param {String} status - 状态（"draft"/"pending"/"published"）
+ * @returns {String} 状态描述
+ */
+const getStatusText = (status) => {
+  switch (status) {
+    case 'draft': return '草稿'
+    case 'pending': return '待审核'
+    case 'published': return '已发布'
+    default: return status
   }
 }
 
@@ -206,7 +213,7 @@ const handleLikeClick = () => {
 </script>
 
 <style scoped>
-/* 样式说明：支持网格/列表两种视图，复用原HTML胶囊卡片样式 */
+/* 样式保持不变，只修改了点赞按钮的样式以支持 liked 状态 */
 .capsule-card {
   border-radius: 12px;
   overflow: hidden;
@@ -317,22 +324,6 @@ const handleLikeClick = () => {
   overflow: hidden;
 }
 
-.capsule-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-.tag-item {
-  background: var(--accent-light);
-  color: var(--accent);
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
 .capsule-stats {
   display: flex;
   align-items: center;
@@ -375,6 +366,10 @@ const handleLikeClick = () => {
 
 .like-btn {
   color: var(--muted);
+}
+
+.like-btn.liked {
+  color: var(--danger);
 }
 
 .like-btn:hover {
