@@ -7,13 +7,13 @@ import json
 from database.orm.capsule import Capsule
 from database.orm.unlock_condition import UnlockCondition
 from database.orm.unlock_record import UnlockRecord
-from database.orm.config import get_db
+from database.database import get_db
 
 
 class UnlockManager:
     """胶囊解锁业务管理类（简化版）"""
 
-    def __init__(self, db: Session = None):
+    def __init__(self, db: Optional[Session] = None):
         self.db = db or next(get_db())
 
     def check_unlockable_capsules(
