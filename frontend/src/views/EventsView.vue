@@ -542,11 +542,12 @@
 
 <script setup>
 import {
-  cancelRegister,
-  getCampusEvents,
-  getEventDetail,
+  // 替换为新的 API 导入名称
+  getEventList,
+  getEventDetail, // 保持不变
   getMyRegisteredEvents,
-  registerEvent
+  registerForEvent, // 新增：报名
+  cancelEventRegistration // 新增：取消报名
 } from '@/api/eventsApi.js'
 import AppHeader from '@/components/AppHeader.vue'
 import CapsuleCard from '@/components/CapsuleCard.vue'
@@ -728,11 +729,14 @@ const processApiResponse = (result) => {
   return { list, total }
 }
 
+/**
+ * 替换 getCampusEvents 为 getEventList
+ */
 const fetchEventsList = async () => {
-    console.log('🚀 开始请求我的报名列表fetchEventsList', new Date().toISOString())
+  console.log('🚀 开始请求活动列表fetchEventsList', new Date().toISOString())
   isLoading.value = true
   try {
-    const result = await getCampusEvents({
+    const result = await getEventList({ // <--- 替换点: getCampusEvents -> getEventList
       page: currentPage.value,
       size: pageSize.value,
       keyword: filter.value.search,
@@ -762,12 +766,17 @@ const fetchEventsList = async () => {
   }
 }
 
+/**
+ * 保持 getMyRegisteredEvents 不变
+ */
 const fetchMyRegEvents = async () => {
   console.log('🚀 开始请求我的报名列表fetchMyRegEvents', new Date().toISOString())
   try {
     const result = await getMyRegisteredEvents({
       page: currentPage.value,
-      size: pageSize.value
+      // 注意：新 API 接口文档中使用的是 page_size
+      // 但这里为了兼容性，保留 size 字段，如果后端实际需要 page_size，则应修改此处
+      size: pageSize.value 
     })
     console.log('API调用成功，返回数据:', result)
     
@@ -926,12 +935,16 @@ const handleCloseDetail = () => {
 }
 
 // 报名/取消报名相关方法
+/**
+ * 替换 registerEvent 为 registerForEvent
+ */
 const handleRegister = async(eventId) => {
   if (!eventId) return
   
   isProcessing.value[eventId] = true
   try {
-    const result = await registerEvent(eventId)
+    // <--- 替换点: registerEvent -> registerForEvent
+    const result = await registerForEvent(eventId)
     if (result?.code === 200 || result?.success) {
       alert(result.message || '报名成功')
       
@@ -950,12 +963,16 @@ const handleRegister = async(eventId) => {
   }
 }
 
+/**
+ * 替换 cancelRegister 为 cancelEventRegistration
+ */
 const handleCancelReg = async(eventId) => {
   if (!eventId) return
   
   isProcessing.value[eventId] = true
   try {
-    const result = await cancelRegister(eventId)
+    // <--- 替换点: cancelRegister -> cancelEventRegistration
+    const result = await cancelEventRegistration(eventId)
     if (result?.code === 200 || result?.success) {
       alert(result.message || '取消报名成功')
       
@@ -999,6 +1016,7 @@ const handleDiscoverEvents = () => {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 </script>
+
 
 <style scoped>
 /* 全局样式重置与基础配置 */
