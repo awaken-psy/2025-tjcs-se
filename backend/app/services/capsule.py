@@ -13,8 +13,8 @@ from app.model.capsule import (
 class CapsuleService:
     """胶囊业务服务类"""
     
-    def __init__(self, db: Session):
-        self.repository = CapsuleRepository(db)
+    def __init__(self):
+        self.repository = CapsuleRepository()
 
     def create_capsule(self, request: CapsuleCreateRequest, user_id: int) -> CapsuleCreateResponse:
         """创建胶囊"""

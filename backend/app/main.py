@@ -5,12 +5,14 @@ import os
 import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.logger import get_logger, app_logger
 from app.logger.config import config_manager
 from app.database.database import create_tables
 from app.api.v1 import *
 
+app_logger.info("======================================================================")
 app_logger.info(f"日志配置：{config_manager.get_config()}")
 #=============================================================#
 # 创建 FastAPI 应用实例
@@ -50,6 +52,15 @@ for name, router in routes.items():
     except Exception as e:
         app_logger.error(f"注册路由失败: {name}", exc_info=True)
 app_logger.info(f"API 路由注册完成，共注册 {router_count} 个路由模块")
+#=============================================================#
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["127.0.0.1"],  # 允许的前端域名
+    allow_credentials=True,
+    allow_methods=["*"],  # 允许所有方法
+    allow_headers=["*"],  # 允许所有头（或明确写 ["Content-Type", "Authorization"]）
+)
+
 #=============================================================#
 # 配置静态文件服务
 UPLOAD_DIR = os.getenv('UPLOAD_DIR', './uploads')

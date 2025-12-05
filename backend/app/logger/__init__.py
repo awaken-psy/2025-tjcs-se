@@ -20,6 +20,8 @@ from .logger import (
     init_default_logging
 )
 
+from .decorators import api_logging
+
 # 首先初始化默认日志配置
 try:
     init_default_logging()
@@ -43,6 +45,7 @@ __all__ = [
     'log_error',
     'log_critical',
     'LoggerMixin',
+    'api_logging',
     'app_logger',
     'api_logger',
     'db_logger',

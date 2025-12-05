@@ -6,8 +6,9 @@ from email.header import Header
 from typing import Optional
 import logging
 from email.utils import formataddr
+from app.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("verifycode_manager")
 
 """
 !!!目前是单线程版本!!!
