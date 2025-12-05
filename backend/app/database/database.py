@@ -95,7 +95,6 @@ def create_tables():
     """创建数据库表"""
     try:
         print(f"🔧 正在创建数据库表...")
-
         Base.metadata.create_all(bind=engine)
         print("✅ 所有数据库表创建完成")
     except Exception as e:
