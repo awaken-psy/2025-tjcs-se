@@ -2,7 +2,8 @@ from enum import Enum
 from typing import Set, Optional, List
 from dataclasses import dataclass, field
 from datetime import datetime
-
+import json
+from app.model.capsule import CapsuleBasic, CapsuleDetail, Location, Creator, CapsuleStats
 
 class CapsuleStatus(str, Enum):
     """胶囊状态枚举"""
@@ -124,3 +125,72 @@ class Capsule:
         """标记用户已解锁该胶囊"""
         self.unlocked_by.add(user_id)
         self.status = CapsuleStatus.UNLOCKED
+
+    def to_api_basic(self) -> 'CapsuleBasic':
+       """Domain对象转CapsuleBasic响应模型"""
+
+       return CapsuleBasic(
+            id=self.capsule_id,
+            title=self.title,
+            visibility=self.visibility.value,
+            status=self.status.value,
+            created_at=self.created_at,
+            content_preview=self.description,
+            cover_image=None,  # TODO: 从媒体文件获取
+            unlock_count=len(self.unlocked_by),
+            like_count=self.like_count,
+            comment_count=self.comment_count
+        )
+
+    def to_api_detail(self, user) -> 'CapsuleDetail':
+        """Domain对象转CapsuleDetail响应模型"""
+        # 转换位置信息
+        location = None
+        if self.unlock_location:
+            location = Location(
+            latitude=self.unlock_location[0],
+            longitude=self.unlock_location[1],
+            address="指定位置"
+        )
+    
+         # 转换创建者信息
+        creator = Creator(
+            user_id=int(self.owner_id),
+            nickname=getattr(user, 'nickname', '用户'),
+            avatar=getattr(user, 'avatar_url', None)
+        )
+    
+        # 转换统计信息
+        stats = CapsuleStats(
+            view_count=0,  # TODO: 实现访问统计
+            like_count=self.like_count,
+            comment_count=self.comment_count,
+            unlock_count=len(self.unlocked_by),
+            is_liked=False,  # TODO: 实现点赞状态
+            is_collected=False  # TODO: 实现收藏状态
+        )
+    
+    # 根据content_type推断标签
+        tags = []
+        if self.content_type == ContentType.IMAGE:
+            tags = ["图片", "image"]
+        elif self.content_type == ContentType.AUDIO:
+            tags = ["音频", "audio"]
+        elif self.content_type == ContentType.MIXED:
+            tags = ["混合", "mixed"]
+    
+        return CapsuleDetail(
+            id=self.capsule_id,
+            title=self.title,
+            content=self.content or "",
+            visibility=self.visibility.value,
+            status=self.status.value,
+            created_at=self.created_at,
+            tags=tags,
+            location=location,
+            unlock_conditions=None,  # TODO: 从domain的unlock属性转换
+            media_files=[],  # TODO: 从媒体文件表获取
+            creator=creator,
+             stats=stats,
+            updated_at=self.updated_at
+        )

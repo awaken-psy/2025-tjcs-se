@@ -7,7 +7,7 @@ import json
 from database.orm.capsule import Capsule
 from database.orm.unlock_condition import UnlockCondition
 from database.orm.unlock_record import UnlockRecord
-from database.orm.config import get_db
+from database.database import get_db
 
 
 class UnlockManager:
