@@ -94,7 +94,6 @@ dmypy.json
 # AI工具
 CLAUDE.md
 .claude/
-git.txt
 
 # 上传文件
 uploads/

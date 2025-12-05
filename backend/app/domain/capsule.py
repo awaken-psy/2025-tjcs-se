@@ -30,9 +30,9 @@ class ContentType(str, Enum):
 @dataclass
 class Capsule:
     """胶囊主类 - 与用户关联"""
-    capsule_id: str  # 胶囊唯一ID
-    owner_id: str  # 所有者ID（用户ID）
-    title: str  # 标题
+    capsule_id: Optional[int] = None  # 胶囊唯一ID（数据库自动分配）
+    owner_id: str = ""  # 所有者ID（用户ID）
+    title: str = ""  # 标题
     description: Optional[str] = None  # 描述
     content: Optional[str] = None  # 内容
     status: CapsuleStatus = CapsuleStatus.LOCKED  # 状态
@@ -144,19 +144,20 @@ class Capsule:
 
     def to_api_detail(self, user) -> 'CapsuleDetail':
         """Domain对象转CapsuleDetail响应模型"""
-        # 转换位置信息
+        # 转换位置信息 - 标准3字段格式
         location = None
-        if self.unlock_location:
+        if self.unlock_location and len(self.unlock_location) == 3:
             location = Location(
-            latitude=self.unlock_location[0],
-            longitude=self.unlock_location[1],
-            address="指定位置"
-        )
+                latitude=self.unlock_location[0],   # latitude
+                longitude=self.unlock_location[1],  # longitude
+                address=self.unlock_location[2]     # address
+            )
     
          # 转换创建者信息
+        nickname = getattr(user, 'nickname', None) or getattr(user, 'username', None) or '匿名用户'
         creator = Creator(
             user_id=int(self.owner_id),
-            nickname=getattr(user, 'nickname', '用户'),
+            nickname=nickname,
             avatar=getattr(user, 'avatar_url', None)
         )
     

@@ -113,46 +113,78 @@
               <h3 class="section-title">
                 位置信息
               </h3>
-              <span class="optional-badge">自动获取</span>
+              <span class="optional-badge">选填</span>
             </div>
             <div class="location-section">
-              <div class="location-display">
-                <div class="location-info">
-                  <i class="fas fa-location-dot location-icon" />
-                  <div class="location-text">
-                    <div class="location-address">
-                      {{ locationInfo.address || '正在获取位置...' }}
-                    </div>
-                    <div
-                      v-if="locationInfo.lat"
-                      class="location-coords"
-                    >
-                      经纬度: {{ locationInfo.lat.toFixed(6) }}, {{ locationInfo.lng.toFixed(6) }}
+              <!-- 地址输入框 -->
+              <div class="address-input-wrapper">
+                <input
+                  v-model="formData.address"
+                  type="text"
+                  class="form-input"
+                  placeholder="请输入地址信息（如：北京市朝阳区某某大学）"
+                  maxlength="200"
+                >
+                <div class="form-footer">
+                  <span class="char-count">{{ (formData.address || '').length }}/200</span>
+                </div>
+              </div>
+
+              <!-- 自动定位区域 -->
+              <div class="auto-location-wrapper">
+                <div class="location-display">
+                  <div class="location-info">
+                    <i class="fas fa-location-dot location-icon" />
+                    <div class="location-text">
+                      <div class="location-address">
+                        {{ locationInfo.address || '未获取到自动定位' }}
+                      </div>
+                      <div
+                        v-if="locationInfo.lat"
+                        class="location-coords"
+                      >
+                        经纬度: {{ locationInfo.lat.toFixed(6) }}, {{ locationInfo.lng.toFixed(6) }}
+                      </div>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    class="location-btn"
+                    :disabled="isLocating"
+                    @click="getCurrentLocation"
+                  >
+                    <i
+                      class="fas"
+                      :class="isLocating ? 'fa-spinner fa-spin' : 'fa-refresh'"
+                    />
+                    {{ isLocating ? '自动定位' : '重新定位' }}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  class="location-btn"
-                  :disabled="isLocating"
-                  @click="getCurrentLocation"
+                <div
+                  v-if="locationPermission"
+                  class="location-status"
                 >
                   <i
                     class="fas"
-                    :class="isLocating ? 'fa-spinner fa-spin' : 'fa-refresh'"
+                    :class="locationIcon"
                   />
-                  {{ isLocating ? '定位中...' : '重新定位' }}
-                </button>
+                  <span>{{ locationMessage }}</span>
+                </div>
               </div>
+
+              <!-- 使用自动定位地址按钮 -->
               <div
-                v-if="locationPermission"
-                class="location-status"
+                v-if="locationInfo.address && locationInfo.address !== '未获取到自动定位'"
+                class="use-auto-location"
               >
-                <i
-                  class="fas"
-                  :class="locationIcon"
-                />
-                <span>{{ locationMessage }}</span>
+                <button
+                  type="button"
+                  class="btn btn-outline"
+                  @click="useAutoLocation"
+                >
+                  <i class="fas fa-copy" />
+                  使用自动定位的地址
+                </button>
               </div>
             </div>
           </div>
@@ -351,8 +383,8 @@
 
 <script setup>
 import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
-import { createCapsule } from '../api/new/capsulesApi.js'
-import { uploadCapsuleImage } from '../api/myCapsuleApi.js'
+import { createCapsule,updateCapsule } from '../api/new/capsulesApi.js'
+import { uploadFile } from '../api/new/uploadApi.js'
 
 // Props
 const props = defineProps({
@@ -379,6 +411,7 @@ const formData = reactive({
   content: '',
   visibility: 'public',
   location: '',
+  address: '',  // 添加地址字段
   lat: null,
   lng: null,
   image: null,
@@ -501,6 +534,7 @@ watch(() => props.editData, (newData) => {
       title: newData.title || '',
       content: newData.content || '',
       visibility: newData.visibility || 'public',
+      // 注意：location、lat、lng 是表单提交的核心数据
       location: newData.location || '',
       lat: newData.lat || null,
       lng: newData.lng || null,
@@ -508,13 +542,27 @@ watch(() => props.editData, (newData) => {
       imageFileId: newData.imageFileId || ''
     })
 
+    // 同步到 locationInfo 用于界面展示 (这是关键)
+    Object.assign(locationInfo, {
+      address: newData.location || '已加载历史位置',
+      lat: newData.lat || null,
+      lng: newData.lng || null
+    })
+
     if (newData.tags) {
       selectedTags.value = Array.isArray(newData.tags) ? [...newData.tags] : []
     }
 
-    if (newData.image || newData.imageUrl || newData.img) {
-      previewImage.value = newData.image || newData.imageUrl || newData.img
+    // 这里需要根据你的后端返回判断：如果后端返回的是 URL 而不是 File 对象
+    if (newData.imageUrl) { // 假设后端返回的字段是 imageUrl
+      previewImage.value = newData.imageUrl
+      formData.imageUrl = newData.imageUrl // 保持 formData.imageUrl 用于提交
+    } else if (newData.image) {
+       // 如果 newData.image 是一个文件 URL
+      previewImage.value = newData.image 
+      formData.imageUrl = newData.image
     }
+    // 注意：formData.image 应该只在用户上传新文件时设置 File 对象
   }
 }, { immediate: true })
 
@@ -525,6 +573,7 @@ const resetForm = () => {
     content: '',
     visibility: 'public',
     location: '',
+    address: '',  // 重置地址字段
     lat: null,
     lng: null,
     image: null,
@@ -593,11 +642,10 @@ const getCurrentLocation = () => {
       try {
         const address = await getAddressFromCoords(lat, lng)
         locationInfo.address = address
-        formData.location = address
       } catch (error) {
-        locationInfo.address = `经纬度: ${lat.toFixed(6)}, ${lng.toFixed(6)}`
-        formData.location = locationInfo.address
+        locationInfo.address = `位置 (${lat.toFixed(6)}, ${lng.toFixed(6)})`
       }
+      // 不再自动设置formData.location，让用户手动决定
       formData.lat = lat
       formData.lng = lng
       isLocating.value = false
@@ -605,17 +653,16 @@ const getCurrentLocation = () => {
     (error) => {
       isLocating.value = false
       locationPermission.value = 'denied'
-      
+
       // 设置默认位置信息，确保可以提交
       const defaultLat = 39.9005
       const defaultLng = 116.302
       locationInfo.lat = defaultLat
       locationInfo.lng = defaultLng
       locationInfo.address = '默认位置（定位失败）'
-      formData.location = locationInfo.address
       formData.lat = defaultLat
       formData.lng = defaultLng
-      
+
       // 只提示，不阻塞表单提交
       switch (error.code) {
       case 1:
@@ -641,6 +688,13 @@ const getCurrentLocation = () => {
       maximumAge: 0
     }
   )
+}
+
+const useAutoLocation = () => {
+  if (locationInfo.address && locationInfo.address !== '未获取到自动定位') {
+    formData.address = locationInfo.address
+    showAlertMessage('已使用自动定位的地址', 'success')
+  }
 }
 
 const getAddressFromCoords = async(lat, lng) => {
@@ -682,18 +736,12 @@ const handleImageUpload = async (event) => {
     uploadProgress.value = 50
 
     // 上传图片到服务器
-    console.log('开始上传图片:', file.name, file.size, 'bytes')
-    const uploadResult = await uploadCapsuleImage(file)
-    console.log('图片上传API响应:', uploadResult)
+    const uploadResult = await uploadFile(file)
 
-    uploadProgress.value = 80
-
-    // 处理响应数据 - 适配后端返回的数据结构
-    if (uploadResult && uploadResult.file_id) {
-      // 新API返回格式：直接返回data对象
-      formData.imageFileId = uploadResult.file_id
-      formData.imageUrl = uploadResult.url
-      formData.image = file
+    if (uploadResult.code === 200 || uploadResult.success) {
+      // 上传成功，保存图片URL
+      formData.imageUrl = uploadResult.data?.url || uploadResult.data?.access_url
+      formData.image = file  // 保留File对象以备后用
 
       showAlertMessage('图片上传成功', 'success')
       console.log('保存的图片信息:', {
@@ -819,57 +867,96 @@ const handleSubmit = async() => {
   isSubmitting.value = true
 
   try {
-    // 获取用户信息（实际项目中应该从用户状态管理获取）
-    const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
-
-    // 处理位置信息的健壮性 - 确保有默认值
+    // ... (位置信息处理逻辑不变)
     let location = formData.location || locationInfo.address || '未知位置'
     let lat = formData.lat || locationInfo.lat
     let lng = formData.lng || locationInfo.lng
-    
-    // 若定位失败，填充缺省值
+
     if (!location || location === '正在获取位置...') {
       location = '默认位置'
     }
     if (lat === null || lat === undefined || isNaN(lat)) {
-      lat = 39.9005 // 默认经纬度
+      lat = 39.9005
     }
     if (lng === null || lng === undefined || isNaN(lng)) {
-      lng = 116.302 // 默认经纬度
+      lng = 116.302
     }
 
-    // 构造新API格式的提交数据
+    // 构造完整的提交数据 (保持与原代码一致)
     const submitData = {
       title: formData.title.trim(),
       content: formData.content.trim(),
       visibility: formData.visibility,
       tags: [...selectedTags.value],
-      location: {
-        latitude: lat,
-        longitude: lng,
-        address: location
-      },
-      unlock_conditions: null,
-      media_files: formData.imageFileId ? [formData.imageFileId] : []
+
+      // 位置信息
+      location,
+      lat,
+      lng,
+
+      // 图片信息 (使用 imageUrl 或 image，取决于后端接收方式)
+      // 注意：如果后端只接受 URL，你需要在上传成功后将 formData.imageUrl 设置为最终 URL。
+      // 如果 formData.imageUrl 已经存在 (编辑模式下加载的)，则直接使用。
+      imageUrl: formData.imageUrl || previewImage.value, 
+
+      // 其他统计信息 (通常只在创建时初始化)
     }
 
     console.log('提交的胶囊数据:', submitData)
+    let result = null
+    let successMessage = ''
 
-    // 调用API创建胶囊
-    const result = await createCapsule(submitData)
-    console.log('创建胶囊结果:', result)
+    // 🚨 修改点 3：根据 isEdit 状态选择调用创建或更新 API
+    if (props.isEdit) {
+      if (!props.editData.id) {
+        throw new Error('编辑模式下缺少胶囊 ID')
+      }
+      // 添加 ID 到提交数据 (如果 API 要求 ID 在 body 中)
+      const updatePayload = {
+        ...submitData,
+        id: props.editData.id 
+      }
+      
+      // 调用更新 API
+      result = await updateCapsule(props.editData.id, updatePayload) // 假设 updateCapsule 接收 ID 和 payload
+      successMessage = '胶囊更新成功！'
+      console.log('更新胶囊结果:', result)
+    } else {
+      // 调用创建 API
+      result = await createCapsule(submitData)
+      successMessage = '胶囊创建成功！'
+      console.log('创建胶囊结果:', result)
+    }
 
-    // 如果没有抛出异常，说明创建成功（request拦截器已处理状态码）
-    if (result && result.capsule_id) {
-      showAlertMessage('胶囊创建成功！', 'success')
+    // 调试信息
+    console.log('判断成功条件:', {
+      result: result,
+      code: result?.code,
+      hasCapsuleId: !!result?.data?.capsule_id,
+      hasId: !!result?.data?.id,
+      condition: result?.code === 200 && result?.data
+    })
 
+    // 修复：根据后端返回的标准格式判断成功
+    if (result?.code === 200 && result?.data) {
+      showAlertMessage(successMessage, 'success')
+      
       // 延迟关闭模态框，让用户看到成功消息
       setTimeout(() => {
-        emit('submit', submitData)
+        // 传递结果数据给父组件，通常包含新的 ID 或更新后的数据
+        emit('submit', result || submitData)  // result已经是data部分了 
         handleClose()
       }, 1500)
     } else {
-      throw new Error('创建胶囊失败：未返回胶囊ID')
+      console.log('判断失败，进入错误分支:', {
+        result: result,
+        resultType: typeof result,
+        resultMessage: result?.message,
+        code: result?.code,
+        data: result?.data,
+        newCondition: result?.code === 200 && result?.data
+      })
+      throw new Error(result.message || (props.isEdit ? '更新胶囊失败' : '创建胶囊失败'))
     }
 
   } catch (error) {
@@ -1099,17 +1186,48 @@ const handleSubmit = async() => {
 .location-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+}
+
+.address-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.auto-location-wrapper {
+  padding: 16px;
+  background: rgba(108, 140, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(108, 140, 255, 0.1);
 }
 
 .location-display {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px;
+  padding: 12px;
   background: white;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid #e2e8f0;
+}
+
+.use-auto-location {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.btn-outline {
+  background: transparent;
+  color: #6c8cff;
+  border: 1px solid #6c8cff;
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: #6c8cff;
+  color: white;
+  transform: translateY(-1px);
 }
 
 .location-info {

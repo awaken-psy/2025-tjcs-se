@@ -18,13 +18,17 @@ class CapsuleService:
 
     def create_capsule(self, request: CapsuleCreateRequest, user_id: int) -> CapsuleCreateResponse:
         """创建胶囊"""
-        capsule_id = f"capsule_{int(datetime.utcnow().timestamp() * 1000)}"
-        
-        # 处理位置信息
+        # 不再生成自定义ID，让数据库自动分配Integer ID
+
+        # 处理位置信息 - 标准3字段格式
         unlock_location = None
         if request.location:
-            unlock_location = (request.location.latitude, request.location.longitude)
-        
+            unlock_location = (
+                request.location.latitude,
+                request.location.longitude,
+                request.location.address or ""  # 地址字段，空值时使用空字符串
+            )
+
         # 确定内容类型
         content_type = ContentType.TEXT
         if request.tags:
@@ -34,10 +38,10 @@ class CapsuleService:
                 content_type = ContentType.AUDIO
             elif len(request.tags) > 1:
                 content_type = ContentType.MIXED
-        
-        # 创建Domain对象
+
+        # 创建Domain对象（不设置capsule_id，让数据库自动分配）
         capsule_domain = CapsuleDomain(
-            capsule_id=capsule_id,
+            capsule_id=None,  # 让数据库自动分配ID
             owner_id=str(user_id),
             title=request.title,
             description=request.content[:100] if request.content else None,
@@ -59,16 +63,16 @@ class CapsuleService:
             created_at=saved_domain.created_at
         )
 
-    def get_capsule_detail(self, capsule_id: str, user_id: int, user) -> Optional['CapsuleDetail']:
+    def get_capsule_detail(self, capsule_id: int, user_id: int, user) -> Optional['CapsuleDetail']:
         """获取胶囊详情"""
         capsule_domain = self.repository.find_by_id(capsule_id)
         if capsule_domain and capsule_domain.can_view_by(str(user_id)):
             return capsule_domain.to_api_detail(user)
         return None
 
-    def get_user_capsules(self, user_id: int, page: int = 1, limit: int = 20):
+    def get_user_capsules(self, user_id: int, page: int = 1, limit: int = 20, status: str = "all"):
         """获取用户胶囊列表"""
-        result = self.repository.find_by_user_id(user_id, page, limit)
+        result = self.repository.find_by_user_id(user_id, page, limit, status)
         basic_list = [domain.to_api_basic() for domain in result['capsules']]
         
         return {
@@ -79,7 +83,7 @@ class CapsuleService:
             'total_pages': result['total_pages']
         }
 
-    def update_capsule(self, capsule_id: str, request: CapsuleUpdateRequest, user_id: int) -> bool:
+    def update_capsule(self, capsule_id: int, request: CapsuleUpdateRequest, user_id: int) -> bool:
         """更新胶囊"""
         capsule_domain = self.repository.find_by_id(capsule_id)
         if not capsule_domain or not capsule_domain.can_edit_by(str(user_id)):
@@ -98,7 +102,7 @@ class CapsuleService:
         self.repository.save(capsule_domain)
         return True
 
-    def delete_capsule(self, capsule_id: str, user_id: int) -> bool:
+    def delete_capsule(self, capsule_id: int, user_id: int) -> bool:
         """删除胶囊"""
         capsule_domain = self.repository.find_by_id(capsule_id)
         if capsule_domain and capsule_domain.can_delete_by(str(user_id)):
@@ -107,10 +111,10 @@ class CapsuleService:
 
     def save_draft(self, request: CapsuleDraftRequest, user_id: int) -> CapsuleDraftResponse:
         """保存草稿"""
-        capsule_id = f"draft_{int(datetime.utcnow().timestamp() * 1000)}"
-        
+        # 让数据库自动分配Integer ID，不再生成字符串ID
+
         capsule_domain = CapsuleDomain(
-            capsule_id=capsule_id,
+            capsule_id=None,
             owner_id=str(user_id),
             title=request.title or "未命名草稿",
             description=request.content[:100] if request.content else None,
@@ -125,7 +129,7 @@ class CapsuleService:
         saved_domain = self.repository.save(capsule_domain)
         
         return CapsuleDraftResponse(
-            draft_id=saved_domain.capsule_id,
+            draft_id=saved_domain.capsule_id,  # 现在是Integer ID
             saved_at=saved_domain.created_at
         )
 

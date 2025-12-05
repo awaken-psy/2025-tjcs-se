@@ -764,8 +764,11 @@ const handleLogin = async() => {
     // 由于请求适配层已经处理了响应，responseData 直接就是后端返回的 data 字段
     // 但我们需要检查是否有错误，因为成功时返回 data，错误时抛出异常
     
-    // 如果执行到这里说明登录成功，responseData 包含用户信息
-    const { token, refresh_token, user_id, email, nickname, avatar } = responseData
+    // 如果执行到这里说明登录成功，responseData 包含完整响应
+    console.log('📊 [LOGIN DEBUG] 完整响应结构:', responseData)
+
+    // 从responseData.data中提取用户信息
+    const { token, refresh_token, user_id, email, nickname, avatar } = responseData.data
     
     // 存储token和用户信息 - 适配拦截器的token读取逻辑
     userStore.login(token, {
@@ -828,8 +831,9 @@ const handleRegister = async() => {
     
     console.log('注册响应数据:', responseData)
     
-    // 由于请求适配层已经处理了响应，responseData 直接就是后端返回的 data 字段
-    const { token, refresh_token, user_id, email, nickname, avatar } = responseData
+    // 由于请求适配层返回完整响应，从data字段中提取用户信息
+    console.log('📊 [REGISTER DEBUG] 完整响应结构:', responseData)
+    const { token, refresh_token, user_id, email, nickname, avatar } = responseData.data
     
     // 注册成功后自动登录
     userStore.login(token, {

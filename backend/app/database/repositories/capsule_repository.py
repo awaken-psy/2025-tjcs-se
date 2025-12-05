@@ -19,16 +19,19 @@ class CapsuleRepository:
         except Exception as e:
             raise Exception(f"数据库连接失败: {str(e)}")
     
-    def find_by_id(self, capsule_id: str) -> Optional[CapsuleDomain]:
+    def find_by_id(self, capsule_id: int) -> Optional[CapsuleDomain]:
         """根据ID查找胶囊"""
         orm = self.db.query(Capsule).filter(Capsule.id == capsule_id).first()
         return self._orm_to_domain(orm) if orm else None
     
-    def find_by_user_id(self, user_id: int, page: int = 1, limit: int = 20) -> Dict[str, Any]:
+    def find_by_user_id(self, user_id: int, page: int = 1, limit: int = 20, status: str = "all") -> Dict[str, Any]:
         """分页查找用户的胶囊"""
         offset = (page - 1) * limit
         query = self.db.query(Capsule).filter(Capsule.user_id == user_id)
-        
+
+        # "我的胶囊"应该显示用户的所有胶囊，不进行状态过滤
+        # status参数在这里不使用，因为用户应该看到自己创建的所有胶囊
+
         total = query.count()
         orms = query.order_by(Capsule.created_at.desc()).offset(offset).limit(limit).all()
         
@@ -52,7 +55,7 @@ class CapsuleRepository:
         
         return self._orm_to_domain(orm)
     
-    def delete_by_id(self, capsule_id: str) -> bool:
+    def delete_by_id(self, capsule_id: int) -> bool:
         """根据ID删除胶囊"""
         orm = self.db.query(Capsule).filter(Capsule.id == capsule_id).first()
         if orm:
@@ -112,11 +115,15 @@ class CapsuleRepository:
             elif len(tags) > 1:
                 content_type = ContentType.MIXED
         
-        # 解析解锁位置
+        # 解析解锁位置 - 标准3字段格式
         unlock_location = None
-        if orm.latitude and orm.longitude:
-            unlock_location = (orm.latitude, orm.longitude)
-        
+        if orm.latitude is not None and orm.longitude is not None:
+            unlock_location = (
+                float(orm.latitude),
+                float(orm.longitude),
+                orm.address or ""  # 地址字段，空值时使用空字符串
+            )
+
         return CapsuleDomain(
             capsule_id=orm.id,
             owner_id=str(orm.user_id),
@@ -135,7 +142,9 @@ class CapsuleRepository:
     def _domain_to_orm(domain: CapsuleDomain) -> Capsule:
         """Domain对象转ORM对象"""
         orm = Capsule()
-        orm.id = domain.capsule_id
+        # 只有当capsule_id不为None时才设置，否则让数据库自动分配
+        if domain.capsule_id is not None:
+            orm.id = domain.capsule_id
         orm.user_id = int(domain.owner_id)
         orm.title = domain.title
         orm.text_content = domain.content
@@ -144,10 +153,11 @@ class CapsuleRepository:
         orm.created_at = domain.created_at
         orm.updated_at = domain.updated_at
         
-        # 设置位置信息
-        if domain.unlock_location:
-            orm.latitude = domain.unlock_location[0]
-            orm.longitude = domain.unlock_location[1]
+        # 设置位置信息 - 标准3字段格式
+        if domain.unlock_location and len(domain.unlock_location) == 3:
+            orm.latitude = domain.unlock_location[0]   # latitude
+            orm.longitude = domain.unlock_location[1]  # longitude
+            orm.address = domain.unlock_location[2]    # address
         
         return orm
     

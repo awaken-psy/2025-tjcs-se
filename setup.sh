@@ -8,8 +8,8 @@ echo "📁 创建上传目录: $UPLOAD_DIR"
 mkdir -p ~/Downloads/timecapsule-uploads
 
 echo "🔨 构建Docker镜像..."
-docker build -t timecapsule-backend:123456 ./backend
-docker build -t timecapsule-frontend:123456 ./frontend
+docker build --no-cache -t timecapsule-backend:123456 ./backend
+docker build --no-cache -t timecapsule-frontend:123456 ./frontend
 
 echo "🌐 创建Docker网络..."
 docker network create timecapsule-net || true
