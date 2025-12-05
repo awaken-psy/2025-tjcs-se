@@ -71,12 +71,12 @@ UPLOAD_DIR = os.getenv('UPLOAD_DIR', './uploads')
 if os.path.exists(UPLOAD_DIR):
     # 挂载上传目录作为静态文件服务
     app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
-    print(f"📁 静态文件服务已挂载: {UPLOAD_DIR} -> /uploads")
+    # print(f"📁 静态文件服务已挂载: {UPLOAD_DIR} -> /uploads")
 else:
     # 如果上传目录不存在，创建它
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
-    print(f"📁 创建并挂载上传目录: {UPLOAD_DIR} -> /uploads")
+    # print(f"📁 创建并挂载上传目录: {UPLOAD_DIR} -> /uploads")
 
 # 根路径
 @app.get("/")
@@ -86,17 +86,6 @@ async def root():
         "message": "欢迎使用时光胶囊·校园 API",
         "version": "1.0.0",
         "docs": "/docs",
-        "available_endpoints": [
-            "POST /api/capsules/ - 创建胶囊",
-            "GET /api/capsules/my - 获取我的胶囊",
-            "GET /api/capsules/{id} - 获取胶囊详情",
-            "PUT /api/capsules/{id} - 编辑胶囊",
-            "DELETE /api/capsules/{id} - 删除胶囊",
-            "POST /api/capsules/drafts - 保存草稿",
-            "GET /api/capsules/browse - 多模式浏览胶囊",
-            "POST /api/upload/ - 上传文件（图片/音频）",
-            "DELETE /api/upload/file/{file_id} - 删除文件"
-        ]
     }
 
 # 健康检查端点
