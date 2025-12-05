@@ -166,8 +166,11 @@ export const reportCapsuleLocation = async (data) => {
  * @returns {Promise<Object>} 创建结果
  */
 export const createCapsule = async (data) => {
+  console.log('🚀 [MAP API DEBUG] createCapsule called with data:', data)
+
   // 只校验必填项
   if (!data.title || !data.content || !data.visibility) {
+    console.error('❌ [MAP API DEBUG] Validation failed: missing required fields')
     throw new Error('标题、内容、可见性为必填项')
   }
 
@@ -186,12 +189,20 @@ export const createCapsule = async (data) => {
     media_files: data.media_files || []
   }
 
-  console.log('发送到后端的胶囊数据（新API格式）:', payload)
+  console.log('📦 [MAP API DEBUG] 发送到后端的胶囊数据（新API格式）:', payload)
+  console.log('🔐 [MAP API DEBUG] Current localStorage token:', localStorage.getItem('user_token') ? 'EXISTS' : 'MISSING')
 
-  // 使用统一的request方法，确保认证和错误处理
-  return await request({
-    url: '/capsules',
-    method: 'post',
-    data: payload
-  })
+  try {
+    // 使用统一的request方法，确保认证和错误处理
+    const result = await request({
+      url: '/capsules/',  // 添加尾部斜杠避免307重定向
+      method: 'post',
+      data: payload
+    })
+    console.log('✅ [MAP API DEBUG] 胶囊创建成功:', result)
+    return result
+  } catch (error) {
+    console.error('❌ [MAP API DEBUG] 胶囊创建失败:', error)
+    throw error
+  }
 }

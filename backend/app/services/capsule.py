@@ -70,9 +70,9 @@ class CapsuleService:
             return capsule_domain.to_api_detail(user)
         return None
 
-    def get_user_capsules(self, user_id: int, page: int = 1, limit: int = 20):
+    def get_user_capsules(self, user_id: int, page: int = 1, limit: int = 20, status: str = "all"):
         """获取用户胶囊列表"""
-        result = self.repository.find_by_user_id(user_id, page, limit)
+        result = self.repository.find_by_user_id(user_id, page, limit, status)
         basic_list = [domain.to_api_basic() for domain in result['capsules']]
         
         return {
@@ -111,10 +111,10 @@ class CapsuleService:
 
     def save_draft(self, request: CapsuleDraftRequest, user_id: int) -> CapsuleDraftResponse:
         """保存草稿"""
-        capsule_id = f"draft_{int(datetime.utcnow().timestamp() * 1000)}"
-        
+        # 让数据库自动分配Integer ID，不再生成字符串ID
+
         capsule_domain = CapsuleDomain(
-            capsule_id=capsule_id,
+            capsule_id=None,
             owner_id=str(user_id),
             title=request.title or "未命名草稿",
             description=request.content[:100] if request.content else None,
@@ -129,7 +129,7 @@ class CapsuleService:
         saved_domain = self.repository.save(capsule_domain)
         
         return CapsuleDraftResponse(
-            draft_id=saved_domain.capsule_id,
+            draft_id=saved_domain.capsule_id,  # 现在是Integer ID
             saved_at=saved_domain.created_at
         )
 

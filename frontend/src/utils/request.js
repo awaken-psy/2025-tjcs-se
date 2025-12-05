@@ -4,8 +4,8 @@
 import axios from 'axios'
 
 const request = axios.create({
-  //baseURL: '/api', // 统一前缀，所有API都走/api
-  baseURL:'http://127.0.0.1:4523/m1/7397469-7130026-default', // 注释掉外部 mock 服务器
+  baseURL: '/api', // 统一前缀，所有API都走/api
+  //baseURL:'http://127.0.0.1:4523/m1/7397469-7130026-default', // 注释掉外部 mock 服务器
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -15,7 +15,19 @@ const request = axios.create({
 // 请求拦截器
 request.interceptors.request.use(config => {
   const token = localStorage.getItem('user_token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  console.log('🔍 [REQUEST DEBUG] URL:', config.url)
+  console.log('🔍 [REQUEST DEBUG] Method:', config.method)
+  console.log('🔍 [REQUEST DEBUG] Token from localStorage:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN')
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+    console.log('✅ [REQUEST DEBUG] Authorization header added')
+  } else {
+    console.log('❌ [REQUEST DEBUG] No token found in localStorage')
+  }
+
+  console.log('🔍 [REQUEST DEBUG] Final headers:', config.headers)
+  console.log('🔍 [REQUEST DEBUG] Request data:', config.data)
 
   // 如果是 FormData，让浏览器自动设置 Content-Type
   if (config.data instanceof FormData) {
@@ -30,15 +42,18 @@ request.interceptors.request.use(config => {
 // 响应拦截器（适配统一响应模型）
 request.interceptors.response.use(response => {
   const result = response.data
+  console.log('🔍 [RESPONSE DEBUG] Status:', response.status)
+  console.log('🔍 [RESPONSE DEBUG] Response data:', result)
 
   // 检查是否为统一响应格式
   if (result && typeof result === 'object' && 'code' in result) {
     // 业务成功
     if (result.code === 200) {
-      console.log('请求成功:', result)
-      return result.data  // 直接返回业务数据
+      console.log('✅ [RESPONSE DEBUG] 请求成功:', result)
+      return result  // 返回完整响应对象，保持兼容性
     } else {
       // 业务逻辑错误 - 创建错误对象，包含完整响应信息
+      console.log('❌ [RESPONSE DEBUG] 业务逻辑错误:', result)
       const error = new Error(result.message || '请求失败')
       error.code = result.code
       error.data = result.data // 保留数据，即使有错误
@@ -51,7 +66,9 @@ request.interceptors.response.use(response => {
   return result
 }, error => {
   // 网络错误或服务器错误（HTTP状态码非2xx）
-  console.error('网络请求错误:', error)
+  console.error('❌ [ERROR DEBUG] 网络请求错误:', error)
+  console.error('❌ [ERROR DEBUG] Error status:', error.response?.status)
+  console.error('❌ [ERROR DEBUG] Error data:', error.response?.data)
 
   let errorMessage = '网络错误'
   let errorCode = 500
@@ -59,6 +76,7 @@ request.interceptors.response.use(response => {
 
   if (error.response) {
     // 服务器返回了错误状态码
+    console.error('❌ [ERROR DEBUG] 服务器返回错误状态码:', error.response.status)
     const responseData = error.response.data
 
     // 尝试从响应数据中提取错误信息
