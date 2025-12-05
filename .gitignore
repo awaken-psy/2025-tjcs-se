@@ -95,3 +95,6 @@ dmypy.json
 CLAUDE.md
 .claude/
 git.txt
+
+# 上传文件
+uploads/
