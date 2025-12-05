@@ -35,6 +35,8 @@ env.bak/
 venv.bak/
 *.venv-linux
 venv-linux/
+.env*
+
 
 # PyCharm IDE
 .idea/
@@ -91,5 +93,5 @@ dmypy.json
 
 # AI工具
 CLAUDE.md
-
+.claude/
 git.txt
