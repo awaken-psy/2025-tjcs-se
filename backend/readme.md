@@ -35,3 +35,24 @@ CONTAINER ID   IMAGE             COMMAND                   CREATED          STAT
 ```bash
 (TimeCapsule) PS D:\web-p\TimeCapsule\backend> docker logs -f timecapsule_backend
 ```
+
+数据库操作
+
+```bash
+docker exec -it timecapsule_mysql bash
+# root 密码是docker-compose.yml 中 MYSQL_ROOT_PASSWORD 的值
+mysql -u root -p
+
+......
+
+\q  # 退出 mysql 客户端
+exit  # 退出容器 bash
+```
+
+启动与停止docker
+
+```bash
+docker compose up -d
+
+docker compose stop
+```
