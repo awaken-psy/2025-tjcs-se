@@ -10,22 +10,57 @@ from app.model import (
     UpdateUserRequest,
     UserHistoryQuery
 )
+from app.auth.dependencies import login_required
+from app.domain.user import AuthorizedUser
+from app.services.user_service import UserService
 
 router = APIRouter(prefix='/users', tags=['Users'])
 
 
 @router.get("/me", response_model=BaseResponse[UserProfile])
-async def get_my_profile():
+async def get_my_profile(
+    current_user: AuthorizedUser = Depends(login_required)
+):
     """获取我的资料"""
-    pass
+    try:
+        # 创建用户服务
+        user_service = UserService()
+
+        # 获取用户资料
+        success, user_profile, message = user_service.get_user_profile(current_user.user_id)
+
+        if success:
+            return BaseResponse.success(data=user_profile, message=message)
+        else:
+            return BaseResponse.fail(message=message)
+
+    except Exception as e:
+        return BaseResponse.fail(message=f"获取用户资料失败: {str(e)}")
 
 
-@router.put("/me", response_model=BaseResponse[UserProfile])
+@router.put("/me", response_model=BaseResponse[None])
 async def update_my_profile(
-    request: UpdateUserRequest
+    request: UpdateUserRequest,
+    current_user: AuthorizedUser = Depends(login_required)
 ):
     """更新我的资料"""
-    pass
+    try:
+        # 创建用户服务
+        user_service = UserService()
+
+        # 更新用户资料
+        success, user_profile, message = user_service.update_user_profile(
+            user_id=current_user.user_id,
+            update_request=request
+        )
+
+        if success:
+            return BaseResponse.success(message=message)
+        else:
+            return BaseResponse.fail(message=message)
+
+    except Exception as e:
+        return BaseResponse.fail(message=f"更新用户资料失败: {str(e)}")
 
 
 @router.get("/me/history", response_model=BaseResponse[UserHistoryResponse])

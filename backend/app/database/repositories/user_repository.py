@@ -219,6 +219,38 @@ class UserRepository:
             self.db.rollback()
             return False
 
+    def update_user(self, user_id: int, update_data: dict) -> bool:
+        """
+        更新用户信息
+
+        Args:
+            user_id: 用户ID
+            update_data: 更新数据字典
+
+        Returns:
+            是否成功
+        """
+        try:
+            user = self.db.query(User).filter(User.id == user_id).first()
+            if not user:
+                return False
+
+            # 更新允许的字段
+            allowed_fields = {'nickname', 'avatar_url', 'bio'}
+            for field, value in update_data.items():
+                if field in allowed_fields and hasattr(user, field):
+                    setattr(user, field, value)
+
+            # 自动更新 updated_at 字段
+            from sqlalchemy.sql import func
+            user.updated_at = func.now()
+
+            self.db.commit()
+            return True
+        except Exception as e:
+            self.db.rollback()
+            return False
+
     def _orm2domain(self, user:User) -> Optional[AuthorizedUser]:
         """
         将用户数据转换为领域用户对象

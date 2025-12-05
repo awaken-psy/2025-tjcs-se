@@ -73,7 +73,7 @@ class EmailVerifyCodeManager:
 
         # 开发模式：使用固定验证码123456，避免SMTP配置问题
         import os
-        is_dev_mode = os.getenv("APP_ENV", "development") == "development"
+        is_dev_mode = os.getenv("APP_ENV", "production") == "development"
 
         if is_dev_mode:
             # 开发模式：固定验证码
