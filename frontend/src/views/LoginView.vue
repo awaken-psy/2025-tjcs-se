@@ -632,11 +632,10 @@ const handleLogin = async () => {
     isLoading.value = true
 
     // 加密密码
-    // TODO
+    // TODO：看一下加密算法
     const encryptedPassword = await encryptPassword(loginForm.password)
     console.log('登录发送数据:', encryptedPassword)
 
-    // 注意：请求适配层会处理响应，这里直接得到处理后的数据
     const responseData = await login({
       email: loginForm.email.trim(),
       password: encryptedPassword,
@@ -644,10 +643,7 @@ const handleLogin = async () => {
 
     console.log('登录响应数据:', responseData)
 
-    // 如果执行到这里说明登录成功，responseData 包含用户信息
-    //TODO：加studentid
-    const { token, refresh_token, user_id, email, nickname, avatar } =
-      responseData
+    const { token, refresh_token, user_id, email, nickname, avatar } = responseData
 
     // 存储token和用户信息 - 适配拦截器的token读取逻辑
     userStore.login(
@@ -662,23 +658,11 @@ const handleLogin = async () => {
       refresh_token
     )
 
-    // 关键修改：统一token存储key，适配请求拦截器
-    localStorage.setItem('access_token', token)
-    localStorage.setItem('refresh_token', refresh_token)
-    localStorage.setItem('user_token', token) // 新增：适配请求拦截器的读取逻辑
-    localStorage.setItem(
-      'user_info',
-      JSON.stringify({
-        user_id,
-        email,
-        nickname,
-        avatar,
-        role: 'user',
-      })
-    )
+    // 仅保留非认证状态的本地存储
     localStorage.setItem('saved_login_email', loginForm.email)
 
     routeJump('/hubviews')
+
   } catch (error) {
     console.error('登录错误详情:', error)
     formErrors.login.password = error.message || '登录失败，请检查邮箱和密码'
@@ -708,13 +692,12 @@ const handleRegister = async () => {
       registerData.student_id = regForm.student_id.trim()
     }
 
-    console.log('发送注册数据:', registerData)
+    console.log('注册发送数据:', registerData)
 
     const responseData = await register(registerData)
 
     console.log('注册响应数据:', responseData)
 
-    // NOTE：要加studentid吗？
     const { token, refresh_token, user_id, email, nickname, avatar } = responseData
 
     // 注册成功后自动登录
@@ -731,20 +714,8 @@ const handleRegister = async () => {
       refresh_token
     )
 
-    // 关键修改：统一token存储key，适配请求拦截器
-    localStorage.setItem('access_token', token)
-    localStorage.setItem('refresh_token', refresh_token)
-    localStorage.setItem('user_token', token) // 新增：适配请求拦截器的读取逻辑
-    localStorage.setItem(
-      'user_info',
-      JSON.stringify({
-        user_id,
-        email,
-        nickname,
-        avatar,
-        role: 'user',
-      })
-    )
+    // 仅保留非认证状态的本地存储
+    localStorage.setItem('saved_login_email', regForm.email)
 
     routeJump('/hubviews')
 
@@ -796,6 +767,7 @@ const handleSendVerifyCode = async () => {
 const handleForgotSend = async () => {
   try {
     // TODO: 对接忘记密码API
+    // 要加个模态框，
     alert('密码重置功能开发中...')
     closeModal('forgot')
   } catch (error) {
