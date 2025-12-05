@@ -570,22 +570,22 @@ const handleLikeCapsule = async(capsuleId) => {
 
 //TODO: 对接更新api
 const handleEditCapsule = (capsuleId) => {
-// 原代码: const handleEditCapsule = (capsuleId) => { ... }
-//TODO: 对接更新api (逻辑已在 onCapsuleCreated 中统一处理)
-const handleEditCapsule = (capsuleId) => {
-  const capsule = capsuleList.value.find(c => c.id === capsuleId)
-  if (capsule) {
-    // 🚨 修改点 10：将详情数据赋给编辑表单，并关闭详情弹窗
-    currentEditData.value = {
-      ...capsule,
-      content: capsule.desc, // 假设表单内容字段名为 content，但详情字段名为 desc
-    } 
-    isEditMode.value = true
-    showFormModal.value = true
-    handleCloseDetail() // 关闭详情弹窗，防止两个弹窗同时存在
+  // 原代码: const handleEditCapsule = (capsuleId) => { ... }
+  //TODO: 对接更新api (逻辑已在 onCapsuleCreated 中统一处理)
+  const handleEditCapsule = (capsuleId) => {
+    const capsule = capsuleList.value.find(c => c.id === capsuleId)
+    if (capsule) {
+      // 🚨 修改点 10：将详情数据赋给编辑表单，并关闭详情弹窗
+      currentEditData.value = {
+        ...capsule,
+        content: capsule.desc, // 假设表单内容字段名为 content，但详情字段名为 desc
+      }
+      isEditMode.value = true
+      showFormModal.value = true
+      handleCloseDetail() // 关闭详情弹窗，防止两个弹窗同时存在
+    }
   }
 }
-
 // 原代码: const handleDeleteCapsule = async(capsuleId) => { ... }
 const handleDeleteCapsule = async(capsuleId) => {
   if (!confirm('确定要删除该胶囊吗？此操作不可恢复！')) return
@@ -641,8 +641,7 @@ const onCapsuleCreated = async() => {
   await fetchCapsuleList() // 重新加载列表
 }
 
-// —— 详情弹窗相关方法 ——
-// reviewed
+// 详情弹窗相关方法 
 const handleCloseDetail = () => {
   showDetailModal.value = false
   currentDetailData.value = {}

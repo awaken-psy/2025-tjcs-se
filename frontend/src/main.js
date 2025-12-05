@@ -3,7 +3,6 @@ import App from './App.vue'
 import router from './router'
 import { createPinia } from 'pinia'
 import './registerServiceWorker'
-import '@fortawesome/fontawesome-free/css/all.css'
 
 // 高德地图插件
 import VueAMap, { initAMapApiLoader } from '@vuemap/vue-amap'
