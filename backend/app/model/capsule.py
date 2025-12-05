@@ -26,7 +26,7 @@ class UnlockConditions(BaseModel):
 
 class MediaFile(BaseModel):
     """媒体文件模型"""
-    id: str
+    id: int  # 修改为整数类型，与数据库ID一致
     type: str  # "image", "audio"
     url: str
     thumbnail: str | None = None
@@ -89,7 +89,7 @@ class CapsuleCreateRequest(BaseModel):
     tags: List[str] | None = None
     location: Location | None = None
     unlock_conditions: UnlockConditions | None = None
-    media_files: List[str] | None = None  # file IDs
+    media_files: List[int] | None = None  # file IDs 修改为整数类型
 
 
 
@@ -125,7 +125,7 @@ class CapsuleUpdateResponse(BaseModel):
 
 class CapsuleDraftResponse(BaseModel):
     """保存草稿响应模型"""
-    draft_id: str
+    draft_id: int  # 修改为整数类型，与数据库ID一致
     saved_at: datetime
 
 
@@ -138,7 +138,7 @@ class CapsuleListResponse(BaseModel):
 class MyCapsulesQuery(BaseModel):
     """我的胶囊查询参数模型"""
     page: int = Field(1, ge=1)
-    page_size: int = Field(20, ge=1, le=100)
+    size: int = Field(20, ge=1, le=100)  # 改为size，与frontend保持一致
     status: str = Field("all", pattern="^(all|draft|published)$")
 
 

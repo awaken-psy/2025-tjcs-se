@@ -25,10 +25,17 @@ def get_user_from_token(authorization: str) -> BaseUser:
         raise HTTPException(status_code=401, detail="Unknown user role")
 
 def login_required(authorization: str = Header(alias="Authorization")) -> AuthorizedUser:
-    user = get_user_from_token(authorization)
-    if not isinstance(user, (RegisteredUser, AdminUser)):
-        raise HTTPException(status_code=401, detail="User not authorized")
-    return user
+    print(f"🔐 认证调试 - Authorization头: {authorization[:50]}..." if len(authorization) > 50 else f"🔐 认证调试 - Authorization头: {authorization}")
+    try:
+        user = get_user_from_token(authorization)
+        print(f"✅ 认证成功 - 用户类型: {type(user).__name__}")
+        if not isinstance(user, (RegisteredUser, AdminUser)):
+            print(f"❌ 用户类型不匹配: {type(user).__name__}")
+            raise HTTPException(status_code=401, detail="User not authorized")
+        return user
+    except Exception as e:
+        print(f"❌ 认证失败: {str(e)}")
+        raise
 
 def admin_required(user: AuthorizedUser=Depends(login_required)) -> AdminUser:
     if not isinstance(user, AdminUser):

@@ -343,16 +343,24 @@ const fetchCapsuleList = async () => {
     const res = await getMyCapsules({
       page: currentPage.value,
       size: pageSize.value,
-      status: 'published' // 假设只显示已发布的胶囊
+      status: 'all' // 显示用户的所有胶囊
     })
 
     //console.log('获取胶囊列表接口返回数据：', res)
     //NOTE:分页模型中，后端响应了四个值，分别是页面大小，总页数，总胶囊数，和当前页数。
     //其中页面大小和当前页数是request的，实际只用了总胶囊数，总页数是前端自己算的
 
-    if (res && Array.isArray(res.capsules)) {
+    console.log('🔍 [MYCAPSULE DEBUG] API响应结构分析:', {
+      res: res,
+      hasData: !!res.data,
+      hasCapsules: !!res.data?.capsules,
+      capsulesIsArray: Array.isArray(res.data?.capsules),
+      capsulesLength: res.data?.capsules?.length
+    })
+
+    if (res?.data && Array.isArray(res.data.capsules)) {
       // 数据映射：将后端字段映射到前端组件期望的字段
-      capsuleList.value = res.capsules.map(capsule => ({
+      capsuleList.value = res.data.capsules.map(capsule => ({
         ...capsule,
         // 添加前端需要的状态字段
         is_mine: true,
@@ -361,30 +369,18 @@ const fetchCapsuleList = async () => {
         collected: false,    // 初始化为未收藏
         // 其他字段保持原样，因为组件现在直接使用后端字段名
       }))
-      capsuleList.value = res.capsules
-      capsuleTotal.value = res.pagination?.total ?? res.capsules.length
+      capsuleTotal.value = res.data.pagination?.total ?? res.data.capsules.length
       //console.log(`打印获取到的胶囊列表，共 ${capsuleTotal.value} 个胶囊`, JSON.parse(JSON.stringify(capsuleList.value)))
     } else {
-      rawCapsules = []
+      capsuleList.value = []
       capsuleTotal.value = 0
-      console.warn('接口返回数据格式异常:', res)
+      console.warn('❌ [MYCAPSULE DEBUG] 接口返回数据格式异常:', {
+        res: res,
+        expectedPath: 'res.data.capsules',
+        actualData: res.data,
+        isArray: Array.isArray(res.data?.capsules)
+      })
     }
-
-    // 映射后端字段到前端期望的字段格式
-    capsuleList.value = rawCapsules.map(capsule => ({
-      id: capsule.id,
-      title: capsule.title,
-      desc: capsule.content_preview || '', // 映射 content_preview -> desc
-      vis: capsule.visibility, // 映射 visibility -> vis
-      time: capsule.created_at, // 映射 created_at -> time
-      likes: capsule.like_count || 0, // 映射 like_count -> likes
-      views: capsule.unlock_count || 0,
-      tags: capsule.tags || [],
-      status: capsule.status,
-      cover: capsule.cover_image,
-      // 保留原始数据以备其他用途
-      ...capsule
-    }))
   } catch (error) {
     console.error('获取胶囊列表失败:', error)
     capsuleList.value = []

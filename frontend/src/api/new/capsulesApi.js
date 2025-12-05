@@ -24,8 +24,11 @@ import request from '@/utils/request'
  * @returns {Promise}
  */
 export const createCapsule = (capsuleData) => {
+  console.log('🚀 [NEW API DEBUG] createCapsule called with data:', capsuleData)
+  console.log('🔐 [NEW API DEBUG] Current localStorage token:', localStorage.getItem('user_token') ? 'EXISTS' : 'MISSING')
+
   return request({
-    url: '/capsules',
+    url: '/capsules/',  // 添加尾部斜杠避免307重定向
     method: 'post',
     data: capsuleData
   })
@@ -40,6 +43,9 @@ export const createCapsule = (capsuleData) => {
  * @returns {Promise}
  */
 export const getMyCapsules = (params = {}) => {
+  console.log('🔍 [NEW API DEBUG] getMyCapsules called with params:', params)
+  console.log('🔐 [NEW API DEBUG] Current localStorage token:', localStorage.getItem('user_token') ? 'EXISTS' : 'MISSING')
+
   return request({
     url: '/capsules/my',
     method: 'get',
@@ -72,6 +78,9 @@ export const browseCapsules = (params = {}) => {
  * @returns {Promise}
  */
 export const getCapsuleDetail = (capsuleId) => {
+  console.log('🔍 [NEW API DEBUG] getCapsuleDetail called with ID:', capsuleId)
+  console.log('🔐 [NEW API DEBUG] Current localStorage token:', localStorage.getItem('user_token') ? 'EXISTS' : 'MISSING')
+
   return request({
     url: `/capsules/${capsuleId}`,
     method: 'get'

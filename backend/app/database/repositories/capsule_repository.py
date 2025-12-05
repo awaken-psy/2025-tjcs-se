@@ -17,11 +17,14 @@ class CapsuleRepository:
         orm = self.db.query(Capsule).filter(Capsule.id == capsule_id).first()
         return self._orm_to_domain(orm) if orm else None
     
-    def find_by_user_id(self, user_id: int, page: int = 1, limit: int = 20) -> Dict[str, Any]:
+    def find_by_user_id(self, user_id: int, page: int = 1, limit: int = 20, status: str = "all") -> Dict[str, Any]:
         """分页查找用户的胶囊"""
         offset = (page - 1) * limit
         query = self.db.query(Capsule).filter(Capsule.user_id == user_id)
-        
+
+        # "我的胶囊"应该显示用户的所有胶囊，不进行状态过滤
+        # status参数在这里不使用，因为用户应该看到自己创建的所有胶囊
+
         total = query.count()
         orms = query.order_by(Capsule.created_at.desc()).offset(offset).limit(limit).all()
         

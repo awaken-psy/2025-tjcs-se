@@ -23,12 +23,33 @@ router = APIRouter(prefix='/capsules', tags=['Capsules'])
     description="创建新的时光胶囊，支持多媒体内容和多种解锁条件"
 )
 async def create_capsule(
-    request: CapsuleCreateRequest, 
-    user: AuthorizedUser = Depends(login_required), 
+    raw_data: dict,  # 接受原始前端数据
+    user: AuthorizedUser = Depends(login_required),
     db: Session = Depends(get_db)
 ):
     """创建胶囊"""
     try:
+        # 处理前端格式数据，转换为后端期望格式
+        location_obj = None
+        if raw_data.get('lat') is not None and raw_data.get('lng') is not None:
+            from app.model.capsule import Location
+            location_obj = Location(
+                latitude=float(raw_data['lat']),
+                longitude=float(raw_data['lng']),
+                address=raw_data.get('location', '')  # 使用前端的location字符串作为地址
+            )
+
+        # 构建标准的CapsuleCreateRequest
+        request = CapsuleCreateRequest(
+            title=raw_data['title'],
+            content=raw_data['content'],
+            visibility=raw_data['visibility'],
+            tags=raw_data.get('tags', []),
+            location=location_obj,
+            unlock_conditions=raw_data.get('unlock_conditions'),
+            media_files=raw_data.get('media_files', [])
+        )
+
         manager = CapsuleManager(db)
         response = manager.create_capsule(request, user.user_id)
 
@@ -50,18 +71,18 @@ async def create_capsule(
 )
 async def get_my_capsules(
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    size: int = Query(20, ge=1, le=100),  # 直接使用size参数
     status: str = Query("all", regex="^(all|draft|published)$"),
     user: AuthorizedUser = Depends(login_required),
     db: Session = Depends(get_db)
 ):
     """获取我的胶囊列表"""
     manager = CapsuleManager(db)
-    result = manager.get_user_capsules(user.user_id, page, page_size)
+    result = manager.get_user_capsules(user.user_id, page, size, status)  # 传递status参数
     
     pagination = Pagination(
         page=result['page'],
-        page_size=result['limit'],
+        page_size=size,  # 使用传入的size参数
         total=result['total'],
         total_pages=result['total_pages']
     )
@@ -195,6 +216,8 @@ async def save_draft(
 )
 async def browse_capsules(
     mode: str = Query(..., regex="^(map|timeline|tags)$"),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),  # 使用size与frontend对齐
     user: AuthorizedUser = Depends(login_required),
     db: Session = Depends(get_db)
 ):
@@ -203,7 +226,7 @@ async def browse_capsules(
         manager = CapsuleManager(db)
         
         if mode == "map":
-            capsules = manager.get_capsules_with_location(user.user_id)
+            capsules = manager.get_capsules_with_location(user.user_id, page, size)  # size传递给limit
             return BaseResponse[MultiModeBrowseResponse].success(
                 code=200,
                 message="获取成功",
@@ -227,7 +250,7 @@ async def browse_capsules(
                 )
             )
         elif mode == "tags":
-            capsules = manager.get_capsules_by_tags(user.user_id)
+            capsules = manager.get_capsules_by_tags(user.user_id, page, size)  # size传递给limit
             return BaseResponse[MultiModeBrowseResponse].success(
                 code=200,
                 message="获取成功",
