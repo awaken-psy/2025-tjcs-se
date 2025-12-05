@@ -10,7 +10,7 @@ import os
 # 添加项目根目录到Python路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backend.app.database.orm.config import create_tables, drop_tables
+from app.database.database import create_tables, drop_tables
 
 
 def main():

@@ -3,6 +3,7 @@
 """
 from fastapi import FastAPI, HTTPException, Query, Path, UploadFile, File
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware # 导入 CORS 中间件
 from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel
@@ -13,25 +14,35 @@ from dotenv import load_dotenv
 # 加载环境变量
 load_dotenv()
 
-# 添加当前目录到Python路径，确保可以找到app模块
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
-# 修复数据库导入路径
-from database.database import create_tables
-# 修复API路由导入路径 - 使用相对导入
+# --- 路径修正与初始化 ---
+# 确保项目根目录在 Python 路径中，以便进行绝对导入 (例如: from app.api...)
+# 你的 Docker 容器工作目录是 /app
+if os.path.dirname(os.path.abspath(__file__)) not in sys.path:
+    # 这一段在 Docker 中可能不需要，因为 Dockerfile 或 compose 文件已经处理了 PYTHONPATH
+    # 但是保留下来以防在本地直接运行
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# 使用绝对导入方式修复数据库和 API 路由的导入
+from app.database.database import create_tables
 from app.api.v1 import (
-        admin_router,
-        auth_router,
-        capsule_router,
-        unlock_router,
-        interaction_router,
-        user_router,
-        friend_router,
-        upload_router,
-        report_router
-    )
+    admin_router,
+    auth_router,
+    capsule_router,
+    unlock_router,
+    interaction_router,
+    user_router,
+    friend_router,
+    upload_router,
+    report_router
+)
+
+# 允许跨域请求的来源列表
+# 请根据你前端项目的实际运行地址进行修改！
+# 默认假设前端在 localhost:8080
+origins = [
+    "http://localhost:8080",  # Vue CLI 默认地址
+    "http://127.0.0.1:8080",
+]
 
 
 # 创建 FastAPI 应用实例
@@ -44,25 +55,27 @@ app = FastAPI(
     openapi_url="/openapi.json"
 )
 
+# --- 关键：配置 CORS 中间件以允许前端访问 ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,                      # 允许的来源列表
+    allow_credentials=True,                     # 允许携带 Cookies/Authorization Header
+    allow_methods=["*"],                        # 允许所有 HTTP 方法
+    allow_headers=["*"],                        # 允许所有 HTTP 请求头
+)
+
+
 # 注册 API 路由
-if admin_router:
-    app.include_router(admin_router, prefix="/api")
-if auth_router:
-    app.include_router(auth_router, prefix="/api")
-if capsule_router:
-    app.include_router(capsule_router, prefix="/api")
-if unlock_router:  # 只有在unlock_router存在时才注册
-    app.include_router(unlock_router, prefix="/api")
-if interaction_router:
-    app.include_router(interaction_router, prefix="/api")
-if user_router:
-    app.include_router(user_router, prefix="/api")
-if friend_router:
-    app.include_router(friend_router, prefix="/api")
-if upload_router:
-    app.include_router(upload_router, prefix="/api")
-if report_router:
-    app.include_router(report_router, prefix="/api")
+# 确保路由的导入是成功的，否则这里可能会报错
+app.include_router(admin_router, prefix="/api")
+app.include_router(auth_router, prefix="/api")
+app.include_router(capsule_router, prefix="/api")
+app.include_router(unlock_router, prefix="/api") 
+app.include_router(interaction_router, prefix="/api")
+app.include_router(user_router, prefix="/api")
+app.include_router(friend_router, prefix="/api")
+app.include_router(upload_router, prefix="/api")
+app.include_router(report_router, prefix="/api")
 
 
 # 配置静态文件服务
@@ -115,11 +128,13 @@ if __name__ == "__main__":
     print("❤️ 健康检查地址: http://127.0.0.1:8000/health")
     print("=" * 50)
 
-    # 创建数据库表
-    create_tables()
+    # 仅在本地开发时运行，Docker 容器内由 docker compose up 负责启动，且数据库已初始化
+    # 如果在本地直接运行，确保数据库已启动
+    # create_tables()
 
+    # 修正启动入口：使用 app.main:app
     uvicorn.run(
-        "main:app",
+        "app.main:app", 
         host="0.0.0.0",
         port=8000,
         reload=True

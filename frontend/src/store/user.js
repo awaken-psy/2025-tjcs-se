@@ -11,10 +11,9 @@ export const useUserStore = defineStore('user', {
   
   getters: {
     // 用户角色相关
-    role: (state) => state.userInfo?.role || 'guest',
+    role: (state) => state.userInfo?.role,
     isAdmin: (state) => state.userInfo?.role === 'admin',
     isUser: (state) => state.userInfo?.role === 'user',
-    isGuest: (state) => !state.userInfo,
     
     // 登录状态
     isLogin: (state) => !!state.token,
@@ -100,3 +99,4 @@ export const useUserStore = defineStore('user', {
     ]
   }
 })
+
