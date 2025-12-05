@@ -19,7 +19,7 @@ class UnlockCapsuleRequest(BaseModel):
 
 class UnlockCapsuleResponse(BaseModel):
     """解锁胶囊响应模型"""
-    capsule_id: str
+    capsule_id: int
     unlocked_at: datetime
     access_token: str
 

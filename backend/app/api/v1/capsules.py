@@ -79,7 +79,7 @@ async def get_my_capsules(
     description="获取单个胶囊的详细信息"
 )
 async def get_capsule_detail(
-    capsule_id: str = Path(..., description="胶囊ID"),
+    capsule_id: int = Path(..., description="胶囊ID"),
     user: AuthorizedUser = Depends(login_required),
     db: Session = Depends(get_db)
 ):
@@ -103,7 +103,7 @@ async def get_capsule_detail(
     description="编辑胶囊信息，仅限创建者或管理员操作"
 )
 async def update_capsule(
-    capsule_id: str = Path(..., description="胶囊ID"),
+    capsule_id: int = Path(..., description="胶囊ID"),
     request: CapsuleUpdateRequest = ...,
     user: AuthorizedUser = Depends(login_required),
     db: Session = Depends(get_db)
@@ -138,7 +138,7 @@ async def update_capsule(
     description="删除胶囊，仅限创建者或管理员操作"
 )
 async def delete_capsule(
-    capsule_id: str = Path(..., description="胶囊ID"),
+    capsule_id: int = Path(..., description="胶囊ID"),
     user: AuthorizedUser = Depends(login_required),
     db: Session = Depends(get_db)
 ):

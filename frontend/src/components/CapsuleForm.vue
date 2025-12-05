@@ -113,46 +113,78 @@
               <h3 class="section-title">
                 位置信息
               </h3>
-              <span class="optional-badge">自动获取</span>
+              <span class="optional-badge">选填</span>
             </div>
             <div class="location-section">
-              <div class="location-display">
-                <div class="location-info">
-                  <i class="fas fa-location-dot location-icon" />
-                  <div class="location-text">
-                    <div class="location-address">
-                      {{ locationInfo.address || '正在获取位置...' }}
-                    </div>
-                    <div
-                      v-if="locationInfo.lat"
-                      class="location-coords"
-                    >
-                      经纬度: {{ locationInfo.lat.toFixed(6) }}, {{ locationInfo.lng.toFixed(6) }}
+              <!-- 地址输入框 -->
+              <div class="address-input-wrapper">
+                <input
+                  v-model="formData.address"
+                  type="text"
+                  class="form-input"
+                  placeholder="请输入地址信息（如：北京市朝阳区某某大学）"
+                  maxlength="200"
+                >
+                <div class="form-footer">
+                  <span class="char-count">{{ (formData.address || '').length }}/200</span>
+                </div>
+              </div>
+
+              <!-- 自动定位区域 -->
+              <div class="auto-location-wrapper">
+                <div class="location-display">
+                  <div class="location-info">
+                    <i class="fas fa-location-dot location-icon" />
+                    <div class="location-text">
+                      <div class="location-address">
+                        {{ locationInfo.address || '未获取到自动定位' }}
+                      </div>
+                      <div
+                        v-if="locationInfo.lat"
+                        class="location-coords"
+                      >
+                        经纬度: {{ locationInfo.lat.toFixed(6) }}, {{ locationInfo.lng.toFixed(6) }}
+                      </div>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    class="location-btn"
+                    :disabled="isLocating"
+                    @click="getCurrentLocation"
+                  >
+                    <i
+                      class="fas"
+                      :class="isLocating ? 'fa-spinner fa-spin' : 'fa-refresh'"
+                    />
+                    {{ isLocating ? '自动定位' : '重新定位' }}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  class="location-btn"
-                  :disabled="isLocating"
-                  @click="getCurrentLocation"
+                <div
+                  v-if="locationPermission"
+                  class="location-status"
                 >
                   <i
                     class="fas"
-                    :class="isLocating ? 'fa-spinner fa-spin' : 'fa-refresh'"
+                    :class="locationIcon"
                   />
-                  {{ isLocating ? '定位中...' : '重新定位' }}
-                </button>
+                  <span>{{ locationMessage }}</span>
+                </div>
               </div>
+
+              <!-- 使用自动定位地址按钮 -->
               <div
-                v-if="locationPermission"
-                class="location-status"
+                v-if="locationInfo.address && locationInfo.address !== '未获取到自动定位'"
+                class="use-auto-location"
               >
-                <i
-                  class="fas"
-                  :class="locationIcon"
-                />
-                <span>{{ locationMessage }}</span>
+                <button
+                  type="button"
+                  class="btn btn-outline"
+                  @click="useAutoLocation"
+                >
+                  <i class="fas fa-copy" />
+                  使用自动定位的地址
+                </button>
               </div>
             </div>
           </div>
@@ -379,6 +411,7 @@ const formData = reactive({
   content: '',
   visibility: 'public',
   location: '',
+  address: '',  // 添加地址字段
   lat: null,
   lng: null,
   image: null,
@@ -525,6 +558,7 @@ const resetForm = () => {
     content: '',
     visibility: 'public',
     location: '',
+    address: '',  // 重置地址字段
     lat: null,
     lng: null,
     image: null,
@@ -593,11 +627,10 @@ const getCurrentLocation = () => {
       try {
         const address = await getAddressFromCoords(lat, lng)
         locationInfo.address = address
-        formData.location = address
       } catch (error) {
-        locationInfo.address = `经纬度: ${lat.toFixed(6)}, ${lng.toFixed(6)}`
-        formData.location = locationInfo.address
+        locationInfo.address = `位置 (${lat.toFixed(6)}, ${lng.toFixed(6)})`
       }
+      // 不再自动设置formData.location，让用户手动决定
       formData.lat = lat
       formData.lng = lng
       isLocating.value = false
@@ -605,17 +638,16 @@ const getCurrentLocation = () => {
     (error) => {
       isLocating.value = false
       locationPermission.value = 'denied'
-      
+
       // 设置默认位置信息，确保可以提交
       const defaultLat = 39.9005
       const defaultLng = 116.302
       locationInfo.lat = defaultLat
       locationInfo.lng = defaultLng
       locationInfo.address = '默认位置（定位失败）'
-      formData.location = locationInfo.address
       formData.lat = defaultLat
       formData.lng = defaultLng
-      
+
       // 只提示，不阻塞表单提交
       switch (error.code) {
       case 1:
@@ -641,6 +673,13 @@ const getCurrentLocation = () => {
       maximumAge: 0
     }
   )
+}
+
+const useAutoLocation = () => {
+  if (locationInfo.address && locationInfo.address !== '未获取到自动定位') {
+    formData.address = locationInfo.address
+    showAlertMessage('已使用自动定位的地址', 'success')
+  }
 }
 
 const getAddressFromCoords = async(lat, lng) => {
@@ -822,15 +861,12 @@ const handleSubmit = async() => {
     // 获取用户信息（实际项目中应该从用户状态管理获取）
     const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}')
 
-    // 处理位置信息的健壮性 - 确保有默认值
-    let location = formData.location || locationInfo.address || '未知位置'
+    // 处理位置信息 - 使用用户输入的地址
+    let address = formData.address || '未填写地址'  // 使用用户输入的地址
     let lat = formData.lat || locationInfo.lat
     let lng = formData.lng || locationInfo.lng
-    
+
     // 若定位失败，填充缺省值
-    if (!location || location === '正在获取位置...') {
-      location = '默认位置'
-    }
     if (lat === null || lat === undefined || isNaN(lat)) {
       lat = 39.9005 // 默认经纬度
     }
@@ -838,7 +874,7 @@ const handleSubmit = async() => {
       lng = 116.302 // 默认经纬度
     }
 
-    // 构造新API格式的提交数据
+    // 构造新API格式的提交数据 - 标准3字段格式
     const submitData = {
       title: formData.title.trim(),
       content: formData.content.trim(),
@@ -847,7 +883,7 @@ const handleSubmit = async() => {
       location: {
         latitude: lat,
         longitude: lng,
-        address: location
+        address: address  // 使用用户输入的地址
       },
       unlock_conditions: null,
       media_files: formData.imageFileId ? [formData.imageFileId] : []
@@ -1099,17 +1135,48 @@ const handleSubmit = async() => {
 .location-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+}
+
+.address-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.auto-location-wrapper {
+  padding: 16px;
+  background: rgba(108, 140, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(108, 140, 255, 0.1);
 }
 
 .location-display {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px;
+  padding: 12px;
   background: white;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid #e2e8f0;
+}
+
+.use-auto-location {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.btn-outline {
+  background: transparent;
+  color: #6c8cff;
+  border: 1px solid #6c8cff;
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: #6c8cff;
+  color: white;
+  transform: translateY(-1px);
 }
 
 .location-info {

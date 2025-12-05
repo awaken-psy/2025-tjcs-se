@@ -12,7 +12,7 @@ class CapsuleRepository:
     def __init__(self, db: Session):
         self.db = db
     
-    def find_by_id(self, capsule_id: str) -> Optional[CapsuleDomain]:
+    def find_by_id(self, capsule_id: int) -> Optional[CapsuleDomain]:
         """根据ID查找胶囊"""
         orm = self.db.query(Capsule).filter(Capsule.id == capsule_id).first()
         return self._orm_to_domain(orm) if orm else None
@@ -45,7 +45,7 @@ class CapsuleRepository:
         
         return self._orm_to_domain(orm)
     
-    def delete_by_id(self, capsule_id: str) -> bool:
+    def delete_by_id(self, capsule_id: int) -> bool:
         """根据ID删除胶囊"""
         orm = self.db.query(Capsule).filter(Capsule.id == capsule_id).first()
         if orm:
@@ -105,11 +105,15 @@ class CapsuleRepository:
             elif len(tags) > 1:
                 content_type = ContentType.MIXED
         
-        # 解析解锁位置
+        # 解析解锁位置 - 标准3字段格式
         unlock_location = None
-        if orm.latitude and orm.longitude:
-            unlock_location = (orm.latitude, orm.longitude)
-        
+        if orm.latitude is not None and orm.longitude is not None:
+            unlock_location = (
+                float(orm.latitude),
+                float(orm.longitude),
+                orm.address or ""  # 地址字段，空值时使用空字符串
+            )
+
         return CapsuleDomain(
             capsule_id=orm.id,
             owner_id=str(orm.user_id),
@@ -128,7 +132,9 @@ class CapsuleRepository:
     def _domain_to_orm(domain: CapsuleDomain) -> Capsule:
         """Domain对象转ORM对象"""
         orm = Capsule()
-        orm.id = domain.capsule_id
+        # 只有当capsule_id不为None时才设置，否则让数据库自动分配
+        if domain.capsule_id is not None:
+            orm.id = domain.capsule_id
         orm.user_id = int(domain.owner_id)
         orm.title = domain.title
         orm.text_content = domain.content
@@ -137,10 +143,11 @@ class CapsuleRepository:
         orm.created_at = domain.created_at
         orm.updated_at = domain.updated_at
         
-        # 设置位置信息
-        if domain.unlock_location:
-            orm.latitude = domain.unlock_location[0]
-            orm.longitude = domain.unlock_location[1]
+        # 设置位置信息 - 标准3字段格式
+        if domain.unlock_location and len(domain.unlock_location) == 3:
+            orm.latitude = domain.unlock_location[0]   # latitude
+            orm.longitude = domain.unlock_location[1]  # longitude
+            orm.address = domain.unlock_location[2]    # address
         
         return orm
     
