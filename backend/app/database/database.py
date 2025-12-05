@@ -95,7 +95,6 @@ def create_tables():
     """创建数据库表"""
     try:
         print(f"🔧 正在创建数据库表...")
-        print(f"📁 数据库文件位置: {DATABASE_CONFIG['sqlite']['database']}")
 
         Base.metadata.create_all(bind=engine)
         print("✅ 所有数据库表创建完成")
