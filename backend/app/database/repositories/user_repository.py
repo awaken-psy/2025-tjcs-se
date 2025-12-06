@@ -6,19 +6,24 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from fastapi import HTTPException
 
-from ..orm import User
-from ..database import get_db
+from app.database.orm import User
+from app.database.database import get_db
 from app.domain.user import UserFactory, AuthorizedUser
+
+# 导入ORM模型用于新增的方法
+from app.database.orm.user import UserFriend
+from app.database.orm.capsule import Capsule
+from app.database.orm.unlock_record import UnlockRecord
+from app.database.orm.capsule_interaction import CapsuleInteraction
+from app.domain.user import SimpleUser, UserHistory, UserCapsule
+from sqlalchemy import and_, desc, asc, func
 
 
 class UserRepository:
     """用户数据仓库"""
 
-    def __init__(self):
-        try:
-            self.db:Session = next(get_db())
-        except Exception as e:
-            raise Exception(f"数据库会话创建失败: {e}")
+    def __init__(self, db: Session):
+        self.db = db
 
     def create_user(
         # 必填
@@ -258,19 +263,204 @@ class UserRepository:
         
     def _orm2dict(self, user:User)->dict:
         return {
-            "id":user.id,
-            "username":user.username,
-            "email":user.email,
-            "nickname":user.nickname,
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "nickname": user.nickname,
 
-            "user_type":user.user_type,
-            "userrole":user.userrole,
-            "is_active":user.is_active,
-            "is_verified":user.is_verified,
+            "user_type": user.user_type,
+            "userrole": user.userrole,
+            "is_active": user.is_active,
+            "is_verified": user.is_verified,
 
-            "avatar_url":user.avatar_url,
-            "bio":user.bio,
-            "campus_id":user.campus_id,
-            "last_login_at":user.last_login_at
+            "avatar_url": user.avatar_url,
+            "bio": user.bio,
+            "campus_id": user.campus_id,
+            "last_login_at": user.last_login_at
         }
+
+    def get_user_profile_by_id(self, user_id: int):
+        """根据用户ID获取用户资料（用于API响应）"""
+        from ...domain.user import SimpleUser
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return None
+
+        return SimpleUser(
+            user_id=getattr(user, 'id', 0),
+            username=getattr(user, 'username', ''),
+            email=getattr(user, 'email', ''),
+            nickname=getattr(user, 'nickname', ''),
+            avatar_url=getattr(user, 'avatar_url', None),
+            bio=getattr(user, 'bio', None),
+            user_type=getattr(user, 'user_type', 'student'),
+            user_role=getattr(user, 'userrole', 'user'),
+            is_active=getattr(user, 'is_active', True),
+            is_verified=getattr(user, 'is_verified', False),
+            created_at=getattr(user, 'created_at', None),
+            updated_at=getattr(user, 'updated_at', None),
+            last_login_at=getattr(user, 'last_login_at', None)
+        )
+
+    def update_user_profile(self, user_id: int, nickname: Optional[str] = None,
+                           avatar_url: Optional[str] = None,
+                           bio: Optional[str] = None):
+        """更新用户资料"""
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return None
+
+        if nickname is not None:
+            setattr(user, 'nickname', nickname)
+        if avatar_url is not None:
+            setattr(user, 'avatar_url', avatar_url)
+        if bio is not None:
+            setattr(user, 'bio', bio)
+
+        from sqlalchemy import func
+        setattr(user, 'updated_at', func.now())
+        self.db.commit()
+        self.db.refresh(user)
+
+        return self.get_user_profile_by_id(user_id)
+
+    def get_user_statistics(self, user_id: int) -> dict:
+        """获取用户统计信息"""
+        # 创建的胶囊数量
+        created_capsules = self.db.query(Capsule).filter(
+            Capsule.user_id == user_id
+        ).count()
+
+        # 解锁的胶囊数量
+        unlocked_capsules = self.db.query(UnlockRecord).filter(
+            UnlockRecord.user_id == user_id
+        ).count()
+
+        # 收藏的胶囊数量（通过COLLECT类型交互统计）
+        collected_capsules = self.db.query(CapsuleInteraction).join(UnlockRecord).filter(
+            and_(
+                UnlockRecord.user_id == user_id,
+                CapsuleInteraction.interaction_type == 'collect'
+            )
+        ).count()
+
+        # 好友数量（状态为accepted的关系）
+        friends_count = self.db.query(UserFriend).filter(
+            and_(
+                UserFriend.user_id == user_id,
+                UserFriend.status == 'accepted'
+            )
+        ).count()
+
+        return {
+            'created_capsules': created_capsules,
+            'unlocked_capsules': unlocked_capsules,
+            'collected_capsules': collected_capsules,
+            'friends_count': friends_count
+        }
+
+    def get_user_history_records(self, user_id: int, page: int = 1, page_size: int = 20,
+                                sort: str = "latest", history_type: str = "unlocked"):
+        """获取用户历史记录"""
+        from sqlalchemy import desc, asc
+        from ...domain.user import UserHistory
+        offset = (page - 1) * page_size
+        history_items = []
+
+        if history_type == "unlocked":
+            # 获取解锁记录
+            query = self.db.query(UnlockRecord).join(Capsule).filter(
+                UnlockRecord.user_id == user_id
+            )
+
+            if sort == "latest":
+                query = query.order_by(desc(UnlockRecord.created_at))
+            elif sort == "oldest":
+                query = query.order_by(asc(UnlockRecord.created_at))
+
+            records = query.offset(offset).limit(page_size).all()
+
+            for record in records:
+                capsule = self.db.query(Capsule).filter(Capsule.id == record.capsule_id).first()
+                history_items.append(UserHistory(
+                    capsule_id=getattr(record, 'capsule_id', 0),
+                    title=getattr(capsule, 'title', f'胶囊 {getattr(record, "capsule_id", 0)}') if capsule else f'胶囊 {getattr(record, "capsule_id", 0)}',
+                    unlocked_at=getattr(record, 'created_at', None),
+                    interaction_type="unlocked"
+                ))
+
+        elif history_type == "created":
+            # 获取创建的胶囊
+            query = self.db.query(Capsule).filter(Capsule.user_id == user_id)
+
+            if sort == "latest":
+                query = query.order_by(desc(Capsule.created_at))
+            elif sort == "oldest":
+                query = query.order_by(asc(Capsule.created_at))
+
+            capsules = query.offset(offset).limit(page_size).all()
+
+            for capsule in capsules:
+                history_items.append(UserHistory(
+                    capsule_id=getattr(capsule, 'id', 0),
+                    title=getattr(capsule, 'title', f'胶囊 {getattr(capsule, "id", 0)}'),
+                    unlocked_at=getattr(capsule, 'created_at', None),
+                    interaction_type="created"
+                ))
+
+        elif history_type == "collected":
+            # 获取收藏的胶囊
+            query = self.db.query(CapsuleInteraction).join(UnlockRecord).join(Capsule).filter(
+                and_(
+                    UnlockRecord.user_id == user_id,
+                    CapsuleInteraction.interaction_type == 'collect'
+                )
+            )
+
+            if sort == "latest":
+                query = query.order_by(desc(CapsuleInteraction.created_at))
+            elif sort == "oldest":
+                query = query.order_by(asc(CapsuleInteraction.created_at))
+
+            records = query.offset(offset).limit(page_size).all()
+
+            for interaction in records:
+                unlock_record = self.db.query(UnlockRecord).filter(UnlockRecord.id == getattr(interaction, 'unlock_record_id', 0)).first()
+                if unlock_record:
+                    capsule = self.db.query(Capsule).filter(Capsule.id == getattr(unlock_record, 'capsule_id', 0)).first()
+                    history_items.append(UserHistory(
+                        capsule_id=getattr(unlock_record, 'capsule_id', 0),
+                        title=getattr(capsule, 'title', f'胶囊 {getattr(unlock_record, "capsule_id", 0)}') if capsule else f'胶囊 {getattr(unlock_record, "capsule_id", 0)}',
+                        unlocked_at=getattr(interaction, 'created_at', None),
+                        interaction_type="collected"
+                    ))
+
+        return history_items
+
+    def get_user_created_capsules(self, user_id: int, page: int = 1, page_size: int = 20):
+        """获取用户创建的胶囊列表"""
+        from sqlalchemy import desc
+        from ...domain.user import UserCapsule
+        offset = (page - 1) * page_size
+
+        # 获取用户创建的胶囊
+        capsules = self.db.query(Capsule).filter(
+            Capsule.user_id == user_id
+        ).order_by(desc(Capsule.created_at)).offset(offset).limit(page_size).all()
+
+        user_capsules = []
+        for capsule in capsules:
+            # 获取解锁数量
+            unlock_count = self.db.query(UnlockRecord).filter(
+                UnlockRecord.capsule_id == getattr(capsule, 'id', 0)
+            ).count()
+
+            user_capsules.append(UserCapsule(
+                capsule_id=getattr(capsule, 'id', 0),
+                title=getattr(capsule, 'title', f'胶囊 {getattr(capsule, "id", 0)}'),
+                created_at=getattr(capsule, 'created_at', None),
+                unlock_count=unlock_count
+            ))
+
+        return user_capsules
 
