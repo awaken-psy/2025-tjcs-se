@@ -41,11 +41,12 @@ async def send_code(request: SendCodeRequest):
 @router.post("/register", response_model=BaseResponse[UserAuthResponse])
 async def register(
     request: UserRegisterRequest,
+    db: Session = Depends(get_db),
 ):
     """用户注册"""
     try:
         # 创建注册管理器
-        register_manager = RegisterManager()
+        register_manager = RegisterManager(db)
 
         # 执行用户注册
         success, message, user_data = register_manager.register_user(
@@ -77,10 +78,11 @@ async def register(
 @router.get("/check-email/{email}", response_model=BaseResponse[dict])
 async def check_email_availability(
     email: str,
+    db: Session = Depends(get_db),
 ):
     """检查邮箱是否可用"""
     try:
-        register_manager = RegisterManager()
+        register_manager = RegisterManager(db)
         is_available, message = register_manager.check_email_availability(email)
 
         return BaseResponse.success(
@@ -94,10 +96,11 @@ async def check_email_availability(
 @router.get("/check-student-id/{student_id}", response_model=BaseResponse[dict])
 async def check_student_id_availability(
     student_id: str,
+    db: Session = Depends(get_db),
 ):
     """检查学号是否可用"""
     try:
-        register_manager = RegisterManager()
+        register_manager = RegisterManager(db)
         is_available, message = register_manager.check_student_id_availability(student_id)
 
         return BaseResponse.success(
@@ -111,12 +114,13 @@ async def check_student_id_availability(
 @router.post("/login", response_model=BaseResponse[UserAuthResponse])
 async def login(
     request: UserLoginRequest,
+    db: Session = Depends(get_db),
 ):
     """用户登录"""
     try:
 
         # 执行用户登录
-        success, message, user_data = LoginManager().login_user(
+        success, message, user_data = LoginManager(db).login_user(
             email_or_username=request.email,
             password=request.password
         )
