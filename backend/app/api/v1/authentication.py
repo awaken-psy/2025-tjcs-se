@@ -126,6 +126,9 @@ async def login(
         )
 
         if success and user_data:
+            print("-" * 50)
+            print(f"DEBUG: 登录成功！LoginManager 返回的原始数据：{user_data}")
+            print("-" * 50)
             # 创建响应数据
             auth_response = UserAuthResponse(
                 user_id=user_data["user_id"],

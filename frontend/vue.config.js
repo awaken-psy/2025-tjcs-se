@@ -10,27 +10,27 @@ module.exports = defineConfig({
   devServer: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
-        pathRewrite: { '^/api': '/api' }
-      }
+        pathRewrite: { '^/api': '/api' },
+      },
     },
     // 添加客户端错误显示配置
     client: {
       overlay: {
         errors: true,
-        warnings: false
-      }
-    }
+        warnings: false,
+      },
+    },
   },
 
   // 添加生产构建优化
   configureWebpack: {
     performance: {
-      hints: process.env.NODE_ENV === 'production' ? 'warning' : false
-    }
+      hints: process.env.NODE_ENV === 'production' ? 'warning' : false,
+    },
   },
 
   // 生产构建优化
-  productionSourceMap: false
+  productionSourceMap: false,
 })
