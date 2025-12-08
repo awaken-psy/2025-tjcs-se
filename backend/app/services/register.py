@@ -14,9 +14,9 @@ from app.domain.user import AuthorizedUser, AdminUser
 class RegisterManager:
     """用户注册管理器"""
 
-    def __init__(self):
+    def __init__(self,db:Session):
         # 这里可能会raise异常
-        self.user_repository = UserRepository()
+        self.user_repository = UserRepository(db)
 
     def register_user(
         self,
