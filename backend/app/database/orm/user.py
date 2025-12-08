@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from datetime import datetime
 
-from ..database import Base
+from app.database.database import Base
 
 class User(Base):
     """用户模型"""

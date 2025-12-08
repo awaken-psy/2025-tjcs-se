@@ -6,6 +6,9 @@ from typing import Set, List, Optional, Union
 # from pydantic import BaseModel, Field
 from dataclasses import dataclass, field
 from datetime import datetime
+from pydantic import BaseModel
+
+from app.model.user import UserProfile, UserStats, UserHistoryItem, UserHistoryResponse
 
 
 class UserRole(str, Enum):
@@ -259,4 +262,73 @@ class UserFactory:
             admin_level=admin_level,
             role=UserRole.ADMIN,
             is_active=is_active
+        )
+
+
+class SimpleUser(BaseModel):
+    """简单用户领域对象 - 用于API响应"""
+    user_id: int
+    username: str
+    email: str
+    nickname: str
+    avatar_url: Optional[str] = None
+    bio: Optional[str] = None
+    user_type: str = "student"
+    user_role: str = "user"
+    is_active: bool = True
+    is_verified: bool = False
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    last_login_at: Optional[datetime] = None
+
+    def to_api_user_profile(self, include_stats: bool = False,
+                           created_capsules: int = 0,
+                           unlocked_capsules: int = 0,
+                           collected_capsules: int = 0,
+                           friends_count: int = 0) -> UserProfile:
+        """转换为API用户资料模型"""
+        stats = None
+        if include_stats:
+            stats = UserStats(
+                created_capsules=created_capsules,
+                unlocked_capsules=unlocked_capsules,
+                collected_capsules=collected_capsules,
+                friends_count=friends_count
+            )
+
+        return UserProfile(
+            user_id=self.user_id,
+            email=self.email,
+            nickname=self.nickname,
+            created_at=self.created_at or datetime.now(),
+            avatar=self.avatar_url,
+            bio=self.bio,
+            stats=stats
+        )
+
+
+class UserCapsule(BaseModel):
+    """用户胶囊领域对象"""
+    capsule_id: int
+    title: str
+    created_at: Optional[datetime] = None
+    unlock_count: int = 0
+    is_unlocked: bool = False
+
+
+class UserHistory(BaseModel):
+    """用户历史记录领域对象"""
+    capsule_id: int
+    title: str
+    unlocked_at: Optional[datetime] = None
+    view_duration: Optional[int] = None  # seconds
+    interaction_type: str = "unlocked"  # "unlocked", "created", "collected"
+
+    def to_api_history_item(self) -> UserHistoryItem:
+        """转换为API历史记录项模型"""
+        return UserHistoryItem(
+            capsule_id=str(self.capsule_id),
+            title=self.title,
+            unlocked_at=self.unlocked_at or datetime.now(),
+            view_duration=self.view_duration
         )
