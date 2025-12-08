@@ -158,9 +158,12 @@ class CapsuleService:
         """转换可见性枚举"""
         if visibility == "public":
             return Visibility.CAMPUS
-        elif visibility == "friends":
+        elif visibility in ["friends", "friend"]:
             return Visibility.FRIENDS
+        elif visibility == "private":
+            return Visibility.PRIVATE
         else:
+            # 默认为私有
             return Visibility.PRIVATE
 
 

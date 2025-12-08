@@ -462,7 +462,7 @@ const visibilityOptions = [
     icon: 'fas fa-globe-americas'
   },
   {
-    key: 'friend',
+    key: 'friends',
     label: '好友可见',
     desc: '仅你的好友可见',
     icon: 'fas fa-user-friends'

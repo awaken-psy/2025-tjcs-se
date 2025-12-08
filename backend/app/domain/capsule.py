@@ -129,10 +129,15 @@ class Capsule:
     def to_api_basic(self) -> 'CapsuleBasic':
        """Domain对象转CapsuleBasic响应模型"""
 
+       # 转换可见性枚举为前端期望的值
+       api_visibility = self.visibility.value
+       if api_visibility == "campus":
+           api_visibility = "public"
+
        return CapsuleBasic(
             id=self.capsule_id,
             title=self.title,
-            visibility=self.visibility.value,
+            visibility=api_visibility,
             status=self.status.value,
             created_at=self.created_at,
             content_preview=self.description,
@@ -180,11 +185,16 @@ class Capsule:
         elif self.content_type == ContentType.MIXED:
             tags = ["混合", "mixed"]
     
+        # 转换可见性枚举为前端期望的值
+        api_visibility = self.visibility.value
+        if api_visibility == "campus":
+            api_visibility = "public"
+
         return CapsuleDetail(
             id=self.capsule_id,
             title=self.title,
             content=self.content or "",
-            visibility=self.visibility.value,
+            visibility=api_visibility,
             status=self.status.value,
             created_at=self.created_at,
             tags=tags,
