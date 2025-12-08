@@ -222,7 +222,7 @@ class TestCapsuleService:
         mock_repository.find_by_id.return_value = mock_domain
         mock_repository.save.return_value = mock_domain
         
-        request = CapsuleUpdateRequest(title="新标题")
+        request = CapsuleUpdateRequest(title="新标题", content="新内容")
         result = service.update_capsule("test_capsule", request, user_id=1)
         
         assert result is True

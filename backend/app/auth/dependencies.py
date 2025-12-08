@@ -6,7 +6,7 @@ from typing import Optional, Union
 from app.auth.jwt_handler import JWTHandler, AccessTokenPayload, RefreshTokenPayload
 from app.domain.user import UserFactory, UserRole, BaseUser, RegisteredUser, AdminUser, AuthorizedUser
 
-def get_user_from_token(authorization:str) -> BaseUser:
+def get_user_from_token(authorization: str) -> BaseUser:
     parts = authorization.split()
     if len(parts) != 2 or parts[0].lower() != "bearer":
         raise HTTPException(status_code=401, detail="Invalid header. Token should be 'Bearer <token>'")
@@ -14,7 +14,7 @@ def get_user_from_token(authorization:str) -> BaseUser:
     success, payload, error = JWTHandler.verify_access_token(token)
     if not success or not payload:
         raise HTTPException(status_code=401, detail=error)
-    
+
     if payload.role == UserRole.GUEST:
         return UserFactory.create_guest_user()
     elif payload.role == UserRole.USER:
@@ -22,13 +22,20 @@ def get_user_from_token(authorization:str) -> BaseUser:
     elif payload.role == UserRole.ADMIN:
         return UserFactory.create_admin_user(user_id=int(payload.sub), username=payload.username)
     else:
-        raise HTTPException(status_code=401, detail="Unkown user role")
-    
-def login_required(authorization: str=Header(alias="Authorization")) -> AuthorizedUser:
-    user = get_user_from_token(authorization)
-    if not isinstance(user, (RegisteredUser, AdminUser)):
-        raise HTTPException(status_code=401, detail="User not authorized")
-    return user
+        raise HTTPException(status_code=401, detail="Unknown user role")
+
+def login_required(authorization: str = Header(alias="Authorization")) -> AuthorizedUser:
+    print(f"🔐 认证调试 - Authorization头: {authorization[:50]}..." if len(authorization) > 50 else f"🔐 认证调试 - Authorization头: {authorization}")
+    try:
+        user = get_user_from_token(authorization)
+        print(f"✅ 认证成功 - 用户类型: {type(user).__name__}")
+        if not isinstance(user, (RegisteredUser, AdminUser)):
+            print(f"❌ 用户类型不匹配: {type(user).__name__}")
+            raise HTTPException(status_code=401, detail="User not authorized")
+        return user
+    except Exception as e:
+        print(f"❌ 认证失败: {str(e)}")
+        raise
 
 def admin_required(user: AuthorizedUser=Depends(login_required)) -> AdminUser:
     if not isinstance(user, AdminUser):
