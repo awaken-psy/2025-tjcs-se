@@ -1,9 +1,21 @@
 """
 时光胶囊·校园 - FastAPI 应用入口
 """
-from fastapi import FastAPI, HTTPException, Query, Path, UploadFile, File
+from fastapi import (
+    FastAPI, 
+    HTTPException, 
+    Query, 
+    Path, 
+    UploadFile, 
+    File,
+    Request  
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware # 导入 CORS 中间件
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY
+# ----------------------------------------------------
 from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel
@@ -64,6 +76,32 @@ app.add_middleware(
     allow_headers=["*"],                        # 允许所有 HTTP 请求头
 )
 
+
+# -----------------------------------------------------------
+# 🔴 关键修改：注册 RequestValidationError 异常处理程序
+# -----------------------------------------------------------
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """
+    捕获并格式化 Pydantic 验证错误 (422 Unprocessable Entity)，返回详细错误信息。
+    """
+    # 打印详细错误到后端日志，便于排查
+    print(f"Pydantic 验证错误发生在: {request.url}")
+    print("详细错误列表:", exc.errors()) 
+
+    # 返回标准的 422 响应，包含详细的错误数组
+    return JSONResponse(
+        status_code=HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "success": False,
+            "message": "请求体数据验证失败 (422 Unprocessable Entity)。请检查详细信息。",
+            "detail": exc.errors(), # 将 Pydantic 的详细错误列表返回
+        },
+    )
+
+# -----------------------------------------------------------
 
 # 注册 API 路由
 # 确保路由的导入是成功的，否则这里可能会报错

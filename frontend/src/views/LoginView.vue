@@ -767,7 +767,7 @@ const handleSendVerifyCode = async () => {
 const handleForgotSend = async () => {
   try {
     // TODO: 对接忘记密码API
-    // 要加个模态框，
+    // TODO: 要加个模态框
     alert('密码重置功能开发中...')
     closeModal('forgot')
   } catch (error) {
