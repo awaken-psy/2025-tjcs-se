@@ -4,10 +4,10 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 import json
 
-from database.orm.capsule import Capsule
-from database.orm.unlock_condition import UnlockCondition
-from database.orm.unlock_record import UnlockRecord
-from database.database import get_db
+from app.database.orm.capsule import Capsule
+from app.database.orm.unlock_condition import UnlockCondition
+from app.database.orm.unlock_record import UnlockRecord
+from app.database.database import get_db
 
 
 class UnlockManager:

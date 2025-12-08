@@ -7,7 +7,24 @@ import json
 from typing import Any, Callable
 from functools import wraps
 import inspect
+from datetime import datetime
 from .logger import get_logger
+
+
+class CustomJSONEncoder(json.JSONEncoder):
+    """自定义JSON编码器，处理特殊类型"""
+
+    def default(self, obj):
+        # 处理datetime类型
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+
+        # 处理其他特殊类型
+        if hasattr(obj, '__dict__'):
+            return str(obj)
+
+        # 调用父类默认处理
+        return super().default(obj)
 
 
 def api_logging(logger):
@@ -55,7 +72,7 @@ def api_logging(logger):
                 "参数": params
             }
 
-            logger.info(f"API请求开始: {json.dumps(log_data, ensure_ascii=False, indent=2)}")
+            logger.info(f"API请求开始: {json.dumps(log_data, ensure_ascii=False, indent=2, cls=CustomJSONEncoder)}")
 
             try:
                 # 执行原函数
@@ -73,7 +90,7 @@ def api_logging(logger):
                     "响应内容": _serialize_value(result)
                 }
 
-                logger.info(f"API请求完成: {json.dumps(response_log, ensure_ascii=False, indent=2)}")
+                logger.info(f"API请求完成: {json.dumps(response_log, ensure_ascii=False, indent=2, cls=CustomJSONEncoder)}")
 
                 return result
 
@@ -90,7 +107,7 @@ def api_logging(logger):
                     "处理总用时(毫秒)": processing_time
                 }
 
-                logger.error(f"API请求异常: {json.dumps(error_log, ensure_ascii=False, indent=2)}", exc_info=True)
+                logger.error(f"API请求异常: {json.dumps(error_log, ensure_ascii=False, indent=2, cls=CustomJSONEncoder)}", exc_info=True)
 
                 # 重新抛出异常
                 raise
@@ -109,6 +126,10 @@ def _serialize_value(value: Any) -> Any:
         # 处理基本类型
         if isinstance(value, (str, int, float, bool)):
             return value
+
+        # 处理datetime类型
+        if isinstance(value, datetime):
+            return value.isoformat()
 
         # 处理Pydantic模型
         if hasattr(value, 'dict'):

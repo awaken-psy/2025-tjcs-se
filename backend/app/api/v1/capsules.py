@@ -1,7 +1,8 @@
 from typing import Optional, List, Dict
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends, Query, Path
-from sqlalchemy.orm import Session  # 添加这个
+from sqlalchemy.orm import Session
+from app.database.database import get_db
 from app.model.capsule import (
     CapsuleCreateRequest, CapsuleUpdateRequest,
     CapsuleDraftRequest, CapsuleCreateResponse,
@@ -27,10 +28,11 @@ logger = get_logger(f"router<{__name__}>")
 async def create_capsule(
     raw_data: dict,  # 接受原始前端数据
     user: AuthorizedUser = Depends(login_required),
+    db: Session = Depends(get_db),
 ):
     """创建胶囊"""
     try:
-        manager = CapsuleManager()
+        manager = CapsuleManager(db)
         # 处理前端格式数据，转换为后端期望格式
         location_obj = None
         if raw_data.get('lat') is not None and raw_data.get('lng') is not None:
@@ -52,7 +54,6 @@ async def create_capsule(
             media_files=raw_data.get('media_files', [])
         )
 
-        manager = CapsuleManager()
         response = manager.create_capsule(request, user.user_id)
 
         return BaseResponse[CapsuleCreateResponse].success(

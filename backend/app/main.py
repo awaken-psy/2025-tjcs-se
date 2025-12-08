@@ -26,7 +26,16 @@ if os.path.dirname(os.path.abspath(__file__)) not in sys.path:
     # 但是保留下来以防在本地直接运行
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# 使用绝对导入方式修复数据库和 API 路由的导入
+# 允许跨域请求的来源列表
+# 请根据你前端项目的实际运行地址进行修改！
+# 默认假设前端在 localhost:8080
+origins = [
+    "http://localhost:8080",  # Vue CLI 默认地址
+    "http://127.0.0.1:8080",
+]
+
+from app.logger import get_logger, app_logger
+from app.logger.config import config_manager
 from app.database.database import create_tables
 from app.api.v1 import (
     admin_router,
@@ -40,20 +49,6 @@ from app.api.v1 import (
     report_router
 )
 
-# 允许跨域请求的来源列表
-# 请根据你前端项目的实际运行地址进行修改！
-# 默认假设前端在 localhost:8080
-origins = [
-    "http://localhost:8080",  # Vue CLI 默认地址
-    "http://127.0.0.1:8080",
-]
-
-=======
-from app.logger import get_logger, app_logger
-from app.logger.config import config_manager
-from app.database.database import create_tables
-from app.api.v1 import *
->>>>>>> cf3e798be24f586905d9e7a260af2b9644249c44
 
 app_logger.info("======================================================================")
 app_logger.info(f"日志配置：{config_manager.get_config()}")
@@ -68,7 +63,6 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json"
 )
-<<<<<<< HEAD
 
 # --- 关键：配置 CORS 中间件以允许前端访问 ---
 app.add_middleware(
@@ -132,12 +126,6 @@ else:
     print(f"📁 创建并挂载上传目录: {UPLOAD_DIR} -> /uploads")
 
 # 根路径
-=======
-app_logger.info("FastAPI 应用实例创建完成")
-#=============================================================#
-# 注册 API 路由
-app_logger.info("开始注册 API 路由")
->>>>>>> cf3e798be24f586905d9e7a260af2b9644249c44
 @app.get("/")
 async def root():
     """根路径 - 返回应用信息"""
@@ -208,7 +196,6 @@ if __name__ == "__main__":
         app_logger.error(f"应用程序启动失败: {str(e)}", exc_info=True)
         raise
 
-<<<<<<< HEAD
     # 仅在本地开发时运行，Docker 容器内由 docker compose up 负责启动，且数据库已初始化
     # 如果在本地直接运行，确保数据库已启动
     # create_tables()
@@ -220,5 +207,3 @@ if __name__ == "__main__":
         port=8000,
         reload=True
     )
-=======
->>>>>>> cf3e798be24f586905d9e7a260af2b9644249c44
