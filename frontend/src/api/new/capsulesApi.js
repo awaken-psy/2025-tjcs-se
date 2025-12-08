@@ -24,6 +24,7 @@ import request from '@/utils/request'
  * @returns {Promise}
  */
 export const createCapsule = (capsuleData) => {
+  console.log('请求体', capsuleData)
   return request({
     url: '/capsules',
     method: 'post',

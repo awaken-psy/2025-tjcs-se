@@ -551,7 +551,7 @@ import {
   getMyRegisteredEvents, // 保持不变
   registerForEvent, // 替换原 registerEvent
   cancelEventRegistration // 替换原 cancelRegister
-} from '@/api/new/eventsApi.js'
+} from '@/api/new/EventsApi.js'
 import AppHeader from '@/components/AppHeader.vue'
 import CapsuleCard from '@/components/CapsuleCard.vue'
 import EventRegButton from '@/components/EventRegButton.vue'
