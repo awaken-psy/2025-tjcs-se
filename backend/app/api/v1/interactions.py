@@ -196,3 +196,5 @@ async def uncollect_capsule(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"取消收藏失败: {str(e)}"
         )
+    
+    

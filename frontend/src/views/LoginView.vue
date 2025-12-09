@@ -644,6 +644,9 @@ const handleLogin = async () => {
       password: encryptedPassword,
     })
 
+    // 🚨 检查点：打印整个响应数据，确认 Token 的键名
+    console.log('登录 API 响应数据:', responseData)
+
     const { token, refresh_token, user_id, email, nickname, avatar } =
       responseData
 
@@ -660,20 +663,6 @@ const handleLogin = async () => {
       refresh_token
     )
 
-    // 关键修改：统一token存储key，适配请求拦截器
-    localStorage.setItem('access_token', token)
-    localStorage.setItem('refresh_token', refresh_token)
-    localStorage.setItem('user_token', token) // 新增：适配请求拦截器的读取逻辑
-    localStorage.setItem(
-      'user_info',
-      JSON.stringify({
-        user_id,
-        email,
-        nickname,
-        avatar,
-        role: 'user',
-      })
-    )
     localStorage.setItem('saved_login_email', loginForm.email)
 
     routeJump('/hubviews')
@@ -732,20 +721,6 @@ const handleRegister = async () => {
       refresh_token
     )
 
-    // 关键修改：统一token存储key，适配请求拦截器
-    localStorage.setItem('access_token', token)
-    localStorage.setItem('refresh_token', refresh_token)
-    localStorage.setItem('user_token', token) // 新增：适配请求拦截器的读取逻辑
-    localStorage.setItem(
-      'user_info',
-      JSON.stringify({
-        user_id,
-        email,
-        nickname,
-        avatar,
-        role: 'user',
-      })
-    )
 
     routeJump('/hubviews')
   } catch (error) {

@@ -16,6 +16,7 @@ from app.model import (
 router = APIRouter(prefix='/admin', tags=['Admin'])
 
 
+
 @router.get("/capsules/pending", response_model=BaseResponse[PendingCapsulesResponse])
 async def get_pending_capsules(
     query: PendingCapsulesQuery = Depends()
