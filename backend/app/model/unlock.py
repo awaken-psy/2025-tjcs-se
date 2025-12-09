@@ -19,7 +19,7 @@ class UnlockCapsuleRequest(BaseModel):
 
 class UnlockCapsuleResponse(BaseModel):
     """解锁胶囊响应模型"""
-    capsule_id: int
+    capsule_id: str  # 修改为字符串类型以符合前端期望
     unlocked_at: datetime
     access_token: str
 

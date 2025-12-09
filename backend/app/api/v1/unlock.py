@@ -69,7 +69,7 @@ async def unlock_capsule(
             )
 
             response_data = UnlockCapsuleResponse(
-                capsule_id=capsule_id,
+                capsule_id=str(capsule_id),  # 确保为字符串类型
                 unlocked_at=current_time,
                 access_token=access_token
             )
