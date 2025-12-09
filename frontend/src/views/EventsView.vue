@@ -542,13 +542,16 @@
 
 <script setup>
 import {
-  // 替换为新的 API 导入名称
-  getEventList,
-  getEventDetail, // 保持不变
-  getMyRegisteredEvents,
-  registerForEvent, // 新增：报名
-  cancelEventRegistration // 新增：取消报名
-} from '@/api/eventsApi.js'
+  // 替换/新增所有 API 导入
+  createEvent, // 新增：创建活动
+  updateEvent, // 新增：更新活动
+  deleteEvent, // 新增：删除活动
+  getEventList, // 替换原 getCampusEvents
+  getEventDetail, // 保持不变 (假设详情API名称仍为 getEventDetail)
+  getMyRegisteredEvents, // 保持不变
+  registerForEvent, // 替换原 registerEvent
+  cancelEventRegistration // 替换原 cancelRegister
+} from '@/api/new/EventsApi.js'
 import AppHeader from '@/components/AppHeader.vue'
 import CapsuleCard from '@/components/CapsuleCard.vue'
 import EventRegButton from '@/components/EventRegButton.vue'
@@ -730,13 +733,12 @@ const processApiResponse = (result) => {
 }
 
 /**
- * 替换 getCampusEvents 为 getEventList
+ * 1. 使用新的 getEventList API 获取活动列表
  */
 const fetchEventsList = async () => {
-  console.log('🚀 开始请求活动列表fetchEventsList', new Date().toISOString())
   isLoading.value = true
   try {
-    const result = await getEventList({ // <--- 替换点: getCampusEvents -> getEventList
+    const result = await getEventList({ // <--- 使用新的 API 函数
       page: currentPage.value,
       size: pageSize.value,
       keyword: filter.value.search,
@@ -746,16 +748,10 @@ const fetchEventsList = async () => {
       endTime: filter.value.endTime
     })
     
-    console.log('API返回数据:', result)
-    
-    // 使用统一的响应处理函数
     const { list, total } = processApiResponse(result)
     
-    // 使用统一的事件数据处理函数
     eventsList.value = list.map(processEventData)
     totalEvents.value = total
-    
-    console.log('处理后的活动数据:', eventsList.value)
     
   } catch (error) {
     console.error('加载活动列表失败：', error)
@@ -767,61 +763,24 @@ const fetchEventsList = async () => {
 }
 
 /**
- * 保持 getMyRegisteredEvents 不变
+ * 2. 使用 getMyRegisteredEvents API 获取我的报名列表 (保持不变)
  */
 const fetchMyRegEvents = async () => {
-  console.log('🚀 开始请求我的报名列表fetchMyRegEvents', new Date().toISOString())
   try {
     const result = await getMyRegisteredEvents({
       page: currentPage.value,
-      // 注意：新 API 接口文档中使用的是 page_size
-      // 但这里为了兼容性，保留 size 字段，如果后端实际需要 page_size，则应修改此处
       size: pageSize.value 
     })
-    console.log('API调用成功，返回数据:', result)
     
-    // 使用统一的响应处理函数
-    const { list, total } = processApiResponse(result)
-    
-    // 对每个活动数据进行统一处理
+    const { list } = processApiResponse(result)
     myRegEvents.value = list.map(processEventData)
     
   } catch (error) {
-    console.error('API调用失败:', {
-      message: error.message,
-      code: error.code,
-      data: error.data,
-      fullResponse: error.fullResponse
-    })
-    
-    // 处理业务逻辑错误
-    if (error.code === 85) {
-      console.warn('业务逻辑错误85，但尝试使用返回的数据:', error.data)
-      
-      // 检查错误数据是否可用
-      if (error.data) {
-        // 根据你的API设计，error.data可能是一个对象或数组
-        let list = []
-        if (Array.isArray(error.data)) {
-          list = error.data
-        } else if (error.data && typeof error.data === 'object') {
-          list = [error.data]
-        }
-        
-        myRegEvents.value = list.map(processEventData)
-      } else {
-        myRegEvents.value = []
-      }
-    } else if (error.code === 401) {
-      console.error('未授权访问')
-      myRegEvents.value = []
-      // 跳转到登录页
-    } else {
-      console.error('其他错误')
-      myRegEvents.value = []
-    }
+    console.error('加载我的报名列表失败：', error)
+    myRegEvents.value = []
   }
 }
+
 
 // 辅助函数
 const adaptEventToCapsule = (event) => {
@@ -865,6 +824,33 @@ const handleSearch = (keyword) => {
   filter.value.search = keyword
   currentPage.value = 1
   fetchEventsList() // 重新从后端获取数据
+}
+
+/**
+ * 5. 使用 createEvent API 创建活动
+ */
+const handleCreateEvent = async () => {
+    // 假设您有一个活动数据对象用于创建
+    const dummyEventData = {
+        name: `新创建的活动 ${new Date().toLocaleTimeString()}`,
+        description: '这是一个通过新API创建的测试活动。',
+        date: new Date(Date.now() + 86400000).toISOString(), // 明天的日期
+        location: '线上/线下待定',
+        tags: ['测试', '演示']
+    }
+    
+    try {
+        const result = await createEvent(dummyEventData) // <--- 使用新的 API 函数
+        if (result?.id) {
+            alert(`活动创建成功! ID: ${result.id}`)
+            await fetchEventsList() // 刷新列表
+        } else {
+            alert(result?.message || '活动创建失败')
+        }
+    } catch (error) {
+        console.error('活动创建失败：', error)
+        alert('活动创建失败，请检查数据或权限。')
+    }
 }
 
 const handleHeaderAction = (key) => {
@@ -936,27 +922,22 @@ const handleCloseDetail = () => {
 
 // 报名/取消报名相关方法
 /**
- * 替换 registerEvent 为 registerForEvent
+ * 3. 使用 registerForEvent API 报名活动
  */
 const handleRegister = async(eventId) => {
   if (!eventId) return
   
   isProcessing.value[eventId] = true
   try {
-    // <--- 替换点: registerEvent -> registerForEvent
-    const result = await registerForEvent(eventId)
+    const result = await registerForEvent(eventId) // <--- 使用新的 API 函数
     if (result?.code === 200 || result?.success) {
       alert(result.message || '报名成功')
-      
-      // 更新本地状态
       await Promise.all([fetchEventsList(), fetchMyRegEvents()])
-      
     } else {
       alert(result?.message || '报名失败')
     }
   } catch (error) {
     console.error(`报名活动(${eventId})失败：`, error)
-    //OPTIMIZE: 更友好的错误提示
     alert('报名失败，请稍后重试')
   } finally {
     isProcessing.value[eventId] = false
@@ -964,21 +945,17 @@ const handleRegister = async(eventId) => {
 }
 
 /**
- * 替换 cancelRegister 为 cancelEventRegistration
+ * 4. 使用 cancelEventRegistration API 取消报名活动
  */
 const handleCancelReg = async(eventId) => {
   if (!eventId) return
   
   isProcessing.value[eventId] = true
   try {
-    // <--- 替换点: cancelRegister -> cancelEventRegistration
-    const result = await cancelEventRegistration(eventId)
+    const result = await cancelEventRegistration(eventId) // <--- 使用新的 API 函数
     if (result?.code === 200 || result?.success) {
       alert(result.message || '取消报名成功')
-      
-      // 更新本地状态
       await Promise.all([fetchEventsList(), fetchMyRegEvents()])
-      
     } else {
       alert(result?.message || '取消报名失败')
     }
@@ -1015,6 +992,51 @@ const handleDiscoverEvents = () => {
   // 可选：滚动到页面顶部，确保用户看到活动列表
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
+
+
+// --- 新增的 API 占位函数 (用于未来集成) ---
+
+/**
+ * 6. 使用 updateEvent API 更新活动 (目前仅为占位函数)
+ */
+const handleUpdateEvent = async(eventId, data) => {
+    if (!eventId) return
+    console.log(`尝试更新活动 ${eventId} 的数据...`, data)
+    try {
+        // const result = await updateEvent(eventId, data) // <--- 使用新的 API 函数
+        // if (result?.success) {
+        //     alert('活动更新成功!')
+        //     await fetchEventsList()
+        // } else {
+        //     alert('活动更新失败')
+        // }
+        console.warn('handleUpdateEvent 尚未完全实现，请在需要时调用 updateEvent API。')
+    } catch (error) {
+        console.error(`更新活动(${eventId})失败：`, error)
+    }
+}
+
+/**
+ * 7. 使用 deleteEvent API 删除活动 (目前仅为占位函数)
+ */
+const handleDeleteEvent = async(eventId) => {
+    if (!eventId) return
+    if (!confirm(`确定要删除活动 ${eventId} 吗?`)) return
+    
+    try {
+        // const result = await deleteEvent(eventId) // <--- 使用新的 API 函数
+        // if (result?.success) {
+        //     alert('活动删除成功!')
+        //     await fetchEventsList()
+        // } else {
+        //     alert('活动删除失败')
+        // }
+        console.warn('handleDeleteEvent 尚未完全实现，请在需要时调用 deleteEvent API。')
+    } catch (error) {
+        console.error(`删除活动(${eventId})失败：`, error)
+    }
+}
+
 </script>
 
 

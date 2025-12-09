@@ -49,6 +49,8 @@ export const login = (loginData) => {
     data: loginData
   })
 }
+
+// logout 在pinia的user store中调用
 /**
  * 退出登录
  * @returns {Promise}
@@ -63,9 +65,6 @@ export const logout = () => {
   })
 }
 
-// //登录成功后存储
-// localStorage.setItem('access_token', '...')  // 访问令牌
-// localStorage.setItem('refresh_token', '...') // 刷新令牌
 
 /**
  * 刷新令牌

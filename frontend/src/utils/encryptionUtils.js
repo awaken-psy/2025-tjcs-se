@@ -10,9 +10,6 @@
  */
 export const encryptPassword = async (password) => {
   try {
-    // 强制使用同步加密方法，确保一致性
-    // 这样无论在什么环境下，加密结果都是一致的
-    console.log('使用统一的密码加密方法')
     return encryptPasswordSync(password)
   } catch (error) {
     console.error('密码加密失败:', error)

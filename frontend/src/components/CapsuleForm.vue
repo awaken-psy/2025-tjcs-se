@@ -462,7 +462,7 @@ const visibilityOptions = [
     icon: 'fas fa-globe-americas'
   },
   {
-    key: 'friend',
+    key: 'friends',
     label: '好友可见',
     desc: '仅你的好友可见',
     icon: 'fas fa-user-friends'
@@ -928,16 +928,34 @@ const handleSubmit = async() => {
       console.log('创建胶囊结果:', result)
     }
 
-    if (result.code === 200 || result.success) { // 假设后端返回 success/code=200 表示成功
+    // 调试信息
+    console.log('判断成功条件:', {
+      result: result,
+      code: result?.code,
+      hasCapsuleId: !!result?.data?.capsule_id,
+      hasId: !!result?.data?.id,
+      condition: result?.code === 200 && result?.data
+    })
+
+    // 修复：根据后端返回的标准格式判断成功
+    if (result?.code === 200 && result?.data) {
       showAlertMessage(successMessage, 'success')
       
       // 延迟关闭模态框，让用户看到成功消息
       setTimeout(() => {
         // 传递结果数据给父组件，通常包含新的 ID 或更新后的数据
-        emit('submit', result.data || submitData) 
+        emit('submit', result || submitData)  // result已经是data部分了 
         handleClose()
       }, 1500)
     } else {
+      console.log('判断失败，进入错误分支:', {
+        result: result,
+        resultType: typeof result,
+        resultMessage: result?.message,
+        code: result?.code,
+        data: result?.data,
+        newCondition: result?.code === 200 && result?.data
+      })
       throw new Error(result.message || (props.isEdit ? '更新胶囊失败' : '创建胶囊失败'))
     }
 

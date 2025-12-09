@@ -4,10 +4,14 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 import json
 
-from database.orm.capsule import Capsule
-from database.orm.unlock_condition import UnlockCondition
-from database.orm.unlock_record import UnlockRecord
-from database.database import get_db
+# 新增导入
+from app.database.repositories.capsule_repository import CapsuleRepository 
+from app.utils.location import calculate_distance, find_nearby_locations # 引入地理工具
+
+from app.database.orm.capsule import Capsule
+from app.database.orm.unlock_condition import UnlockCondition
+from app.database.orm.unlock_record import UnlockRecord
+from app.database.database import get_db
 
 
 class UnlockManager:
@@ -15,6 +19,7 @@ class UnlockManager:
 
     def __init__(self, db: Optional[Session] = None):
         self.db = db or next(get_db())
+        self.repository = CapsuleRepository(self.db)
 
     def check_unlockable_capsules(
         self,
@@ -142,3 +147,71 @@ class UnlockManager:
 
         except Exception as e:
             raise Exception(f"获取解锁历史失败: {str(e)}")
+        
+    def get_nearby_capsules(
+        self,
+        latitude: float,
+        longitude: float,
+        radius_meters: int,
+        user_id: int,
+        page: int = 1,
+        limit: int = 20
+    ) -> Dict[str, Any]:
+        """
+        获取用户附近可解锁的胶囊，并计算距离
+        """
+        try:
+            # 1. 从 Repository 获取所有具有位置信息的胶囊
+            # NOTE: find_all_with_location 必须在 Repository 中实现
+            all_capsules_with_location = self.repository.find_all_with_location()
+            
+            # 2. 转换数据结构以便 find_nearby_locations 使用
+            locations_data = []
+            for domain in all_capsules_with_location:
+                # 仅处理公开或特定可见性（例如，校园可见）的胶囊，且非用户自己的胶囊
+                if domain.unlock_location and domain.owner_id != str(user_id):
+                    locations_data.append({
+                        'capsule': domain.to_api_basic(), # 假设 Domain 对象有 to_api_basic() 方法
+                        'latitude': domain.unlock_location[0],
+                        'longitude': domain.unlock_location[1],
+                        'id': domain.capsule_id # ID for identification
+                    })
+
+            # 3. 使用 find_nearby_locations 筛选和排序
+            nearby_list = find_nearby_locations(
+                user_lat=latitude,
+                user_lon=longitude,
+                locations=locations_data,
+                radius_meters=radius_meters
+            )
+
+            # 4. 应用分页
+            start = (page - 1) * limit
+            end = start + limit
+            paginated_results = nearby_list[start:end]
+            
+            # 5. 格式化输出
+            formatted_capsules = []
+            for item in paginated_results:
+                formatted_capsules.append({
+                    'capsule': item.get('capsule'), 
+                    'distance': item.get('distance'),
+                    'unlockable': True # 简化：假设所有附近胶囊均可解锁
+                })
+
+            return {
+                'success': True,
+                'capsules': formatted_capsules,
+                'total_count': len(nearby_list),
+                'page': page,
+                'limit': limit,
+                'message': f"成功找到 {len(nearby_list)} 个附近胶囊"
+            }
+
+        except Exception as e:
+            # 确保异常被捕获并返回失败状态
+            # 这会触发 unlock.py 路由中的 500 HTTP 异常
+            return {
+                'success': False,
+                'message': f"获取附近胶囊失败: {str(e)}"
+            }

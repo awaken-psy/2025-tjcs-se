@@ -8,12 +8,13 @@ from app.model.capsule import (
     CapsuleCreateRequest, CapsuleUpdateRequest, CapsuleDraftRequest,
     CapsuleCreateResponse, CapsuleUpdateResponse, CapsuleDraftResponse,CapsuleDetail
 )
+from app.core.exceptions import RecordNotFoundException
 
 
 class CapsuleService:
     """胶囊业务服务类"""
-    
-    def __init__(self, db: Session):
+
+    def __init__(self, db: Optional[Session] = None):
         self.repository = CapsuleRepository(db)
 
     def create_capsule(self, request: CapsuleCreateRequest, user_id: int) -> CapsuleCreateResponse:
@@ -70,9 +71,9 @@ class CapsuleService:
             return capsule_domain.to_api_detail(user)
         return None
 
-    def get_user_capsules(self, user_id: int, page: int = 1, limit: int = 20):
+    def get_user_capsules(self, user_id: int, page: int = 1, limit: int = 20, status: str = "all"):
         """获取用户胶囊列表"""
-        result = self.repository.find_by_user_id(user_id, page, limit)
+        result = self.repository.find_by_user_id(user_id, page, limit, status)
         basic_list = [domain.to_api_basic() for domain in result['capsules']]
         
         return {
@@ -99,8 +100,14 @@ class CapsuleService:
         
         capsule_domain.updated_at = datetime.utcnow()
         
-        self.repository.save(capsule_domain)
-        return True
+        try:
+            # 即使 find_by_id 成功，也使用 try-except 块以应对 Repository 内部的潜在异常
+            self.repository.save(capsule_domain)
+            return True
+        except RecordNotFoundException:
+            # 如果 repository.save 逻辑被重构为抛出此异常（例如，在 find_by_id 逻辑之外）
+            # 捕获它并返回 False，符合原函数返回 bool 的约定
+            return False
 
     def delete_capsule(self, capsule_id: int, user_id: int) -> bool:
         """删除胶囊"""
@@ -111,10 +118,10 @@ class CapsuleService:
 
     def save_draft(self, request: CapsuleDraftRequest, user_id: int) -> CapsuleDraftResponse:
         """保存草稿"""
-        capsule_id = f"draft_{int(datetime.utcnow().timestamp() * 1000)}"
-        
+        # 让数据库自动分配Integer ID，不再生成字符串ID
+
         capsule_domain = CapsuleDomain(
-            capsule_id=capsule_id,
+            capsule_id=None,
             owner_id=str(user_id),
             title=request.title or "未命名草稿",
             description=request.content[:100] if request.content else None,
@@ -129,7 +136,7 @@ class CapsuleService:
         saved_domain = self.repository.save(capsule_domain)
         
         return CapsuleDraftResponse(
-            draft_id=saved_domain.capsule_id,
+            draft_id=saved_domain.capsule_id,  # 现在是Integer ID
             saved_at=saved_domain.created_at
         )
 
@@ -158,9 +165,12 @@ class CapsuleService:
         """转换可见性枚举"""
         if visibility == "public":
             return Visibility.CAMPUS
-        elif visibility == "friends":
+        elif visibility in ["friends", "friend"]:
             return Visibility.FRIENDS
+        elif visibility == "private":
+            return Visibility.PRIVATE
         else:
+            # 默认为私有
             return Visibility.PRIVATE
 
 
