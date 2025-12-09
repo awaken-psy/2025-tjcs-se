@@ -634,14 +634,14 @@ const handleLogin = async () => {
     // 加密密码
     // TODO：看一下加密算法
     const encryptedPassword = await encryptPassword(loginForm.password)
-    console.log('登录发送数据:', encryptedPassword)
+    //console.log('登录发送数据:', encryptedPassword)
 
     const responseData = await login({
       email: loginForm.email.trim(),
       password: encryptedPassword,
     })
 
-    console.log('登录响应数据:', responseData)
+    
 
     const { token, refresh_token, user_id, email, nickname, avatar } = responseData
 
@@ -742,7 +742,7 @@ const handleSendVerifyCode = async () => {
 
   try {
     const responseData = await sendCode({ email: regForm.email.trim() })
-    console.log('验证码发送响应:', responseData)
+    //console.log('验证码发送响应:', responseData)
 
     // 开始倒计时
     verifyCodeCooldown.value = 60

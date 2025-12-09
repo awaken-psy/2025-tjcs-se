@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 from app.database import UserRepository
 from app.auth.password import PasswordManager
 from app.auth.jwt_handler import JWTHandler
-from app.services.verifycode import verify_code_manager
+# 🔴 关键：从全局导入使用 Redis 初始化的管理器实例
+from app.services.verifycode import verify_code_manager 
 from app.domain.user import AuthorizedUser, AdminUser
 
 
@@ -42,6 +43,7 @@ class RegisterManager:
 
         try:
             # 1. 验证验证码
+            # 🔴 (已确认正确): 调用全局 Redis 实例进行验证，验证成功后 Redis 会自动删除验证码。
             verify_success, verify_message = verify_code_manager.verify_code(email, verify_code)
             if not verify_success:
                 return False, verify_message, None

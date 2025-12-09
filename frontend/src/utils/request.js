@@ -43,6 +43,34 @@ request.interceptors.request.use(config => {
     config.headers.Authorization = `Bearer ${token}`
   }
 
+  // 检查并打印请求体/参数
+  console.log('发出请求配置')
+  console.log('URL:', config.url)
+  console.log('Method:', config.method)
+
+  // 打印请求体 (适用于 POST/PUT/PATCH 等)
+  if (config.data) {
+    // 检查是否是 FormData 对象
+    if (config.data instanceof FormData) {
+      console.log(
+        'Request Body:',
+        'FormData object (contents not directly printable)'
+      )
+      // 如果需要查看 FormData 的内容，你需要手动迭代它：
+      // for (let [key, value] of config.data.entries()) {
+      //   console.log(`${key}: ${value}`);
+      // }
+    } else {
+      console.log('Request Body:', config.data)
+    }
+  }
+
+  // 打印 URL 查询参数 (适用于 GET 等)
+  if (config.params) {
+    console.log('URL Parameters:', config.params)
+  }
+
+
   // 如果是 FormData，让浏览器自动设置 Content-Type
   if (config.data instanceof FormData) {
     delete config.headers['Content-Type']
