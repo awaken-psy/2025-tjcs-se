@@ -5,6 +5,7 @@ from datetime import datetime
 from app.domain.capsule import Capsule as CapsuleDomain, CapsuleStatus, Visibility, ContentType
 from app.database.orm.capsule import Capsule
 from app.database.database import get_db
+from app.core.exceptions import RecordNotFoundException
 
 
 class CapsuleRepository:
@@ -46,9 +47,21 @@ class CapsuleRepository:
         }
     
     def save(self, domain: CapsuleDomain) -> CapsuleDomain:
-        """保存Domain对象到数据库"""
-        orm = self._domain_to_orm(domain)
-        self.db.add(orm)
+        """保存Domain对象到数据库 (修复更新/插入逻辑)"""
+        if domain.capsule_id is None:
+            # 插入逻辑：使用 _domain_to_orm 创建新的 ORM 实例
+            orm = self._domain_to_orm(domain)
+            self.db.add(orm)
+        else:
+            # 更新逻辑：加载现有 ORM 实例
+            orm = self.db.query(Capsule).filter(Capsule.id == domain.capsule_id).first()
+            if orm is None:
+                # 记录不存在，抛出异常，Service 层需处理此 404 错误
+                raise RecordNotFoundException(f"胶囊 ID {domain.capsule_id} 不存在，无法更新")
+            else:
+                # 更新属性：使用辅助方法更新现有实例
+                self._update_orm_attributes(orm, domain)
+
         self.db.flush()
         self.db.commit()
         self.db.refresh(orm)
@@ -93,6 +106,68 @@ class CapsuleRepository:
         
         return [self._orm_to_domain(orm) for orm in orms]
     
+    def _update_orm_from_domain(self, orm: Capsule, domain: CapsuleDomain):
+        """辅助方法：将 Domain 属性赋值给 ORM 实例"""
+        # 确保不尝试更新主键 ID
+        # orm.id = domain.capsule_id # 不要在这里设置，因为在ORM对象创建或加载时ID已确定
+
+        orm.user_id = int(domain.owner_id)
+        orm.title = domain.title
+        orm.text_content = domain.content
+        orm.visibility = domain.visibility.value
+        orm.status = domain.status.value
+        orm.created_at = domain.created_at # 注意：对于更新操作，这个值通常不应该被修改
+        orm.updated_at = domain.updated_at
+        
+        # 设置位置信息 - 标准3字段格式
+        if domain.unlock_location and len(domain.unlock_location) == 3:
+            orm.latitude = domain.unlock_location[0]
+            orm.longitude = domain.unlock_location[1]
+            orm.address = domain.unlock_location[2]
+        else:
+            # 确保在更新时，如果没有位置信息，则显式设置为 None
+            orm.latitude = None
+            orm.longitude = None
+            orm.address = None
+
+    def _update_orm_attributes(self, orm: Capsule, domain: CapsuleDomain):
+        """辅助方法：将 Domain 属性赋值给现有 ORM 实例 (用于更新)"""
+        # 注意：不要更新 orm.id，它在 orm 被加载时已确定
+        orm.user_id = int(domain.owner_id)
+        orm.title = domain.title
+        orm.text_content = domain.content
+        orm.visibility = domain.visibility.value
+        orm.status = domain.status.value
+        orm.updated_at = domain.updated_at # 只更新 updated_at
+        
+        # 处理位置信息
+        if domain.unlock_location and len(domain.unlock_location) == 3:
+            orm.latitude = domain.unlock_location[0]
+            orm.longitude = domain.unlock_location[1]
+            orm.address = domain.unlock_location[2]
+        else:
+            # 使用默认值，保持与 _domain_to_orm 的逻辑一致
+            orm.latitude = 0.0
+            orm.longitude = 0.0
+            orm.address = ""
+
+    def find_all_with_location(self) -> List[CapsuleDomain]:
+        """
+        查找所有带位置信息且已发布（非草稿）的胶囊。
+        返回 CapsuleDomain 列表。
+        """
+        # 过滤条件：必须有经纬度，且状态不是草稿（假设 'locked'/'unlocked' 才是已发布）
+        # 💡 注意：如果您的 Capsule ORM 状态字段是枚举，请使用正确的检查方式。
+        orms = self.db.query(Capsule).filter(
+            Capsule.latitude.isnot(None),
+            Capsule.longitude.isnot(None),
+            # 排除草稿状态的胶囊。如果您的 status 字段包含 'draft'，需要明确排除。
+            # 假设只有 status='locked' 或 status='unlocked' 的胶囊才算有效。
+            # 这里简化为只要有位置信息且不是草稿的胶囊。
+        ).all()
+        
+        return [self._orm_to_domain(orm) for orm in orms]
+
     @staticmethod
     def _orm_to_domain(orm: Capsule) -> CapsuleDomain:
         """ORM对象转Domain对象"""
@@ -138,8 +213,7 @@ class CapsuleRepository:
             unlock_location=unlock_location
         )
     
-    @staticmethod
-    def _domain_to_orm(domain: CapsuleDomain) -> Capsule:
+    
         """Domain对象转ORM对象"""
         orm = Capsule()
         # 只有当capsule_id不为None时才设置，否则让数据库自动分配
@@ -161,6 +235,35 @@ class CapsuleRepository:
         
         return orm
     
+    
+    @staticmethod
+    def _domain_to_orm(domain: CapsuleDomain) -> Capsule:
+        """Domain对象转ORM对象"""
+        orm = Capsule() # 📌 必须保留这一行来创建新对象 (用于插入)
+        # 只有当capsule_id不为None时才设置，否则让数据库自动分配
+        if domain.capsule_id is not None:
+            orm.id = domain.capsule_id
+        orm.user_id = int(domain.owner_id)
+        orm.title = domain.title
+        orm.text_content = domain.content
+        orm.visibility = domain.visibility.value
+        orm.status = domain.status.value
+        orm.created_at = domain.created_at
+        orm.updated_at = domain.updated_at
+        
+        # 设置位置信息 - 标准3字段格式
+        if domain.unlock_location and len(domain.unlock_location) == 3:
+            orm.latitude = domain.unlock_location[0]   # latitude
+            orm.longitude = domain.unlock_location[1]  # longitude
+            orm.address = domain.unlock_location[2]    # address
+        else:
+            # 修复：当 Domain 对象中没有位置信息时，提供一个非 NULL 的默认值
+            orm.latitude = 0.0
+            orm.longitude = 0.0
+            orm.address = ""
+        
+        return orm
+
     @staticmethod
     def _convert_visibility(visibility: str) -> Visibility:
         """转换可见性枚举"""

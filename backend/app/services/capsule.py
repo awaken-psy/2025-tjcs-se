@@ -8,6 +8,7 @@ from app.model.capsule import (
     CapsuleCreateRequest, CapsuleUpdateRequest, CapsuleDraftRequest,
     CapsuleCreateResponse, CapsuleUpdateResponse, CapsuleDraftResponse,CapsuleDetail
 )
+from app.core.exceptions import RecordNotFoundException
 
 
 class CapsuleService:
@@ -99,8 +100,14 @@ class CapsuleService:
         
         capsule_domain.updated_at = datetime.utcnow()
         
-        self.repository.save(capsule_domain)
-        return True
+        try:
+            # 即使 find_by_id 成功，也使用 try-except 块以应对 Repository 内部的潜在异常
+            self.repository.save(capsule_domain)
+            return True
+        except RecordNotFoundException:
+            # 如果 repository.save 逻辑被重构为抛出此异常（例如，在 find_by_id 逻辑之外）
+            # 捕获它并返回 False，符合原函数返回 bool 的约定
+            return False
 
     def delete_capsule(self, capsule_id: int, user_id: int) -> bool:
         """删除胶囊"""
