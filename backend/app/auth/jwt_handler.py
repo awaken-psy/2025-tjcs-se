@@ -15,7 +15,7 @@ class JWTConfig:
     SECRET_KEY = "your-secret-key-change-in-production"  # TODO: 从环境变量读取
     
     # Token 过期时间（小时）
-    ACCESS_TOKEN_EXPIRE_HOURS = 24
+    ACCESS_TOKEN_EXPIRE_HOURS = 48
     REFRESH_TOKEN_EXPIRE_DAYS = 7
     
     # Token 类型

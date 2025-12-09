@@ -33,15 +33,24 @@ async def create_capsule(
     """创建胶囊"""
     try:
         manager = CapsuleManager(db)
-        # 处理前端格式数据，转换为后端期望格式
+        
+        location_data = raw_data.get('location')
         location_obj = None
-        if raw_data.get('lat') is not None and raw_data.get('lng') is not None:
-            from app.model.capsule import Location
-            location_obj = Location(
-                latitude=float(raw_data['lat']),
-                longitude=float(raw_data['lng']),
-                address=raw_data.get('location', '')  # 使用前端的location字符串作为地址
-            )
+        
+        # 1. 检查是否存在location数据，并且该数据是一个字典
+        if isinstance(location_data, dict):
+            lat = location_data.get('latitude')
+            lng = location_data.get('longitude')
+            
+            # 2. 检查latitude和longitude是否存在且非空
+            if lat is not None and lng is not None:
+                from app.model.capsule import Location
+                location_obj = Location(
+                    # 注意：如果客户端发送的是字符串，这里需要进行类型转换
+                    latitude=float(lat),
+                    longitude=float(lng),
+                    address=location_data.get('address', '')
+                )
 
         # 构建标准的CapsuleCreateRequest
         request = CapsuleCreateRequest(
