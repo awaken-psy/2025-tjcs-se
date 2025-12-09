@@ -41,7 +41,7 @@ CONTAINER ID   IMAGE             COMMAND                   CREATED          STAT
 ```bash
 docker exec -it timecapsule_mysql bash
 # root 密码是docker-compose.yml 中 MYSQL_ROOT_PASSWORD 的值
-mysql -u root -p
+mysql -u root -p Markov@2025
 
 ......
 

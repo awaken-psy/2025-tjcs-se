@@ -142,7 +142,30 @@ class InteractionService:
 
     def get_comments(self, capsule_id: int, page: int = 1, page_size: int = 20,
                     sort: str = "latest") -> CommentsListResponse:
-        """获取评论列表"""
+        """获取评论列表（使用评论树）"""
+        try:
+            # 验证排序类型
+            if sort not in [CommentSortType.LATEST.value, CommentSortType.HOTTEST.value]:
+                raise ValueError("无效的排序类型")
+
+            # 使用评论树服务
+            from app.services.comment_tree import CommentTreeService
+            comment_tree_service = CommentTreeService(self.db)
+
+            return comment_tree_service.get_comments_with_tree(
+                capsule_id=capsule_id,
+                page=page,
+                page_size=page_size,
+                sort=sort
+            )
+        except ValueError as e:
+            raise ValueError(str(e))
+        except Exception as e:
+            raise ValueError(f"获取评论失败: {str(e)}")
+
+    def get_comments_flat(self, capsule_id: int, page: int = 1, page_size: int = 20,
+                         sort: str = "latest") -> CommentsListResponse:
+        """获取评论列表（扁平结构，向后兼容）"""
         try:
             # 验证排序类型
             if sort not in [CommentSortType.LATEST.value, CommentSortType.HOTTEST.value]:

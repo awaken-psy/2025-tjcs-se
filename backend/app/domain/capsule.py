@@ -128,20 +128,23 @@ class Capsule:
 
     def to_api_basic(self) -> 'CapsuleBasic':
        """Domain对象转CapsuleBasic响应模型"""
+       from app.model.capsule import CapsuleBasic
 
-       # 转换可见性枚举为前端期望的值
-       api_visibility = self.visibility.value
-       if api_visibility == "campus":
-           api_visibility = "public"
+       # 使用类型转换函数处理可见性和状态
+       api_visibility = convert_visibility_for_frontend(self.visibility.value)
+       api_status = convert_status_for_frontend(self.status.value)
+
+       # 转换ID为字符串，确保不为None
+       capsule_id_str = convert_capsule_id_to_string(self.capsule_id) or ""
 
        return CapsuleBasic(
-            id=self.capsule_id,
+            id=capsule_id_str,  # 转换为字符串ID
             title=self.title,
             visibility=api_visibility,
-            status=self.status.value,
+            status=api_status,
             created_at=self.created_at,
             content_preview=self.description,
-            cover_image=None,  # TODO: 从媒体文件获取
+            cover_image="",  # 确保不是None
             unlock_count=len(self.unlocked_by),
             like_count=self.like_count,
             comment_count=self.comment_count
@@ -160,10 +163,11 @@ class Capsule:
     
          # 转换创建者信息
         nickname = getattr(user, 'nickname', None) or getattr(user, 'username', None) or '匿名用户'
+        avatar_url = getattr(user, 'avatar_url', None) or ""  # 确保avatar不为null
         creator = Creator(
             user_id=int(self.owner_id),
             nickname=nickname,
-            avatar=getattr(user, 'avatar_url', None)
+            avatar=avatar_url
         )
     
         # 转换统计信息
@@ -185,23 +189,178 @@ class Capsule:
         elif self.content_type == ContentType.MIXED:
             tags = ["混合", "mixed"]
     
-        # 转换可见性枚举为前端期望的值
-        api_visibility = self.visibility.value
-        if api_visibility == "campus":
-            api_visibility = "public"
+        # 使用类型转换函数处理可见性和状态
+        api_visibility = convert_visibility_for_frontend(self.visibility.value)
+        api_status = convert_status_for_frontend(self.status.value)
+
+        # 转换ID为字符串，确保不为None
+        capsule_id_str = convert_capsule_id_to_string(self.capsule_id) or ""
+
+        # 创建默认的解锁条件对象
+        from app.model.capsule import UnlockConditions
+        unlock_conditions = UnlockConditions(
+            type="time",
+            value=self.unlock_time.isoformat() if self.unlock_time else None,
+            radius=self.unlock_radius,
+            event_id=None,
+            is_unlocked=False  # 默认未解锁状态
+        )
 
         return CapsuleDetail(
-            id=self.capsule_id,
+            id=capsule_id_str,  # 转换为字符串ID
             title=self.title,
             content=self.content or "",
             visibility=api_visibility,
-            status=self.status.value,
+            status=api_status,
             created_at=self.created_at,
             tags=tags,
             location=location,
-            unlock_conditions=None,  # TODO: 从domain的unlock属性转换
+            unlock_conditions=unlock_conditions,  # 使用真实的解锁条件
             media_files=[],  # TODO: 从媒体文件表获取
             creator=creator,
-             stats=stats,
+            stats=stats,
             updated_at=self.updated_at
         )
+
+
+# ==================== 类型转换工具函数 ====================
+
+def convert_capsule_id_to_string(capsule_id):
+    """将胶囊ID转换为字符串类型（用于API响应）"""
+    return str(capsule_id) if capsule_id is not None else None
+
+def convert_capsule_id_from_string(capsule_id_str):
+    """将字符串类型的胶囊ID转换为整数（用于数据库操作）"""
+    if capsule_id_str is None:
+        return None
+    try:
+        return int(capsule_id_str)
+    except (ValueError, TypeError):
+        return None
+
+def convert_status_for_frontend(status: str) -> str:
+    """
+    将胶囊状态转换为前端期望的枚举值
+
+    Args:
+        status: 数据库状态值 (locked, unlocked, draft, expired)
+
+    Returns:
+        str: 前端期望的状态值 (draft, pending, published)
+    """
+    status_mapping = {
+        "locked": "published",      # 已锁定状态对应前端已发布
+        "unlocked": "published",    # 已解锁状态对应前端已发布
+        "draft": "draft",           # 草稿状态保持不变
+        "expired": "published",     # 已过期状态对应前端已发布
+        "pending": "pending"        # 待审核状态保持不变
+    }
+    return status_mapping.get(status, "published")
+
+def convert_status_from_frontend(status: str) -> str:
+    """
+    将前端状态值转换为数据库期望的状态值
+
+    Args:
+        status: 前端状态值 (draft, pending, published)
+
+    Returns:
+        str: 数据库期望的状态值 (locked, draft, expired, pending)
+    """
+    status_mapping = {
+        "published": "locked",      # 前端已发布对应数据库锁定状态
+        "draft": "draft",           # 草稿状态保持不变
+        "pending": "pending"        # 待审核状态保持不变
+    }
+    return status_mapping.get(status, "locked")
+
+def convert_visibility_for_frontend(visibility: str) -> str:
+    """
+    将可见性转换为前端期望的值
+
+    Args:
+        visibility: 数据库可见性值 (private, friends, campus)
+
+    Returns:
+        str: 前端期望的可见性值 (private, friends, public)
+    """
+    visibility_mapping = {
+        "private": "private",       # 私有保持不变
+        "friends": "friends",       # 好友可见保持不变
+        "campus": "public"          # 校园公开转换为前端公开
+    }
+    return visibility_mapping.get(visibility, "private")
+
+def convert_visibility_from_frontend(visibility: str) -> str:
+    """
+    将前端可见性值转换为数据库期望的值
+
+    Args:
+        visibility: 前端可见性值 (private, friends, public)
+
+    Returns:
+        str: 数据库期望的可见性值 (private, friends, campus)
+    """
+    visibility_mapping = {
+        "private": "private",       # 私有保持不变
+        "friends": "friends",       # 好友可见保持不变
+        "public": "campus"          # 前端公开转换为数据库校园公开
+    }
+    return visibility_mapping.get(visibility, "private")
+
+def convert_capsule_basic_for_api(capsule_data):
+    """
+    将胶囊数据转换为API响应格式，处理类型转换
+
+    Args:
+        capsule_data: 胶囊数据字典或Pydantic模型对象
+
+    Returns:
+        dict: 转换后的胶囊数据
+    """
+    # 处理不同类型的数据源
+    if hasattr(capsule_data, 'model_dump'):
+        # Pydantic模型对象
+        capsule_dict = capsule_data.model_dump()
+    elif hasattr(capsule_data, '__dict__'):
+        # 普通对象
+        capsule_dict = vars(capsule_data)
+    elif isinstance(capsule_data, dict):
+        # 已经是字典
+        capsule_dict = capsule_data
+    else:
+        # 其他类型，直接返回
+        return capsule_data
+
+    # 创建副本避免修改原数据
+    result = capsule_dict.copy()
+
+    # 转换ID为字符串
+    if 'id' in result and result['id'] is not None:
+        result['id'] = convert_capsule_id_to_string(result['id'])
+
+    # 转换状态为前端格式（双重保险，因为domain可能已经转换过了）
+    if 'status' in result and result['status'] is not None:
+        result['status'] = convert_status_for_frontend(result['status'])
+
+    # 转换可见性为前端格式（双重保险，因为domain可能已经转换过了）
+    if 'visibility' in result and result['visibility'] is not None:
+        result['visibility'] = convert_visibility_for_frontend(result['visibility'])
+
+    # 确保cover_image不为null
+    if 'cover_image' in result and result['cover_image'] is None:
+        result['cover_image'] = ""
+
+    return result
+
+def convert_capsule_list_for_api(capsules_list):
+    """
+    批量转换胶囊列表为API响应格式
+
+    Args:
+        capsules_list: 胶囊数据列表
+
+    Returns:
+        list: 转换后的胶囊数据列表
+    """
+    return [convert_capsule_basic_for_api(capsule) for capsule in capsules_list]

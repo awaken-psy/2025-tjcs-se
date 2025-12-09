@@ -267,11 +267,14 @@ class CapsuleRepository:
     @staticmethod
     def _convert_visibility(visibility: str) -> Visibility:
         """转换可见性枚举"""
-        if visibility == "public":
+        if visibility == "public" or visibility == "campus":
             return Visibility.CAMPUS
         elif visibility == "friends":
             return Visibility.FRIENDS
+        elif visibility == "private":
+            return Visibility.PRIVATE
         else:
+            # 默认为私有
             return Visibility.PRIVATE
     
     @staticmethod
