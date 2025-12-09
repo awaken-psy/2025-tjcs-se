@@ -65,10 +65,11 @@ async def create_capsule(
 
         response = manager.create_capsule(request, user.user_id)
 
+        # 直接返回服务层的响应（已经在服务层完成类型转换）
         return BaseResponse[CapsuleCreateResponse].success(
             code=200,
             message="胶囊创建成功",
-            data=response
+            data=response  # response已经是正确的格式
         )
 
     except Exception as e:
@@ -152,7 +153,7 @@ async def update_capsule(
             code=200,
             message="更新成功",
             data=CapsuleUpdateResponse(
-                capsule_id=capsule_id,
+                capsule_id=str(capsule_id),  # 转换为字符串类型
                 updated_at=datetime.utcnow()
             )
         )

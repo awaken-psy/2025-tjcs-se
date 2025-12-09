@@ -105,7 +105,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 app.include_router(admin_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(capsule_router, prefix="/api")
-app.include_router(unlock_router, prefix="/api") 
+app.include_router(unlock_router, prefix="/api")
 app.include_router(interaction_router, prefix="/api")
 app.include_router(user_router, prefix="/api")
 app.include_router(friend_router, prefix="/api")
@@ -135,43 +135,6 @@ async def root():
         "version": "1.0.0",
         "docs": "/docs",
     }
-router_count = 0
-routes = {
-    "admin":       admin_router,       "auth": auth_router,    "capsule": capsule_router, 
-    "interaction": interaction_router, "user": user_router,    "friend":  friend_router,  
-    "report":      report_router,      "unlock": unlock_router,"upload": upload_router,
-}
-for name, router in routes.items():
-    try:
-        app.include_router(router, prefix=f"/api/v1")
-        app_logger.info(f"已注册路由: {name}")
-        router_count += 1
-    except Exception as e:
-        app_logger.error(f"注册路由失败: {name}", exc_info=True)
-app_logger.info(f"API 路由注册完成，共注册 {router_count} 个路由模块")
-#=============================================================#
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["127.0.0.1"],  # 允许的前端域名
-    allow_credentials=True,
-    allow_methods=["*"],  # 允许所有方法
-    allow_headers=["*"],  # 允许所有头（或明确写 ["Content-Type", "Authorization"]）
-)
-
-#=============================================================#
-# 配置静态文件服务
-UPLOAD_DIR = os.getenv('UPLOAD_DIR', './uploads')
-app_logger.info(f"配置上传目录: {UPLOAD_DIR}")
-
-if os.path.exists(UPLOAD_DIR):
-    # 挂载上传目录作为静态文件服务
-    app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
-    app_logger.info(f"静态文件服务已挂载: {UPLOAD_DIR} -> /uploads")
-else:
-    # 如果上传目录不存在，创建它
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-    app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
-    app_logger.info(f"创建并挂载上传目录: {UPLOAD_DIR} -> /uploads")
 #=============================================================#
 # 创建数据库表
 app_logger.info("开始初始化数据库表")
@@ -199,11 +162,3 @@ if __name__ == "__main__":
     # 仅在本地开发时运行，Docker 容器内由 docker compose up 负责启动，且数据库已初始化
     # 如果在本地直接运行，确保数据库已启动
     # create_tables()
-
-    # 修正启动入口：使用 app.main:app
-    uvicorn.run(
-        "app.main:app", 
-        host="0.0.0.0",
-        port=8000,
-        reload=True
-    )
