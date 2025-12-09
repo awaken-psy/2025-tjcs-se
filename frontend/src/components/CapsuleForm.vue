@@ -1,14 +1,24 @@
 <template>
   <!-- 胶囊表单组件：支持创建和编辑模式，包含完整表单字段 -->
-  <div class="capsule-form-modal" :class="{ active: isShow }">
-    <div class="modal-overlay" @click="handleClose" />
+  <div
+    class="capsule-form-modal"
+    :class="{ active: isShow }"
+  >
+    <div
+      class="modal-overlay"
+      @click="handleClose"
+    />
     <div class="modal-panel">
       <!-- 模态框头部 -->
       <div class="modal-header">
         <h2 class="modal-title">
           {{ isEdit ? '编辑胶囊' : '创建时光胶囊' }}
         </h2>
-        <button class="modal-close" title="关闭" @click="handleClose">
+        <button
+          class="modal-close"
+          title="关闭"
+          @click="handleClose"
+        >
           关闭
         </button>
       </div>
@@ -16,22 +26,37 @@
       <!-- 表单内容 -->
       <div class="modal-content">
         <!-- 状态提示 -->
-        <div v-if="showAlert" class="form-alert" :class="alertType">
+        <div
+          v-if="showAlert"
+          class="form-alert"
+          :class="alertType"
+        >
           <div class="alert-content">
-            <i class="alert-icon" :class="alertIcon" />
+            <i
+              class="alert-icon"
+              :class="alertIcon"
+            />
             <span>{{ alertText }}</span>
           </div>
-          <button class="alert-close" @click="showAlert = false">
+          <button
+            class="alert-close"
+            @click="showAlert = false"
+          >
             <i class="fas fa-times" />
           </button>
         </div>
 
-        <form class="capsule-form" @submit.prevent="handleSubmit">
+        <form
+          class="capsule-form"
+          @submit.prevent="handleSubmit"
+        >
           <!-- 1. 胶囊标题 -->
           <div class="form-section">
             <div class="section-header">
               <i class="fas fa-heading section-icon" />
-              <h3 class="section-title">胶囊标题</h3>
+              <h3 class="section-title">
+                胶囊标题
+              </h3>
               <span class="required-badge">必填</span>
             </div>
             <input
@@ -42,12 +67,14 @@
               :class="{ 'input-error': formErrors.title }"
               maxlength="50"
               @input="validateField('title')"
-              @blur="validateField('title')" />
+              @blur="validateField('title')"
+            >
             <div class="form-footer">
               <span class="char-count">{{ formData.title.length }}/50</span>
-              <span v-if="formErrors.title" class="error-text">{{
-                formErrors.title
-              }}</span>
+              <span
+                v-if="formErrors.title"
+                class="error-text"
+              >{{ formErrors.title }}</span>
             </div>
           </div>
 
@@ -55,7 +82,9 @@
           <div class="form-section">
             <div class="section-header">
               <i class="fas fa-edit section-icon" />
-              <h3 class="section-title">胶囊内容</h3>
+              <h3 class="section-title">
+                胶囊内容
+              </h3>
               <span class="required-badge">必填</span>
             </div>
             <textarea
@@ -66,12 +95,14 @@
               rows="5"
               maxlength="1000"
               @input="validateField('content')"
-              @blur="validateField('content')" />
+              @blur="validateField('content')"
+            />
             <div class="form-footer">
               <span class="char-count">{{ formData.content.length }}/1000</span>
-              <span v-if="formErrors.content" class="error-text">{{
-                formErrors.content
-              }}</span>
+              <span
+                v-if="formErrors.content"
+                class="error-text"
+              >{{ formErrors.content }}</span>
             </div>
           </div>
 
@@ -79,37 +110,81 @@
           <div class="form-section">
             <div class="section-header">
               <i class="fas fa-map-marker-alt section-icon" />
-              <h3 class="section-title">位置信息</h3>
-              <span class="optional-badge">自动获取</span>
+              <h3 class="section-title">
+                位置信息
+              </h3>
+              <span class="optional-badge">选填</span>
             </div>
             <div class="location-section">
-              <div class="location-display">
-                <div class="location-info">
-                  <i class="fas fa-location-dot location-icon" />
-                  <div class="location-text">
-                    <div class="location-address">
-                      {{ locationInfo.address || '正在获取位置...' }}
-                    </div>
-                    <div v-if="locationInfo.lat" class="location-coords">
-                      经纬度: {{ locationInfo.lat.toFixed(6) }},
-                      {{ locationInfo.lng.toFixed(6) }}
+              <!-- 地址输入框 -->
+              <div class="address-input-wrapper">
+                <input
+                  v-model="formData.address"
+                  type="text"
+                  class="form-input"
+                  placeholder="请输入地址信息（如：北京市朝阳区某某大学）"
+                  maxlength="200"
+                >
+                <div class="form-footer">
+                  <span class="char-count">{{ (formData.address || '').length }}/200</span>
+                </div>
+              </div>
+
+              <!-- 自动定位区域 -->
+              <div class="auto-location-wrapper">
+                <div class="location-display">
+                  <div class="location-info">
+                    <i class="fas fa-location-dot location-icon" />
+                    <div class="location-text">
+                      <div class="location-address">
+                        {{ locationInfo.address || '未获取到自动定位' }}
+                      </div>
+                      <div
+                        v-if="locationInfo.lat"
+                        class="location-coords"
+                      >
+                        经纬度: {{ locationInfo.lat.toFixed(6) }}, {{ locationInfo.lng.toFixed(6) }}
+                      </div>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    class="location-btn"
+                    :disabled="isLocating"
+                    @click="getCurrentLocation"
+                  >
+                    <i
+                      class="fas"
+                      :class="isLocating ? 'fa-spinner fa-spin' : 'fa-refresh'"
+                    />
+                    {{ isLocating ? '自动定位' : '重新定位' }}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  class="location-btn"
-                  :disabled="isLocating"
-                  @click="getCurrentLocation">
+                <div
+                  v-if="locationPermission"
+                  class="location-status"
+                >
                   <i
                     class="fas"
-                    :class="isLocating ? 'fa-spinner fa-spin' : 'fa-refresh'" />
-                  {{ isLocating ? '定位中...' : '重新定位' }}
-                </button>
+                    :class="locationIcon"
+                  />
+                  <span>{{ locationMessage }}</span>
+                </div>
               </div>
-              <div v-if="locationPermission" class="location-status">
-                <i class="fas" :class="locationIcon" />
-                <span>{{ locationMessage }}</span>
+
+              <!-- 使用自动定位地址按钮 -->
+              <div
+                v-if="locationInfo.address && locationInfo.address !== '未获取到自动定位'"
+                class="use-auto-location"
+              >
+                <button
+                  type="button"
+                  class="btn btn-outline"
+                  @click="useAutoLocation"
+                >
+                  <i class="fas fa-copy" />
+                  使用自动定位的地址
+                </button>
               </div>
             </div>
           </div>
@@ -118,40 +193,63 @@
           <div class="form-section">
             <div class="section-header">
               <i class="fas fa-image section-icon" />
-              <h3 class="section-title">添加图片</h3>
+              <h3 class="section-title">
+                添加图片
+              </h3>
               <span class="optional-badge">选填</span>
             </div>
             <div class="image-upload-section">
               <div
                 class="upload-area"
                 :class="{ 'has-image': previewImage }"
-                @click="triggerFileInput">
+                @click="triggerFileInput"
+              >
                 <input
                   ref="fileInput"
                   type="file"
                   accept="image/*"
                   style="display: none"
-                  @change="handleImageUpload" />
-                <div v-if="!previewImage" class="upload-placeholder">
+                  @change="handleImageUpload"
+                >
+                <div
+                  v-if="!previewImage"
+                  class="upload-placeholder"
+                >
                   <i class="fas fa-cloud-upload-alt upload-icon" />
-                  <p class="upload-text">点击上传图片</p>
-                  <p class="upload-hint">支持 JPG、PNG 格式，最大 5MB</p>
+                  <p class="upload-text">
+                    点击上传图片
+                  </p>
+                  <p class="upload-hint">
+                    支持 JPG、PNG 格式，最大 5MB
+                  </p>
                 </div>
-                <div v-else class="image-preview">
-                  <img :src="previewImage" alt="预览图片" class="preview-img" />
+                <div
+                  v-else
+                  class="image-preview"
+                >
+                  <img
+                    :src="previewImage"
+                    alt="预览图片"
+                    class="preview-img"
+                  >
                   <button
                     type="button"
                     class="remove-image"
-                    @click.stop="removeImage">
+                    @click.stop="removeImage"
+                  >
                     <i class="fas fa-times" />
                   </button>
                 </div>
               </div>
-              <div v-if="uploadProgress > 0" class="upload-progress">
+              <div
+                v-if="uploadProgress > 0"
+                class="upload-progress"
+              >
                 <div class="progress-bar">
                   <div
                     class="progress-fill"
-                    :style="{ width: uploadProgress + '%' }" />
+                    :style="{ width: uploadProgress + '%' }"
+                  />
                 </div>
                 <span class="progress-text">{{ uploadProgress }}%</span>
               </div>
@@ -162,7 +260,9 @@
           <div class="form-section">
             <div class="section-header">
               <i class="fas fa-eye section-icon" />
-              <h3 class="section-title">可见性设置</h3>
+              <h3 class="section-title">
+                可见性设置
+              </h3>
               <span class="required-badge">必填</span>
             </div>
             <div class="visibility-options">
@@ -170,45 +270,19 @@
                 v-for="option in visibilityOptions"
                 :key="option.key"
                 class="visibility-option"
-                :class="{ active: formData.visibility === option.key }">
+                :class="{ active: formData.visibility === option.key }"
+              >
                 <input
                   v-model="formData.visibility"
                   type="radio"
                   :value="option.key"
-                  class="vis-radio" />
-                <div class="option-content">
-                  <i class="option-icon" :class="option.icon" />
-                  <div class="option-text">
-                    <div class="option-title">{{ option.label }}</div>
-                    <div class="option-desc">{{ option.desc }}</div>
-                  </div>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          <!-- 6. 解锁条件设置 -->
-          <div class="form-section">
-            <div class="section-header">
-              <i class="fas fa-lock section-icon" />
-              <h3 class="section-title">解锁条件设置</h3>
-            </div>
-            <div class="visibility-options">
-              <label
-                v-for="option in unlockOptions"
-                :key="option.key"
-                class="visibility-option"
-                :class="{
-                  active: formData.unlock_conditions.type === option.key,
-                }">
-                <input
-                  v-model="formData.unlock_conditions.type"
-                  type="radio"
-                  :value="option.key"
                   class="vis-radio"
-                  @change="unlockTimeInput = ''" />
+                >
                 <div class="option-content">
-                  <i class="option-icon" :class="option.icon" />
+                  <i
+                    class="option-icon"
+                    :class="option.icon"
+                  />
                   <div class="option-text">
                     <div class="option-title">{{ option.label }}</div>
                     <div class="option-desc">{{ option.desc }}</div>
@@ -216,53 +290,15 @@
                 </div>
               </label>
             </div>
-
-            <div
-              v-if="formData.unlock_conditions.type === 'time'"
-              class="additional-input-area mt-3">
-              <p class="input-label">请设置解锁日期和时间:</p>
-              <input
-                v-model="unlockTimeInput"
-                type="datetime-local"
-                class="form-input"
-                :min="
-                  new Date(Date.now() + 60000).toISOString().slice(0, 16)
-                " />
-              <p class="hint-text">必须晚于当前时间 (至少 1 分钟)。</p>
-            </div>
-
-            <div
-              v-if="formData.unlock_conditions.type === 'location'"
-              class="additional-input-area mt-3">
-              <p class="input-label">胶囊埋藏地点:</p>
-              <div class="location-display-small">
-                <i class="fas fa-map-marker-alt location-icon-small" />
-                <span>{{
-                  locationInfo.address || '请先在上方获取位置信息'
-                }}</span>
-              </div>
-              <p class="hint-text">解锁地点即为胶囊创建时的位置。</p>
-
-              <p class="input-label mt-3">解锁半径 (米):</p>
-              <input
-                v-model.number="unlockRadiusInput"
-                type="number"
-                min="10"
-                max="5000"
-                placeholder="请输入解锁半径 (10-5000米)"
-                class="form-input" />
-              <p class="hint-text">
-                用户必须在距离胶囊 **{{ unlockRadiusInput }}**
-                米的范围内才能打开。
-              </p>
-            </div>
           </div>
 
-          <!-- 7. 标签管理 -->
+          <!-- 6. 标签管理 -->
           <div class="form-section">
             <div class="section-header">
               <i class="fas fa-tags section-icon" />
-              <h3 class="section-title">添加标签</h3>
+              <h3 class="section-title">
+                添加标签
+              </h3>
               <span class="optional-badge">选填</span>
             </div>
             <div class="tags-section">
@@ -273,30 +309,40 @@
                   class="tags-input"
                   placeholder="输入标签后按回车或逗号添加..."
                   maxlength="20"
-                  @keydown="handleTagInput" />
+                  @keydown="handleTagInput"
+                >
                 <span class="tags-count">{{ selectedTags.length }}/5</span>
               </div>
-              <div v-if="selectedTags.length > 0" class="selected-tags">
+              <div
+                v-if="selectedTags.length > 0"
+                class="selected-tags"
+              >
                 <span
                   v-for="(tag, index) in selectedTags"
                   :key="index"
-                  class="tag-item">
+                  class="tag-item"
+                >
                   {{ tag }}
                   <button
                     type="button"
                     class="remove-tag"
-                    @click="removeTag(index)">
+                    @click="removeTag(index)"
+                  >
                     <i class="fas fa-times" />
                   </button>
                 </span>
               </div>
-              <div v-if="suggestedTags.length > 0" class="suggested-tags">
+              <div
+                v-if="suggestedTags.length > 0"
+                class="suggested-tags"
+              >
                 <span class="suggested-label">推荐标签：</span>
                 <span
                   v-for="tag in suggestedTags"
                   :key="tag"
                   class="suggested-tag"
-                  @click="addSuggestedTag(tag)">
+                  @click="addSuggestedTag(tag)"
+                >
                   {{ tag }}
                 </span>
               </div>
@@ -309,18 +355,24 @@
               type="button"
               class="btn btn-secondary"
               :disabled="isSubmitting"
-              @click="handleClose">
+              @click="handleClose"
+            >
               取消
             </button>
             <button
               type="submit"
               class="btn btn-primary"
-              :disabled="isSubmitting || !isFormValid">
-              <i v-if="isSubmitting" class="fas fa-spinner fa-spin" />
-              <i v-else class="fas fa-paper-plane" />
-              {{
-                isSubmitting ? '提交中...' : isEdit ? '更新胶囊' : '创建胶囊'
-              }}
+              :disabled="isSubmitting || !isFormValid"
+            >
+              <i
+                v-if="isSubmitting"
+                class="fas fa-spinner fa-spin"
+              />
+              <i
+                v-else
+                class="fas fa-paper-plane"
+              />
+              {{ isSubmitting ? '提交中...' : (isEdit ? '更新胶囊' : '创建胶囊') }}
             </button>
           </div>
         </form>
@@ -331,77 +383,47 @@
 
 <script setup>
 import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
-import { createCapsule, updateCapsule } from '../api/new/capsulesApi.js'
+import { createCapsule,updateCapsule } from '../api/new/capsulesApi.js'
 import { uploadFile } from '../api/new/uploadApi.js'
 
 // Props
 const props = defineProps({
   isShow: {
     type: Boolean,
-    default: false,
+    default: false
   },
   isEdit: {
     type: Boolean,
-    default: false,
+    default: false
   },
   editData: {
     type: Object,
-    default: () => ({}),
-  },
+    default: () => ({})
+  }
 })
 
 // Emits
 const emit = defineEmits(['close', 'submit'])
-
-// 新增时间/半径输入状态
-const unlockTimeInput = ref('') // 用于 datetime-local 输入
-const unlockRadiusInput = ref(100) // 用于位置解锁时的半径输入 (默认 100m)
 
 // 表单数据
 const formData = reactive({
   title: '',
   content: '',
   visibility: 'public',
-  // location 字段结构不变，用于存储胶囊创建位置
-  location: null,
-
-  // ✅ 关键修正：初始化 unlock_conditions 结构，包含 type, value, radius
-  // radius 的初始值和 unlockRadiusInput 保持一致
-  unlock_conditions: {
-    type: 'none', // 默认类型设为 'none'
-    value: null,
-    radius: unlockRadiusInput.value,
-  },
-  media_files: [],
+  location: '',
+  address: '',  // 添加地址字段
+  lat: null,
+  lng: null,
+  image: null,
+  imageUrl: '',
+  imageFileId: ''
 })
-
-// 解锁条件选项 (与后端 Time/Location 逻辑匹配)
-const unlockOptions = [
-  {
-    key: 'none',
-    label: '立即公开 (无限制)',
-    desc: '胶囊创建后可立即打开，后端将不设置解锁条件。',
-    icon: 'fas fa-unlock',
-  },
-  {
-    key: 'time',
-    label: '定时解锁',
-    desc: '到达指定日期和时间后解锁。',
-    icon: 'fas fa-clock',
-  },
-  {
-    key: 'location',
-    label: '位置解锁',
-    desc: '到达指定地点附近后解锁，需要用户提供位置。',
-    icon: 'fas fa-map-pin',
-  },
-]
 
 // 表单错误
 const formErrors = reactive({
   title: '',
   content: '',
-  visibility: '',
+  visibility: ''
 })
 
 // 状态管理
@@ -415,27 +437,18 @@ const alertIcon = ref('fas fa-check-circle')
 // 标签相关
 const tagInput = ref('')
 const selectedTags = ref([])
-const suggestedTags = ref([
-  '校园生活',
-  '毕业季',
-  '图书馆',
-  '操场',
-  '食堂',
-  '宿舍',
-  '课堂',
-  '友谊',
-])
+const suggestedTags = ref(['校园生活', '毕业季', '图书馆', '操场', '食堂', '宿舍', '课堂', '友谊'])
 
 // 图片上传
 const fileInput = ref(null)
 const previewImage = ref('')
 const uploadProgress = ref(0)
 
-// 位置信息（用于显示，不直接用于提交）
+// 位置信息
 const locationInfo = reactive({
   address: '',
   lat: null,
-  lng: null,
+  lng: null
 })
 const locationPermission = ref('')
 const locationMessage = ref('等待位置授权...')
@@ -446,41 +459,36 @@ const visibilityOptions = [
     key: 'public',
     label: '校园公开',
     desc: '所有校园用户可见',
-    icon: 'fas fa-globe-americas',
+    icon: 'fas fa-globe-americas'
   },
   {
-    key: 'friend',
+    key: 'friends',
     label: '好友可见',
     desc: '仅你的好友可见',
-    icon: 'fas fa-user-friends',
+    icon: 'fas fa-user-friends'
   },
   {
     key: 'private',
     label: '仅自己可见',
     desc: '完全私密，仅自己可见',
-    icon: 'fas fa-lock',
-  },
+    icon: 'fas fa-lock'
+  }
 ]
 
 // 计算属性
 const isFormValid = computed(() => {
-  return (
-    formData.title.trim() &&
-    formData.content.trim() &&
-    formData.visibility &&
-    !formErrors.title &&
-    !formErrors.content
-  )
+  return formData.title.trim() && 
+         formData.content.trim() && 
+         formData.visibility &&
+         !formErrors.title && 
+         !formErrors.content
 })
 
 const locationIcon = computed(() => {
   switch (locationPermission.value) {
-    case 'granted':
-      return 'fa-check-circle text-success'
-    case 'denied':
-      return 'fa-exclamation-circle text-danger'
-    default:
-      return 'fa-info-circle text-warning'
+  case 'granted': return 'fa-check-circle text-success'
+  case 'denied': return 'fa-exclamation-circle text-danger'
+  default: return 'fa-info-circle text-warning'
   }
 })
 
@@ -494,28 +502,25 @@ const unlockBodyScroll = () => {
 }
 
 // 监听模态框显示状态
-watch(
-  () => props.isShow,
-  (show) => {
-    if (show) {
-      lockBodyScroll()
-      // 重置表单状态
-      if (!props.isEdit) {
-        resetForm()
-      }
-      // 重置定位相关状态
-      locationPermission.value = ''
-      locationMessage.value = '正在获取位置...'
-      isLocating.value = false
-      // 自动获取位置
-      nextTick(() => {
-        getCurrentLocation()
-      })
-    } else {
-      unlockBodyScroll()
+watch(() => props.isShow, (show) => {
+  if (show) {
+    lockBodyScroll()
+    // 重置表单状态
+    if (!props.isEdit) {
+      resetForm()
     }
+    // 重置定位相关状态
+    locationPermission.value = ''
+    locationMessage.value = '正在获取位置...'
+    isLocating.value = false
+    // 自动获取位置
+    nextTick(() => {
+      getCurrentLocation()
+    })
+  } else {
+    unlockBodyScroll()
   }
-)
+})
 
 // 组件卸载时解锁滚动
 onUnmounted(() => {
@@ -523,50 +528,43 @@ onUnmounted(() => {
 })
 
 // 监听编辑数据变化
-watch(
-  () => props.editData,
-  (newData) => {
-    if (props.isEdit && newData) {
-      Object.assign(formData, {
-        title: newData.title || '',
-        content: newData.content || '',
-        visibility: newData.visibility || 'public',
-        // 注意：location、lat、lng 是表单提交的核心数据
-        location: newData.location || '',
-        lat: newData.lat || null,
-        lng: newData.lng || null,
-        imageUrl: newData.imageUrl || newData.img || '',
-        imageFileId: newData.imageFileId || '',
-      })
+watch(() => props.editData, (newData) => {
+  if (props.isEdit && newData) {
+    Object.assign(formData, {
+      title: newData.title || '',
+      content: newData.content || '',
+      visibility: newData.visibility || 'public',
+      // 注意：location、lat、lng 是表单提交的核心数据
+      location: newData.location || '',
+      lat: newData.lat || null,
+      lng: newData.lng || null,
+      imageUrl: newData.imageUrl || newData.img || '',
+      imageFileId: newData.imageFileId || ''
+    })
 
-      // 同步到 locationInfo 用于界面展示 (这是关键)
-      Object.assign(locationInfo, {
-        address: newData.location || '已加载历史位置',
-        lat: newData.lat || null,
-        lng: newData.lng || null,
-      })
+    // 同步到 locationInfo 用于界面展示 (这是关键)
+    Object.assign(locationInfo, {
+      address: newData.location || '已加载历史位置',
+      lat: newData.lat || null,
+      lng: newData.lng || null
+    })
 
-      if (newData.tags) {
-        selectedTags.value = Array.isArray(newData.tags)
-          ? [...newData.tags]
-          : []
-      }
-
-      // 这里需要根据你的后端返回判断：如果后端返回的是 URL 而不是 File 对象
-      if (newData.imageUrl) {
-        // 假设后端返回的字段是 imageUrl
-        previewImage.value = newData.imageUrl
-        formData.imageUrl = newData.imageUrl // 保持 formData.imageUrl 用于提交
-      } else if (newData.image) {
-        // 如果 newData.image 是一个文件 URL
-        previewImage.value = newData.image
-        formData.imageUrl = newData.image
-      }
-      // 注意：formData.image 应该只在用户上传新文件时设置 File 对象
+    if (newData.tags) {
+      selectedTags.value = Array.isArray(newData.tags) ? [...newData.tags] : []
     }
-  },
-  { immediate: true }
-)
+
+    // 这里需要根据你的后端返回判断：如果后端返回的是 URL 而不是 File 对象
+    if (newData.imageUrl) { // 假设后端返回的字段是 imageUrl
+      previewImage.value = newData.imageUrl
+      formData.imageUrl = newData.imageUrl // 保持 formData.imageUrl 用于提交
+    } else if (newData.image) {
+       // 如果 newData.image 是一个文件 URL
+      previewImage.value = newData.image 
+      formData.imageUrl = newData.image
+    }
+    // 注意：formData.image 应该只在用户上传新文件时设置 File 对象
+  }
+}, { immediate: true })
 
 // 方法定义
 const resetForm = () => {
@@ -575,17 +573,18 @@ const resetForm = () => {
     content: '',
     visibility: 'public',
     location: '',
+    address: '',  // 重置地址字段
     lat: null,
     lng: null,
     image: null,
     imageUrl: '',
-    imageFileId: '',
+    imageFileId: ''
   })
   selectedTags.value = []
   tagInput.value = ''
   previewImage.value = ''
   uploadProgress.value = 0
-  Object.keys(formErrors).forEach((key) => {
+  Object.keys(formErrors).forEach(key => {
     formErrors[key] = ''
   })
 }
@@ -596,7 +595,7 @@ const handleClose = () => {
 
 const validateField = (field) => {
   formErrors[field] = ''
-
+  
   if (field === 'title') {
     if (!formData.title.trim()) {
       formErrors.title = '标题不能为空'
@@ -604,7 +603,7 @@ const validateField = (field) => {
       formErrors.title = '标题不能超过50个字符'
     }
   }
-
+  
   if (field === 'content') {
     if (!formData.content.trim()) {
       formErrors.content = '内容不能为空'
@@ -612,7 +611,7 @@ const validateField = (field) => {
       formErrors.content = '内容不能超过1000个字符'
     }
   }
-
+  
   if (field === 'visibility') {
     if (!formData.visibility) {
       formErrors.visibility = '请选择可见性设置'
@@ -632,54 +631,73 @@ const getCurrentLocation = () => {
   locationMessage.value = '正在获取位置...'
 
   navigator.geolocation.getCurrentPosition(
-    async (position) => {
-      // ... (省略之前的经纬度获取和 locationInfo 赋值)
+    async(position) => {
       const lat = position.coords.latitude
       const lng = position.coords.longitude
-      // ...
-
+      locationInfo.lat = lat
+      locationInfo.lng = lng
+      locationPermission.value = 'granted'
+      locationMessage.value = '位置获取成功'
       // 尝试获取详细地址
       try {
         const address = await getAddressFromCoords(lat, lng)
         locationInfo.address = address
-        // ❌ 删除 formData.location = address;
       } catch (error) {
-        locationInfo.address = `经纬度: ${lat.toFixed(6)}, ${lng.toFixed(6)}`
+        locationInfo.address = `位置 (${lat.toFixed(6)}, ${lng.toFixed(6)})`
       }
-
-      // ✅ 核心修改点 A: 构造 Location 对象并赋值给 formData.location
-      formData.location = {
-        latitude: lat,
-        longitude: lng,
-        address: locationInfo.address,
-      }
-
-      // ❌ 删除 formData.lat = lat; 和 formData.lng = lng;
+      // 不再自动设置formData.location，让用户手动决定
+      formData.lat = lat
+      formData.lng = lng
       isLocating.value = false
     },
-    // ... (在 getCurrentLocation 失败的 catch 块中进行类似修改，使用默认值)
     (error) => {
-      // ... (省略设置默认经纬度)
+      isLocating.value = false
+      locationPermission.value = 'denied'
+
+      // 设置默认位置信息，确保可以提交
       const defaultLat = 39.9005
       const defaultLng = 116.302
       locationInfo.lat = defaultLat
       locationInfo.lng = defaultLng
       locationInfo.address = '默认位置（定位失败）'
+      formData.lat = defaultLat
+      formData.lng = defaultLng
 
-      // ✅ 核心修改点 B: 构造 Location 对象并赋值给 formData.location
-      formData.location = {
-        latitude: defaultLat,
-        longitude: defaultLng,
-        address: locationInfo.address,
+      // 只提示，不阻塞表单提交
+      switch (error.code) {
+      case 1:
+        locationMessage.value = '位置权限被拒绝，已使用默认位置'
+        showAlertMessage('位置权限被拒绝，已使用默认位置，您仍可提交胶囊', 'warning')
+        break
+      case 2:
+        locationMessage.value = '位置信息不可用，已使用默认位置'
+        showAlertMessage('无法获取位置信息，已使用默认位置，您仍可提交胶囊', 'warning')
+        break
+      case 3:
+        locationMessage.value = '位置请求超时，已使用默认位置'
+        showAlertMessage('位置请求超时，已使用默认位置，您仍可提交胶囊', 'warning')
+        break
+      default:
+        locationMessage.value = '位置获取失败，已使用默认位置'
+        showAlertMessage('位置获取失败，已使用默认位置，您仍可提交胶囊', 'warning')
       }
-
-      // ❌ 删除 formData.lat = defaultLat; 和 formData.lng = defaultLng;
-      // ... (省略错误提示)
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
     }
   )
 }
 
-const getAddressFromCoords = async (lat, lng) => {
+const useAutoLocation = () => {
+  if (locationInfo.address && locationInfo.address !== '未获取到自动定位') {
+    formData.address = locationInfo.address
+    showAlertMessage('已使用自动定位的地址', 'success')
+  }
+}
+
+const getAddressFromCoords = async(lat, lng) => {
   // 这里可以集成腾讯地图或高德地图的逆地理编码服务
   // 暂时返回简单的位置描述
   return `位置 (${lat.toFixed(6)}, ${lng.toFixed(6)})`
@@ -721,38 +739,33 @@ const handleImageUpload = async (event) => {
     const uploadResult = await uploadFile(file)
 
     if (uploadResult.code === 200 || uploadResult.success) {
-      // 假设 uploadResult.data?.file_id 是文件 ID
-      const fileId = uploadResult.data?.file_id || uploadResult.data?.filename
+      // 上传成功，保存图片URL
+      formData.imageUrl = uploadResult.data?.url || uploadResult.data?.access_url
+      formData.image = file  // 保留File对象以备后用
 
-      if (fileId) {
-        // ✅ 核心修改点 C: 使用 media_files 数组存储文件 ID
-        formData.media_files = [fileId]
-
-        // ❌ 删除 formData.imageUrl = ...; 和 formData.imageFileId = ...;
-        // ❌ 如果您只允许一张图片，旧的 URL/FileId 字段可以清除或移除
-
-        showAlertMessage('图片上传成功', 'success')
-        console.log('保存的图片 ID:', fileId)
-      } else {
-        throw new Error('图片上传成功但未返回文件 ID')
-      }
+      showAlertMessage('图片上传成功', 'success')
+      console.log('保存的图片信息:', {
+        fileId: formData.imageFileId,
+        url: formData.imageUrl,
+        size: uploadResult.size
+      })
     } else if (uploadResult && uploadResult.success && uploadResult.data) {
       // 备用格式：data包装的响应
-      formData.imageFileId =
-        uploadResult.data.file_id || uploadResult.data.filename
+      formData.imageFileId = uploadResult.data.file_id || uploadResult.data.filename
       formData.imageUrl = uploadResult.data.url || uploadResult.data.access_url
       formData.image = file
 
       showAlertMessage('图片上传成功', 'success')
       console.log('保存的图片信息:', {
         fileId: formData.imageFileId,
-        url: formData.imageUrl,
+        url: formData.imageUrl
       })
     } else {
       throw new Error(uploadResult?.message || '图片上传失败：未返回文件信息')
     }
 
     uploadProgress.value = 100
+
   } catch (error) {
     console.error('图片上传失败:', error)
     showAlertMessage(`图片上传失败: ${error.message || error}`, 'error')
@@ -795,7 +808,7 @@ const handleTagInput = (event) => {
 
 const addTag = (tag) => {
   if (!tag) return
-
+  
   if (selectedTags.value.length >= 5) {
     showAlertMessage('最多只能添加5个标签', 'error')
     return
@@ -823,39 +836,30 @@ const addSuggestedTag = (tag) => {
 const showAlertMessage = (message, type = 'error') => {
   alertText.value = message
   alertType.value = type
-  alertIcon.value =
-    type === 'success'
-      ? 'fas fa-check-circle'
-      : type === 'warning'
-      ? 'fas fa-exclamation-triangle'
-      : 'fas fa-exclamation-circle'
+  alertIcon.value = type === 'success' ? 'fas fa-check-circle' : 
+    type === 'warning' ? 'fas fa-exclamation-triangle' : 'fas fa-exclamation-circle'
   showAlert.value = true
-
+  
   setTimeout(() => {
     showAlert.value = false
   }, 5000)
 }
 
-// ... (保留 getCurrentLocation/uploadFile/validateField 等其他函数不变)
-
-const handleSubmit = async () => {
+const handleSubmit = async() => {
   // 验证表单
   validateField('title')
   validateField('content')
   validateField('visibility')
-
-  // 检查是否有错误 (保留校验逻辑不变)
-  const hasErrors = Object.values(formErrors).some((error) => error !== '')
+  
+  // 检查是否有错误
+  const hasErrors = Object.values(formErrors).some(error => error !== '')
   if (hasErrors) {
     showAlertMessage('请检查表单中的错误', 'error')
     return
   }
 
-  if (
-    !formData.title.trim() ||
-    !formData.content.trim() ||
-    !formData.visibility
-  ) {
+  // 检查必填字段
+  if (!formData.title.trim() || !formData.content.trim() || !formData.visibility) {
     showAlertMessage('请填写所有必填字段', 'error')
     return
   }
@@ -863,108 +867,58 @@ const handleSubmit = async () => {
   isSubmitting.value = true
 
   try {
-    // --- 1. 处理位置信息，生成 Location 对象 ---
-    let locationAddress =
-      formData.location || locationInfo.address || '未知位置'
+    // ... (位置信息处理逻辑不变)
+    let location = formData.location || locationInfo.address || '未知位置'
     let lat = formData.lat || locationInfo.lat
     let lng = formData.lng || locationInfo.lng
 
-    if (!locationAddress || locationAddress === '正在获取位置...') {
-      locationAddress = '默认位置'
+    if (!location || location === '正在获取位置...') {
+      location = '默认位置'
     }
     if (lat === null || lat === undefined || isNaN(lat)) {
-      lat = 39.9005 // 默认坐标
+      lat = 39.9005
     }
     if (lng === null || lng === undefined || isNaN(lng)) {
-      lng = 116.302 // 默认坐标
+      lng = 116.302
     }
 
-    // 构造 Location 嵌套对象
-    const locationPayload =
-      formData.location && formData.location.latitude !== null
-        ? formData.location
-        : null
-
-    // --- 2. 处理媒体文件，生成 media_files 数组 ---
-    const mediaFilesPayload =
-      formData.media_files.length > 0 ? formData.media_files : null
-
-    // 假设 formData.imageFileId 存储了上传成功后的文件 ID
-    if (formData.imageFileId) {
-      mediaFilesPayload.push(formData.imageFileId)
-    }
-
-    // --- 3. 构造完整的提交数据 (严格匹配 CapsuleCreateRequest 模型) ---
-    // 🔴 关键修正点：处理 unlock_conditions
-    let unlockPayload = null
-    const currentType = formData.unlock_conditions.type
-
-    if (currentType === 'time') {
-      if (!unlockTimeInput.value) {
-        showAlertMessage('请设置解锁日期和时间', 'error')
-        return
-      }
-      // 构造定时解锁对象：value 为 ISO 8601 时间字符串
-      unlockPayload = {
-        type: 'time',
-        value: new Date(unlockTimeInput.value).toISOString(),
-        radius: null,
-      }
-    } else if (currentType === 'location') {
-      if (!formData.location || formData.location.latitude === null) {
-        showAlertMessage('请先获取位置信息，以确定解锁地点', 'error')
-        return
-      }
-      if (unlockRadiusInput.value < 10 || unlockRadiusInput.value > 5000) {
-        showAlertMessage('解锁半径必须在 10 到 5000 米之间', 'error')
-        return
-      }
-
-      // 构造位置解锁对象：value 为包含经纬度的 JSON 字符串（符合后端通用设计）
-      const locationValue = JSON.stringify({
-        latitude: formData.location.latitude,
-        longitude: formData.location.longitude,
-        address: locationInfo.address, // 附加地址信息，方便后端调试
-      })
-
-      unlockPayload = {
-        type: 'location',
-        value: locationValue,
-        radius: unlockRadiusInput.value, // 关键：传递解锁半径
-      }
-    }
-
-    // 构造 submitData ---
-
+    // 构造完整的提交数据 (保持与原代码一致)
     const submitData = {
       title: formData.title.trim(),
       content: formData.content.trim(),
       visibility: formData.visibility,
       tags: [...selectedTags.value],
 
-      location: locationPayload,
-      media_files: mediaFilesPayload,
+      // 位置信息
+      location,
+      lat,
+      lng,
 
-      // 🔴 关键修正：确保 unlock_conditions 字段始终存在。
-      // 如果 type='none'，我们发送一个最小化对象，让后端处理为无条件。
-      unlock_conditions: unlockPayload || {
-        type: 'none',
-        value: null,
-        radius: null,
-      },
+      // 图片信息 (使用 imageUrl 或 image，取决于后端接收方式)
+      // 注意：如果后端只接受 URL，你需要在上传成功后将 formData.imageUrl 设置为最终 URL。
+      // 如果 formData.imageUrl 已经存在 (编辑模式下加载的)，则直接使用。
+      imageUrl: formData.imageUrl || previewImage.value, 
+
+      // 其他统计信息 (通常只在创建时初始化)
     }
 
-    console.log('提交的胶囊数据 (最终修正):', submitData)
+    console.log('提交的胶囊数据:', submitData)
     let result = null
     let successMessage = ''
 
+    // 🚨 修改点 3：根据 isEdit 状态选择调用创建或更新 API
     if (props.isEdit) {
       if (!props.editData.id) {
         throw new Error('编辑模式下缺少胶囊 ID')
       }
-
-      // updateCapsule API 期望接收 capsuleId 和 payload
-      result = await updateCapsule(props.editData.id, submitData)
+      // 添加 ID 到提交数据 (如果 API 要求 ID 在 body 中)
+      const updatePayload = {
+        ...submitData,
+        id: props.editData.id 
+      }
+      
+      // 调用更新 API
+      result = await updateCapsule(props.editData.id, updatePayload) // 假设 updateCapsule 接收 ID 和 payload
       successMessage = '胶囊更新成功！'
       console.log('更新胶囊结果:', result)
     } else {
@@ -974,20 +928,37 @@ const handleSubmit = async () => {
       console.log('创建胶囊结果:', result)
     }
 
-    if (result.code === 200 || result.success) {
-      // 假设后端返回 success/code=200 表示成功
-      showAlertMessage(successMessage, 'success')
+    // 调试信息
+    console.log('判断成功条件:', {
+      result: result,
+      code: result?.code,
+      hasCapsuleId: !!result?.data?.capsule_id,
+      hasId: !!result?.data?.id,
+      condition: result?.code === 200 && result?.data
+    })
 
+    // 修复：根据后端返回的标准格式判断成功
+    if (result?.code === 200 && result?.data) {
+      showAlertMessage(successMessage, 'success')
+      
       // 延迟关闭模态框，让用户看到成功消息
       setTimeout(() => {
-        emit('submit', result.data || submitData)
+        // 传递结果数据给父组件，通常包含新的 ID 或更新后的数据
+        emit('submit', result || submitData)  // result已经是data部分了 
         handleClose()
       }, 1500)
     } else {
-      throw new Error(
-        result.message || (props.isEdit ? '更新胶囊失败' : '创建胶囊失败')
-      )
+      console.log('判断失败，进入错误分支:', {
+        result: result,
+        resultType: typeof result,
+        resultMessage: result?.message,
+        code: result?.code,
+        data: result?.data,
+        newCondition: result?.code === 200 && result?.data
+      })
+      throw new Error(result.message || (props.isEdit ? '更新胶囊失败' : '创建胶囊失败'))
     }
+
   } catch (error) {
     console.error('表单提交错误:', error)
     showAlertMessage(error.message || '提交失败，请稍后重试', 'error')
@@ -1167,8 +1138,7 @@ const handleSubmit = async () => {
   font-weight: 500;
 }
 
-.form-input,
-.form-textarea {
+.form-input, .form-textarea {
   width: 100%;
   padding: 12px 16px;
   border: 2px solid #e2e8f0;
@@ -1179,15 +1149,13 @@ const handleSubmit = async () => {
   box-sizing: border-box;
 }
 
-.form-input:focus,
-.form-textarea:focus {
+.form-input:focus, .form-textarea:focus {
   outline: none;
   border-color: #6c8cff;
   box-shadow: 0 0 0 3px rgba(108, 140, 255, 0.1);
 }
 
-.form-input.input-error,
-.form-textarea.input-error {
+.form-input.input-error, .form-textarea.input-error {
   border-color: #ef4444;
 }
 
@@ -1218,17 +1186,48 @@ const handleSubmit = async () => {
 .location-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+}
+
+.address-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.auto-location-wrapper {
+  padding: 16px;
+  background: rgba(108, 140, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(108, 140, 255, 0.1);
 }
 
 .location-display {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px;
+  padding: 12px;
   background: white;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid #e2e8f0;
+}
+
+.use-auto-location {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.btn-outline {
+  background: transparent;
+  color: #6c8cff;
+  border: 1px solid #6c8cff;
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: #6c8cff;
+  color: white;
+  transform: translateY(-1px);
 }
 
 .location-info {
@@ -1289,15 +1288,9 @@ const handleSubmit = async () => {
   color: #6b7280;
 }
 
-.text-success {
-  color: #10b981;
-}
-.text-danger {
-  color: #ef4444;
-}
-.text-warning {
-  color: #f59e0b;
-}
+.text-success { color: #10b981; }
+.text-danger { color: #ef4444; }
+.text-warning { color: #f59e0b; }
 
 .image-upload-section {
   display: flex;
@@ -1615,33 +1608,33 @@ const handleSubmit = async () => {
     width: 95%;
     margin: 20px;
   }
-
+  
   .modal-header {
     padding: 20px;
   }
-
+  
   .modal-title {
     font-size: 20px;
   }
-
+  
   .capsule-form {
     padding: 0 16px 16px;
   }
-
+  
   .form-section {
     padding: 16px;
   }
-
+  
   .location-display {
     flex-direction: column;
     gap: 12px;
     align-items: stretch;
   }
-
+  
   .form-actions {
     flex-direction: column;
   }
-
+  
   .btn {
     width: 100%;
     justify-content: center;
@@ -1664,40 +1657,5 @@ const handleSubmit = async () => {
 
 .modal-content::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
-}
-
-/* 新增：额外输入区域的样式 */
-.additional-input-area {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px dashed #e2e8f0;
-}
-
-.input-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #1e293b;
-  margin-bottom: 8px;
-}
-
-.hint-text {
-  font-size: 12px;
-  color: #9ca3af;
-  margin-top: 8px;
-}
-
-.location-display-small {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  padding: 10px 12px;
-  background: #fff;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-}
-
-.location-icon-small {
-  color: #6c8cff;
 }
 </style>

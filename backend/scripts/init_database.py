@@ -11,6 +11,8 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.database.database import create_tables, drop_tables
+# 导入所有ORM模型以确保它们被注册
+from app.database.orm import *
 
 
 def main():

@@ -27,7 +27,7 @@ class UserProfile(BaseModel):
 
 class UserHistoryItem(BaseModel):
     """历史记录项模型"""
-    capsule_id: str
+    capsule_id: int
     title: str
     unlocked_at: datetime
     view_duration: int | None = None  # seconds

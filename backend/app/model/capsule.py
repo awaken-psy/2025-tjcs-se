@@ -26,7 +26,7 @@ class UnlockConditions(BaseModel):
 
 class MediaFile(BaseModel):
     """媒体文件模型"""
-    id: str
+    id: int  # 修改为整数类型，与数据库ID一致
     type: str  # "image", "audio"
     url: str
     thumbnail: str | None = None
@@ -52,7 +52,7 @@ class CapsuleStats(BaseModel):
 
 class CapsuleBasic(BaseModel):
     """胶囊基础信息模型"""
-    id: str
+    id: int
     title: str
     visibility: str  # "private", "friends", "public"
     status: str  # "draft", "pending", "published"
@@ -66,7 +66,7 @@ class CapsuleBasic(BaseModel):
 
 class CapsuleDetail(BaseModel):
     """胶囊详情模型"""
-    id: str
+    id: int
     title: str
     content: str
     visibility: str
@@ -89,7 +89,7 @@ class CapsuleCreateRequest(BaseModel):
     tags: List[str] | None = None
     location: Location | None = None
     unlock_conditions: UnlockConditions | None = None
-    media_files: List[str] | None = None  # file IDs
+    media_files: List[int] | None = None  # file IDs 修改为整数类型
 
 
 
@@ -111,7 +111,7 @@ class CapsuleDraftRequest(BaseModel):
 
 class CapsuleCreateResponse(BaseModel):
     """创建胶囊响应模型"""
-    capsule_id: str
+    capsule_id: int
     title: str
     status: str
     created_at: datetime
@@ -119,13 +119,13 @@ class CapsuleCreateResponse(BaseModel):
 
 class CapsuleUpdateResponse(BaseModel):
     """更新胶囊响应模型"""
-    capsule_id: str
+    capsule_id: int
     updated_at: datetime
 
 
 class CapsuleDraftResponse(BaseModel):
     """保存草稿响应模型"""
-    draft_id: str
+    draft_id: int  # 修改为整数类型，与数据库ID一致
     saved_at: datetime
 
 
@@ -138,7 +138,7 @@ class CapsuleListResponse(BaseModel):
 class MyCapsulesQuery(BaseModel):
     """我的胶囊查询参数模型"""
     page: int = Field(1, ge=1)
-    page_size: int = Field(20, ge=1, le=100)
+    size: int = Field(20, ge=1, le=100)  # 改为size，与frontend保持一致
     status: str = Field("all", pattern="^(all|draft|published)$")
 
 

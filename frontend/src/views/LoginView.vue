@@ -25,13 +25,11 @@
         </div>
         <div>
           <div class="feature-title">产品理念</div>
-          <!--TODO:改一下样式，有点难看-->
           <div class="muted">记录、分享、遇见更好的自己</div>
         </div>
       </div>
       <div class="map-section">
         <div class="feature-title">地图预览</div>
-        <!--TODO:地图要不要加-->
         <div class="map-preview">校园地图功能即将上线</div>
       </div>
       <div class="footer">同济大学 2025</div>
@@ -109,6 +107,9 @@
 
         <div class="helper">
           <a href="#" @click.prevent="openModal('forgot')">忘记密码？</a>
+          <a href="#" title="游客模式" @click.prevent="handleGuestLogin"
+            >以游客身份体验</a
+          >
         </div>
 
         <div class="btn-group">
@@ -116,6 +117,17 @@
             <span v-if="isLoading" class="loading-spinner small" />
             <span>{{ isLoading ? '登录中...' : '登录' }}</span>
           </button>
+          <button
+            id="to-register"
+            class="btn ghost"
+            @click.prevent="switchToRegister">
+            注册
+          </button>
+        </div>
+
+        <div class="example">
+          <div>演示账号：</div>
+          <div class="demo-account">邮箱：demo@univ.edu<br />密码：123456</div>
         </div>
       </form>
 
@@ -188,7 +200,7 @@
             id="reg-student-id"
             v-model="regForm.student_id"
             type="text"
-            placeholder="2350001" />
+            placeholder="2024123456" />
         </div>
 
         <div class="field">
@@ -220,18 +232,16 @@
         </div>
 
         <div class="field checkbox">
-          <div class="checkbox-content">
-            <input
-              id="agree"
-              v-model="regForm.agree"
-              type="checkbox"
-              :class="{ 'input-error': formErrors.reg.agree }" />
-            <label for="agree" class="small">
-              我已阅读并同意<a href="#" @click.prevent="openModal('privacy')"
-                >隐私政策</a
-              >
-            </label>
-          </div>
+          <input
+            id="agree"
+            v-model="regForm.agree"
+            type="checkbox"
+            :class="{ 'input-error': formErrors.reg.agree }" />
+          <label for="agree" class="small">
+            我已阅读并同意<a href="#" @click.prevent="openModal('privacy')"
+              >隐私政策</a
+            >
+          </label>
           <p v-if="formErrors.reg.agree" class="error-tip">
             {{ formErrors.reg.agree }}
           </p>
@@ -281,7 +291,7 @@
         <button
           id="perm-accept"
           class="btn primary"
-          @click="closeModal('perm')">
+          @click="handlePermissionAccept">
           同意并继续
         </button>
       </div>
@@ -406,17 +416,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { login, register, sendCode } from '@/api/new/authenticationApi'
 import { useUserStore } from '@/store/user'
-import { routeJump } from '@/utils/routeUtils'
-import {
-  login,
-  register,
-  sendCode,
-  logout,
-  refreshToken,
-} from '@/api/new/authenticationApi'
 import { encryptPassword } from '@/utils/encryptionUtils'
+import { routeJump } from '@/utils/routeUtils'
+import { onMounted, reactive, ref } from 'vue'
 
 // 初始化依赖
 const userStore = useUserStore()
@@ -632,7 +636,6 @@ const handleLogin = async () => {
     isLoading.value = true
 
     // 加密密码
-    // TODO：看一下加密算法
     const encryptedPassword = await encryptPassword(loginForm.password)
     //console.log('登录发送数据:', encryptedPassword)
 
@@ -641,9 +644,8 @@ const handleLogin = async () => {
       password: encryptedPassword,
     })
 
-    
-
-    const { token, refresh_token, user_id, email, nickname, avatar } = responseData
+    const { token, refresh_token, user_id, email, nickname, avatar } =
+      responseData
 
     // 存储token和用户信息 - 适配拦截器的token读取逻辑
     userStore.login(
@@ -658,13 +660,26 @@ const handleLogin = async () => {
       refresh_token
     )
 
-    // 仅保留非认证状态的本地存储
+    // 关键修改：统一token存储key，适配请求拦截器
+    localStorage.setItem('access_token', token)
+    localStorage.setItem('refresh_token', refresh_token)
+    localStorage.setItem('user_token', token) // 新增：适配请求拦截器的读取逻辑
+    localStorage.setItem(
+      'user_info',
+      JSON.stringify({
+        user_id,
+        email,
+        nickname,
+        avatar,
+        role: 'user',
+      })
+    )
     localStorage.setItem('saved_login_email', loginForm.email)
 
     routeJump('/hubviews')
-
   } catch (error) {
     console.error('登录错误详情:', error)
+    // 错误信息已经由请求适配层处理，直接显示
     formErrors.login.password = error.message || '登录失败，请检查邮箱和密码'
   } finally {
     isLoading.value = false
@@ -692,16 +707,19 @@ const handleRegister = async () => {
       registerData.student_id = regForm.student_id.trim()
     }
 
-    console.log('注册发送数据:', registerData)
+    console.log('发送注册数据:', registerData)
 
+    // 注意：请求适配层会处理响应，这里直接得到处理后的数据
     const responseData = await register(registerData)
 
     console.log('注册响应数据:', responseData)
 
-    const { token, refresh_token, user_id, email, nickname, avatar } = responseData
+    // 由于请求适配层返回完整响应，从data字段中提取用户信息
+    console.log('📊 [REGISTER DEBUG] 完整响应结构:', responseData)
+    const { token, refresh_token, user_id, email, nickname, avatar } =
+      responseData.data
 
     // 注册成功后自动登录
-    // TODO:这里是user,如果是管理员要怎么改
     userStore.login(
       token,
       {
@@ -714,17 +732,40 @@ const handleRegister = async () => {
       refresh_token
     )
 
-    // 仅保留非认证状态的本地存储
-    localStorage.setItem('saved_login_email', regForm.email)
+    // 关键修改：统一token存储key，适配请求拦截器
+    localStorage.setItem('access_token', token)
+    localStorage.setItem('refresh_token', refresh_token)
+    localStorage.setItem('user_token', token) // 新增：适配请求拦截器的读取逻辑
+    localStorage.setItem(
+      'user_info',
+      JSON.stringify({
+        user_id,
+        email,
+        nickname,
+        avatar,
+        role: 'user',
+      })
+    )
 
     routeJump('/hubviews')
-
   } catch (error) {
     console.error('注册错误详情:', error)
+    // 错误信息已经由请求适配层处理，直接显示
     formErrors.reg.email = error.message || '注册失败，请稍后重试'
   } finally {
     isLoading.value = false
   }
+}
+
+// 游客登录
+const handleGuestLogin = () => {
+  // TODO: 游客模式逻辑
+  alert('游客模式功能开发中...')
+}
+
+// 权限同意
+const handlePermissionAccept = () => {
+  closeModal('perm')
 }
 
 // 发送验证码
@@ -756,7 +797,6 @@ const handleSendVerifyCode = async () => {
     formErrors.reg.email = ''
     // 可以添加成功提示
     alert('验证码已发送，请查收邮件')
-    
   } catch (error) {
     console.error('发送验证码失败:', error)
     formErrors.reg.email = error.message || '发送验证码失败，请稍后重试'
@@ -767,7 +807,6 @@ const handleSendVerifyCode = async () => {
 const handleForgotSend = async () => {
   try {
     // TODO: 对接忘记密码API
-    // TODO: 要加个模态框
     alert('密码重置功能开发中...')
     closeModal('forgot')
   } catch (error) {
@@ -775,7 +814,6 @@ const handleForgotSend = async () => {
   }
 }
 </script>
-
 <style scoped>
 * {
   box-sizing: border-box;
@@ -1180,37 +1218,23 @@ input:focus {
 }
 
 /* 复选框样式 */
-/* 将原来的 .checkbox 样式改名为 .checkbox-content 或直接使用嵌套选择器 */
-.checkbox-content {
+.checkbox {
   display: flex;
   gap: 8px;
   align-items: flex-start;
 }
 
-/* 保持 .field.checkbox 作为外部容器，并设置为 Flex 垂直堆叠 */
-.field.checkbox {
-  display: flex;
-  flex-direction: column; /* 垂直堆叠子元素（.checkbox-content 和 .error-tip） */
-  gap: 6px; /* 控制行间距 */
-}
-
-
-/* 然后你需要调整所有的子元素选择器以匹配新的结构： */
-/* 勾选框输入框：在 .checkbox-content 内部 */
-.checkbox-content input {
+.checkbox input {
   width: 16px;
   height: 16px;
   margin-top: 2px;
   accent-color: var(--accent);
 }
 
-/* 标签：在 .checkbox-content 内部 */
-.checkbox-content label {
+.checkbox label {
   margin: 0;
   line-height: 1.4;
 }
-
-/* 错误提示：在 .field.checkbox 内部，所以不需要特殊处理 width: 100% */
 
 /* 动画效果 */
 .pulse {
