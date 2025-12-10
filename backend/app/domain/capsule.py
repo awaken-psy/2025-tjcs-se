@@ -137,6 +137,13 @@ class Capsule:
        # 转换ID为字符串，确保不为None
        capsule_id_str = convert_capsule_id_to_string(self.capsule_id) or ""
 
+       # 提取经纬度信息用于地图功能
+       latitude = None
+       longitude = None
+       if self.unlock_location and len(self.unlock_location) >= 2:
+           latitude = self.unlock_location[0]
+           longitude = self.unlock_location[1]
+
        return CapsuleBasic(
             id=capsule_id_str,  # 转换为字符串ID
             title=self.title,
@@ -147,7 +154,9 @@ class Capsule:
             cover_image="",  # 确保不是None
             unlock_count=len(self.unlocked_by),
             like_count=self.like_count,
-            comment_count=self.comment_count
+            comment_count=self.comment_count,
+            latitude=latitude,  # 添加经纬度信息
+            longitude=longitude
         )
 
     def to_api_detail(self, user) -> 'CapsuleDetail':

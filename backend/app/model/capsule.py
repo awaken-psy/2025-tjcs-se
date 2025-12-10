@@ -62,6 +62,8 @@ class CapsuleBasic(BaseModel):
     unlock_count: int | None = None
     like_count: int | None = None
     comment_count: int | None = None
+    latitude: float | None = None  # 为地图功能添加经纬度字段
+    longitude: float | None = None
 
 
 class CapsuleDetail(BaseModel):
