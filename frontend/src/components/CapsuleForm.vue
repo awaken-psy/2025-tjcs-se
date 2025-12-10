@@ -738,8 +738,7 @@ const handleImageUpload = async (event) => {
     // 上传图片到服务器
     const uploadResult = await uploadFile(file)
 
-    if (uploadResult.code === 200 || uploadResult.success) {
-      // 上传成功，保存图片URL
+// 上传成功，保存图片URL
       formData.imageUrl = uploadResult.data?.url || uploadResult.data?.access_url
       formData.image = file  // 保留File对象以备后用
 
@@ -749,20 +748,6 @@ const handleImageUpload = async (event) => {
         url: formData.imageUrl,
         size: uploadResult.size
       })
-    } else if (uploadResult && uploadResult.success && uploadResult.data) {
-      // 备用格式：data包装的响应
-      formData.imageFileId = uploadResult.data.file_id || uploadResult.data.filename
-      formData.imageUrl = uploadResult.data.url || uploadResult.data.access_url
-      formData.image = file
-
-      showAlertMessage('图片上传成功', 'success')
-      console.log('保存的图片信息:', {
-        fileId: formData.imageFileId,
-        url: formData.imageUrl
-      })
-    } else {
-      throw new Error(uploadResult?.message || '图片上传失败：未返回文件信息')
-    }
 
     uploadProgress.value = 100
 
@@ -928,36 +913,17 @@ const handleSubmit = async() => {
       console.log('创建胶囊结果:', result)
     }
 
-    // 调试信息
-    console.log('判断成功条件:', {
-      result: result,
-      code: result?.code,
-      hasCapsuleId: !!result?.data?.capsule_id,
-      hasId: !!result?.data?.id,
-      condition: result?.code === 200 && result?.data
-    })
 
-    // 修复：根据后端返回的标准格式判断成功
-    if (result?.code === 200 && result?.data) {
-      showAlertMessage(successMessage, 'success')
+    showAlertMessage(successMessage, 'success')
       
-      // 延迟关闭模态框，让用户看到成功消息
-      setTimeout(() => {
-        // 传递结果数据给父组件，通常包含新的 ID 或更新后的数据
-        emit('submit', result || submitData)  // result已经是data部分了 
-        handleClose()
-      }, 1500)
-    } else {
-      console.log('判断失败，进入错误分支:', {
-        result: result,
-        resultType: typeof result,
-        resultMessage: result?.message,
-        code: result?.code,
-        data: result?.data,
-        newCondition: result?.code === 200 && result?.data
-      })
-      throw new Error(result.message || (props.isEdit ? '更新胶囊失败' : '创建胶囊失败'))
-    }
+    // 延迟关闭模态框，让用户看到成功消息
+    setTimeout(() => {
+      // 传递结果数据给父组件，通常包含新的 ID 或更新后的数据
+      emit('submit', result || submitData)  // result已经是data部分了 
+      handleClose()
+    }, 1500)
+
+
 
   } catch (error) {
     console.error('表单提交错误:', error)

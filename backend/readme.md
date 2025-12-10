@@ -11,7 +11,7 @@
 ```bash
 (base) PS D:\web-p\TimeCapsule\backend> conda env create -f environment.yml
 (base) PS D:\web-p\TimeCapsule\backend> conda activate TimeCapsule
-# 这步要打开dockerdesktop，如果下载镜像不行，要把setting-resource-proxy的手动设置代理关掉
+# 这步要打开dockerdesktop，如果下载镜像不行，要把setting-resource-proxy的手动设置代理关掉,梯子用tun模式，全局
 (TimeCapsule) PS D:\web-p\TimeCapsule\backend> docker compose up --build -d
 ```
 

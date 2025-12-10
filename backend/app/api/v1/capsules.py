@@ -177,7 +177,7 @@ async def update_capsule(
             code=200,
             message="更新成功",
             data=CapsuleUpdateResponse(
-                capsule_id=capsule_id,
+                capsule_id=str(capsule_id),
                 updated_at=datetime.utcnow() # 返回更新时间
             )
         )
