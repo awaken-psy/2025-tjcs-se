@@ -38,16 +38,23 @@ async def create_capsule(
     """创建胶囊"""
     try:
         manager = CapsuleManager(db)
-        
+
+        # 添加调试信息
+        logger.info(f"接收到的原始数据: {raw_data}")
+
         location_data = raw_data.get('location')
         location_obj = None
-        
+
         # 1. 业务特殊处理：手动解析和验证 location 字段
         # 由于前端数据结构可能不完全匹配 CapsuleCreateRequest，此处需手动提取并构造 Location 模型。
+        logger.info(f"location_data: {location_data}, type: {type(location_data)}")
+
         if isinstance(location_data, dict):
             lat = location_data.get('latitude')
             lng = location_data.get('longitude')
-            
+
+            logger.info(f"从location对象中提取: lat={lat}, lng={lng}")
+
             # 2. 检查经纬度是否存在且非空
             if lat is not None and lng is not None:
                 from app.model.capsule import Location # 局部导入 Location 模型
@@ -57,6 +64,11 @@ async def create_capsule(
                     longitude=float(lng),# 强制类型转换为 float
                     address=location_data.get('address', '')
                 )
+                logger.info(f"构造的location_obj: {location_obj}")
+            else:
+                logger.warning(f"经纬度为空: lat={lat}, lng={lng}")
+        else:
+            logger.warning(f"location_data不是字典类型或为空: {location_data}")
 
         # 构建标准的 CapsuleCreateRequest 对象，用于传递给 Service 层
         # Pydantic 模型提供了严格的类型检查和数据转换

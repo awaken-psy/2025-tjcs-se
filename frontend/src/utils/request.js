@@ -112,8 +112,8 @@ request.interceptors.response.use(response => {
         errorCode = responseData.code
         errorData = responseData.data
       } else {
-        // 其他格式的错误响应
-        errorMessage = responseData.message || responseData.error || `服务器错误 (${error.response.status})`
+        // 其他格式的错误响应（FastAPI的HTTPException返回detail字段）
+        errorMessage = responseData.message || responseData.detail || responseData.error || `服务器错误 (${error.response.status})`
         errorCode = error.response.status
         errorData = responseData
       }

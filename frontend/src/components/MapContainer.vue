@@ -32,8 +32,8 @@
       v-if="showControls"
       class="map-controls"
     >
-      <button 
-        class="control-btn" 
+      <button
+        class="control-btn"
         :disabled="isLocating"
         :title="locationPermission === 'granted' ? '重新定位' : '请求位置权限'"
         @click="handleLocate"
@@ -43,30 +43,6 @@
           :class="locationPermission === 'granted' ? 'fa-location-arrow' : 'fa-location-crosshairs'"
         />
         {{ isLocating ? '定位中...' : '定位' }}
-      </button>
-      <button 
-        class="control-btn" 
-        :title="realTimeTracking ? '关闭实时追踪' : '开启实时追踪'"
-        @click="toggleRealTimeTracking"
-      >
-        <i
-          class="fas"
-          :class="realTimeTracking ? 'fa-satellite-dish' : 'fa-satellite'"
-        />
-      </button>
-      <button 
-        class="control-btn" 
-        title="放大"
-        @click="zoomIn"
-      >
-        <i class="fas fa-plus" />
-      </button>
-      <button 
-        class="control-btn" 
-        title="缩小"
-        @click="zoomOut"
-      >
-        <i class="fas fa-minus" />
       </button>
     </div>
 
@@ -520,33 +496,8 @@ const renderCapsuleMarkers = () => {
     map.remove(marker)
   })
   
-  // 使用默认数据渲染标记
-  const defaultCapsules = [
-    {
-      id: 1,
-      lng: 116.397428,
-      lat: 39.90923,
-      title: '示例胶囊1',
-      desc: '这是一个示例胶囊的描述信息',
-      vis: 'public',
-      views: 100,
-      time: new Date(),
-      tags: ['示例', '测试']
-    },
-    {
-      id: 2,
-      lng: 116.407428,
-      lat: 39.91923,
-      title: '示例胶囊2',
-      desc: '另一个示例胶囊的描述',
-      vis: 'friend',
-      views: 50,
-      time: new Date(),
-      tags: ['测试']
-    }
-  ]
-  
-  const capsules = props.capsuleData.length > 0 ? props.capsuleData : defaultCapsules
+  // 只使用传入的胶囊数据，不使用默认数据
+  const capsules = props.capsuleData
   
   capsules.forEach(capsule => {
     const marker = createCapsuleMarker(capsule)
