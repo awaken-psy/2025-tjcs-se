@@ -703,10 +703,10 @@ const handleRegister = async () => {
 
     console.log('注册响应数据:', responseData)
 
-    // 由于请求适配层返回完整响应，从data字段中提取用户信息
+    // request拦截器已经处理过响应，返回的是data部分
     console.log('📊 [REGISTER DEBUG] 完整响应结构:', responseData)
     const { token, refresh_token, user_id, email, nickname, avatar } =
-      responseData.data
+      responseData
 
     // 注册成功后自动登录
     userStore.login(

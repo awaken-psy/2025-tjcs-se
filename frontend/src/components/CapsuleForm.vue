@@ -882,22 +882,24 @@ const handleSubmit = async() => {
       lng = 116.302
     }
 
-    // 构造完整的提交数据 (保持与原代码一致)
+    // 构造完整的提交数据 (匹配后端期望的格式)
     const submitData = {
       title: formData.title.trim(),
       content: formData.content.trim(),
       visibility: formData.visibility,
       tags: [...selectedTags.value],
 
-      // 位置信息
-      location,
-      lat,
-      lng,
+      // 位置信息 - 按照后端期望的格式构造
+      location: {
+        latitude: lat,
+        longitude: lng,
+        address: location
+      },
 
       // 图片信息 (使用 imageUrl 或 image，取决于后端接收方式)
       // 注意：如果后端只接受 URL，你需要在上传成功后将 formData.imageUrl 设置为最终 URL。
       // 如果 formData.imageUrl 已经存在 (编辑模式下加载的)，则直接使用。
-      imageUrl: formData.imageUrl || previewImage.value, 
+      imageUrl: formData.imageUrl || previewImage.value,
 
       // 其他统计信息 (通常只在创建时初始化)
     }

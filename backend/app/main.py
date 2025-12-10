@@ -50,6 +50,7 @@ from app.api.v1 import (
     admin_router,
     auth_router,
     capsule_router,
+    hub_router,
     unlock_router,
     interaction_router,
     user_router,
@@ -123,6 +124,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 app.include_router(admin_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(capsule_router, prefix="/api")
+app.include_router(hub_router, prefix="/api")
 app.include_router(unlock_router, prefix="/api")
 app.include_router(interaction_router, prefix="/api")
 app.include_router(user_router, prefix="/api")

@@ -119,6 +119,13 @@
           </button>
         </div>
 
+        <!-- 附近胶囊探索器 -->
+        <NearbyCapsulesExplorer
+          @capsule-select="handleCapsuleSelect"
+          @unlock-request="handleUnlockRequest"
+          @view-request="handleViewRequest"
+        />
+
         <!-- 附近胶囊列表（筛选后） -->
         <div class="nearby-card">
           <div class="card-header">
@@ -191,10 +198,13 @@
 
 <script setup>
 import CapsuleForm from '@/components/CapsuleForm.vue'
+import NearbyCapsulesExplorer from '@/components/NearbyCapsulesExplorer.vue'
 import { computed, onMounted, ref } from 'vue'
 const showCapsuleForm = ref(false)
 
 // 引入胶囊创建API - 使用 capsuleApi.js 中的函数
+import { getCapsuleDetail } from '@/api/new/capsulesApi'
+import { unlockCapsule } from '@/api/new/unlockApi'
 
 import { formatRelative } from '@/utils/formatTime.js'
 import { useRouter } from 'vue-router'
@@ -312,21 +322,8 @@ onMounted(async() => {
     console.log('热力图数据已加载：', heatmapData)
   } catch (error) {
     console.error('地图页初始化失败：', error)
-    // 极端错误降级：加载基础模拟数据
-    allCapsules.value = [
-      {
-        id: 'c_default',
-        title: '校园中心胶囊',
-        lat: 39.900500,
-        lng: 116.302000,
-        vis: 'public',
-        desc: '校园中心的默认胶囊，无筛选时显示',
-        tags: ['默认', '校园'],
-        likes: 0,
-        views: 0,
-        unlockType: 'location'
-      }
-    ]
+    // 错误降级：设置空数据和默认位置
+    allCapsules.value = []
     userPos.value = { lat: 39.900500, lng: 116.302000 }
   }
 })
@@ -404,7 +401,7 @@ const getVisText = (vis) => {
  * 顶部导航：返回中枢页
  */
 const handleGoHub = () => {
-  alert('跳转至中枢页（后续替换为路由跳转）')
+  router.push({ name: 'HubViews' })
 }
 
 /**
@@ -492,6 +489,67 @@ const handleNavCapsule = (capsuleId) => {
   const capsule = allCapsules.value.find(c => c.id === capsuleId)
   if (capsule) {
     alert(`导航至胶囊：${capsule.title}（经纬度：${capsule.lat}, ${capsule.lng}）`)
+  }
+}
+
+/**
+ * 处理NearbyCapsulesExplorer的胶囊选择事件
+ */
+const handleCapsuleSelect = (capsule) => {
+  // 在地图上高亮显示该胶囊
+  console.log('选中胶囊:', capsule)
+  // 可以通知MapContainer组件聚焦到该胶囊位置
+  handleViewCapsule(capsule.id)
+}
+
+/**
+ * 处理胶囊解锁请求
+ */
+const handleUnlockRequest = async (capsule, userLocation) => {
+  try {
+    console.log('尝试解锁胶囊:', capsule.id, '用户位置:', userLocation)
+
+    const result = await unlockCapsule({
+      capsule_id: capsule.id,
+      user_location: {
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude
+      }
+    })
+
+    // 根据request拦截器逻辑，成功时直接返回data，失败时抛出异常
+    if (result) {
+      alert(`🎉 胶囊 "${capsule.title}" 解锁成功！`)
+      // 刷新胶囊数据
+      await refreshMapData()
+    }
+  } catch (error) {
+    console.error('解锁胶囊失败:', error)
+    // 安全地获取错误信息，避免undefined
+    const errorMessage = error?.message || error?.data?.message || error?.response?.data?.message || '未知错误'
+    alert(`❌ 解锁失败: ${errorMessage}`)
+  }
+}
+
+/**
+ * 处理查看胶囊请求
+ */
+const handleViewRequest = async (capsule) => {
+  try {
+    console.log('查看胶囊详情:', capsule.id)
+
+    const result = await getCapsuleDetail(capsule.id)
+
+    if (result.success) {
+      // 显示胶囊详情（这里可以打开一个详情弹窗）
+      console.log('胶囊详情:', result.data)
+      alert(`📖 胶囊内容: ${result.data.content || '内容为空'}`)
+    } else {
+      alert(`❌ 获取胶囊详情失败: ${result.message}`)
+    }
+  } catch (error) {
+    console.error('获取胶囊详情失败:', error)
+    alert(`❌ 获取胶囊详情失败: ${error.message}`)
   }
 }
 

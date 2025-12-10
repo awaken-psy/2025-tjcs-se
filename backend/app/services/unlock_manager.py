@@ -76,8 +76,20 @@ class UnlockManager:
                         # 使用Domain的to_api_basic方法转换为API模型
                         api_basic = domain.to_api_basic()
 
+                        # 转换为字典以便添加位置信息
+                        capsule_dict = api_basic.model_dump() if hasattr(api_basic, 'model_dump') else api_basic
+
+                        # 添加位置信息（从Domain对象获取）
+                        if domain.unlock_location and len(domain.unlock_location) >= 2:
+                            capsule_dict['latitude'] = domain.unlock_location[0]
+                            capsule_dict['longitude'] = domain.unlock_location[1]
+                        else:
+                            # 从ORM对象获取位置信息作为备用
+                            capsule_dict['latitude'] = getattr(capsule, 'latitude', 0.0)
+                            capsule_dict['longitude'] = getattr(capsule, 'longitude', 0.0)
+
                         nearby_capsules.append({
-                            'capsule': api_basic.model_dump() if hasattr(api_basic, 'model_dump') else api_basic,
+                            'capsule': capsule_dict,
                             'distance': round(distance, 2),
                             'unlockable': self._can_user_unlock_capsule(user_id, domain, (latitude, longitude)) if user_id is not None else False
                         })
@@ -515,3 +527,34 @@ class UnlockManager:
             },
             'check_time': current_time.isoformat() if current_time else datetime.now().isoformat()
         }
+
+    @staticmethod
+    def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        """
+        计算两个坐标点之间的距离（单位：米）
+        使用 Haversine 公式
+        """
+        if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
+            return float('inf')
+
+        # 地球半径（单位：千米）
+        R = 6371.0
+
+        # 转换为弧度
+        lat1_rad = math.radians(lat1)
+        lon1_rad = math.radians(lon1)
+        lat2_rad = math.radians(lat2)
+        lon2_rad = math.radians(lon2)
+
+        # 计算差值
+        dlat = lat2_rad - lat1_rad
+        dlon = lon2_rad - lon1_rad
+
+        # Haversine 公式
+        a = math.sin(dlat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+        # 计算距离（转换为米）
+        distance = R * c * 1000
+
+        return distance

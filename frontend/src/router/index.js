@@ -38,6 +38,16 @@ const routes = [
     path: '/my-capsule',
     name: 'MyCapsule',
     component: () => import('@/views/MyCapsuleView.vue')
+  },
+  {
+    path: '/test-location',
+    name: 'TestLocation',
+    component: () => import('@/views/TestLocationView.vue')
+  },
+  {
+    path: '/test-position',
+    name: 'TestPosition',
+    component: () => import('@/views/TestLocationView.vue')
   }
 ]
 

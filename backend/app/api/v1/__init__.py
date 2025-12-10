@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from .admin import router as admin_router
 from .authentication import router as auth_router
 from .capsules import router as capsule_router
+from .hub import router as hub_router
 from .unlock import router as unlock_router
 from .interactions import router as interaction_router
 from .users import router as user_router
@@ -21,6 +22,7 @@ __all__ = [
     'admin_router',
     'auth_router',
     'capsule_router',
+    'hub_router',
     'unlock_router',
     'interaction_router',
     'user_router',
