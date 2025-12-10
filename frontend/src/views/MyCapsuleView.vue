@@ -26,7 +26,6 @@
           { key: 'hub', label: '中枢', icon: '🏠' },
           { key: 'map', label: '地图', icon: '🗺️' },
           { key: 'create', label: '创建胶囊', icon: '✚' },
-          { key: 'timeline', label: '时间轴', icon: '📅' },
           { key: 'events', label: '校园活动', icon: '🎪' },
           { key: 'logout', label: '注销', icon: '🔐' }
         ]"
@@ -431,12 +430,11 @@ const handleHeaderAction = (key) => {
 const handleNavChange = (key) => {
   //TODO2：还要改路由跳转逻辑
   const routeMap = {
-    myCapsule: '/my-capsule', 
-    hub: '/hubviews', 
-    map: '/map', 
+    myCapsule: '/my-capsule',
+    hub: '/hubviews',
+    map: '/map',
     create: '/capsules',
-    timeline: '/timeline', 
-    events: '/events', 
+    events: '/events',
     logout: '/logout'
   }
   

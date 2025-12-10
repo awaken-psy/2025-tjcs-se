@@ -42,11 +42,10 @@ export const checkUnlockableCapsules = async (params = {}) => {
  */
 export const unlockCapsule = async (params = {}) => {
   return await request({
-    url: '/unlock/capsule',
+    url: `/unlock/${params.capsule_id}`,  // 修正：使用正确的RESTful URL格式
     method: 'post',
     data: {
-      capsule_id: params.capsule_id,
-      user_location: params.user_location,
+      current_location: params.user_location,  // 修正：使用 current_location 匹配后端
       current_time: params.current_time
     }
   })

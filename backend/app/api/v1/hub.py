@@ -108,24 +108,33 @@ async def get_nearby_capsules(
 
         # 转换为hub响应格式
         response_capsules = []
-        for capsule in nearby_capsules.get('capsules', []):
+        for item in nearby_capsules.get('capsules', []):
+            capsule_data = item['capsule']
+
             # 创建位置信息
+            latitude = capsule_data.get('latitude')
+            longitude = capsule_data.get('longitude')
+
+            # 确保经纬度不为None，如果为None则跳过此胶囊
+            if latitude is None or longitude is None:
+                continue
+
             location = {
-                "latitude": capsule['latitude'],
-                "longitude": capsule['longitude'],
-                "distance": capsule['distance']
+                "latitude": float(latitude),
+                "longitude": float(longitude),
+                "distance": item['distance']
             }
 
             # 创建附近胶囊对象
             nearby_capsule = NearbyCapsule(
-                id=str(capsule['id']),
-                title=capsule['title'],
+                id=str(capsule_data.get('id')),
+                title=capsule_data.get('title'),
                 location=location,
-                visibility=capsule['visibility'],
-                is_unlocked=capsule['is_unlocked'],
-                can_unlock=capsule['can_unlock'],
-                creator_nickname=capsule.get('creator_nickname', '匿名'),
-                created_at=capsule['created_at']
+                visibility=capsule_data.get('visibility'),
+                is_unlocked=False,  # 从解锁记录中获取，暂时设为False
+                can_unlock=item.get('unlockable', False),
+                creator_nickname=capsule_data.get('user_nickname', '匿名'),
+                created_at=capsule_data.get('created_at')
             )
             response_capsules.append(nearby_capsule)
 

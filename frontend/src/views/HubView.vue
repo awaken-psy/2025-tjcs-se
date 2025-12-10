@@ -274,12 +274,12 @@ import CapsuleCard from '@/components/CapsuleCard.vue'
 import StatsCard from '@/components/StatsCard.vue'
 // 引入页面专属API
 
-import { 
-  getUserInfo, 
-  getNearbyCapsules, 
-  getCampusEvents, 
-  getRecentActivities 
-} from '@/api/hubApi.js'
+import {
+  getUserInfo,
+  getNearbyCapsules,
+  getCampusEvents,
+  getRecentActivities
+} from '@/api/new/hubApi.js'
 // 引入认证API
 import { logout } from '@/api/new/authenticationApi'
 // 引入用户状态
@@ -287,7 +287,7 @@ import { useUserStore } from '@/store/user'
 
 /**
  * 页面作用：
- * 1. 项目核心枢纽，整合所有功能入口（地图、创建胶囊、时间轴等）
+ * 1. 项目核心枢纽，整合所有功能入口（地图、创建胶囊等）
  * 2. 展示用户个性化数据（附近胶囊、待审核数、个人统计）
  * 3. 提供活动推荐、主题征集等运营入口，提升用户参与度
  * 
@@ -511,7 +511,7 @@ const handleNavChange = async (key) => {
     hub: '/hubviews',
     map: '/map',
     myCapsule: '/my-capsule',
-    events: '/activities',
+    events: '/events',
     logout: '/login'
   }
   
