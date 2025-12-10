@@ -1,249 +1,231 @@
-"""
-Unlock API interface - 解锁功能实现
-"""
-from fastapi import APIRouter, Depends, Path, Query
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel
-import secrets
+from fastapi import APIRouter, HTTPException, Depends, Path, Query
+from sqlalchemy.orm import Session
+import secrets # 原始代码中导入了 secrets，但未在最终逻辑中使用，可忽略或用于替代 JWT 的临时令牌
 
-# 导入解锁相关的模型
-import sys
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+# 导入数据模型 (Pydantic DTOs)
+from app.model.unlock import (
+    CurrentLocation, UnlockCapsuleRequest, UnlockCapsuleResponse, # 解锁请求和响应模型
+    NearbyCapsule, NearbyCapsulesResponse, NearbyCapsuleLocation # 附近胶囊的响应模型
+)
+from app.model.base import BaseResponse, Pagination # 基础响应结构和分页模型
+from app.auth.dependencies import login_required # 认证依赖
+from app.domain.user import AuthorizedUser # 认证后的用户领域模型
+from app.services.unlock_manager import UnlockManager # 核心解锁业务逻辑服务
+from app.database.database import get_db # 数据库 Session 依赖
+from app.auth.jwt_handler import JWTHandler # JWT 处理工具，用于生成 Token
 
-try:
-    from model.unlock import (
-        CurrentLocation,
-        UnlockCapsuleRequest,
-        UnlockCapsuleResponse,
-        NearbyCapsuleLocation,
-        NearbyCapsule,
-        NearbyCapsulesResponse,
-        NearbyCapsulesQuery
-    )
-except ImportError:
-    # 如果导入失败，使用简化模型
-    class CurrentLocation:
-        latitude: float
-        longitude: float
-
-    class UnlockCapsuleRequest:
-        current_location: CurrentLocation
-
-try:
-    from services.unlock_manager import UnlockManager
-except ImportError:
-    # 如果导入失败，使用模拟服务
-    class UnlockManager:
-        def check_unlockable_capsules(self, *args, **kwargs):
-            return {
-                'success': True,
-                'message': '模拟数据',
-                'unlockable_capsules': []
-            }
-
-        def unlock_capsule(self, *args, **kwargs):
-            return {
-                'success': True,
-                'message': '模拟解锁成功',
-                'unlocked_at': datetime.now().isoformat()
-            }
-
-# 简单的认证依赖
-def login_required():
-    class MockUser:
-        def __init__(self):
-            self.id = 1
-            self.username = "test_user"
-    return MockUser()
-
-# 响应模型 - 匹配TypeScript接口规范
-class APIResponse(BaseModel):
-    """基础API响应模型"""
-    code: int
-    message: str
-    data: Optional[dict] = None
-
+# 初始化 FastAPI 路由
 router = APIRouter(prefix='/unlock', tags=['Unlock'])
 
 
-@router.post("/{capsule_id}", response_model=APIResponse)
+## 🔐 接口: 解锁胶囊 (Unlock Capsule)
+@router.post(
+    "/{capsule_id}",
+    response_model=BaseResponse[UnlockCapsuleResponse],
+    summary="解锁胶囊",
+    description="根据位置或时间条件解锁时光胶囊"
+)
 async def unlock_capsule(
-    capsule_id: str = Path(..., description="胶囊ID"),
-    request: UnlockCapsuleRequest = ...,
-    user = Depends(login_required)
+    request: UnlockCapsuleRequest, # 请求体：包含用户当前位置 (latitude, longitude)
+    capsule_id: str = Path(..., description="胶囊ID"), # 路径参数：待解锁的胶囊 ID
+    user: AuthorizedUser = Depends(login_required), # 依赖注入：确保用户已登录
+    db: Session = Depends(get_db) # 依赖注入：获取数据库会话
 ):
     """
-    解锁胶囊API
-
-    请求格式: { "current_location": { "latitude": 39.9042, "longitude": 116.4074 } }
-    响应格式: {
-      "code": 200,
-      "data": {
-        "access_token": "token_abc123...",
-        "capsule_id": "abc123",
-        "unlocked_at": "2024-11-26T10:30:00Z"
-      },
-      "message": "解锁成功"
-    }
+    解锁胶囊API：用户尝试对指定的胶囊执行解锁操作。
     """
     try:
         current_time = datetime.now()
 
-        # 调用服务层进行解锁
-        unlock_manager = UnlockManager()
+        # 实例化服务层管理器
+        unlock_manager = UnlockManager(db)
 
-        # 解锁胶囊
+        # 调用 Service 层进行解锁的核心判断：
+        # Service 负责：1. 获取胶囊信息；2. 检查位置/时间/好友等条件是否满足；3. 记录解锁日志
         result = unlock_manager.unlock_capsule(
-            user_id=user.id,
-            capsule_id=int(capsule_id) if capsule_id.isdigit() else hash(capsule_id) % 10000,
+            user_id=user.user_id,
+            capsule_id=capsule_id,
             user_latitude=request.current_location.latitude,
-            user_longitude=request.current_location.longitude,
-            current_time=current_time
+            user_longitude=request.current_location.longitude
         )
 
         if result.get('success', False):
-            # 生成访问令牌
-            access_token = f"unlock_{secrets.token_hex(16)}_{capsule_id}_{int(current_time.timestamp())}"
+            # 解锁成功后的处理逻辑
+            
+            # --- 令牌生成逻辑（安全关键） ---
+            # 目标：重新生成用户的 JWT Token 或生成一个特殊的 "解锁访问令牌"。
+            # 这里的实现选择了重新生成用户当前的 JWT Token，以便后续请求能够携带最新的权限。
+            access_token = JWTHandler.generate_access_token(
+                user_id=user.user_id,
+                username=user.username,
+                role=user.role,
+                permissions=list(user.permissions) if user.permissions else []
+            )
 
-            return APIResponse(
+            # 构造成功响应数据
+            response_data = UnlockCapsuleResponse(
+                capsule_id=str(capsule_id),  # 确保为字符串类型
+                unlocked_at=current_time,
+                access_token=access_token # 返回新的 Token，客户端应更新其存储的 Token
+            )
+
+            return BaseResponse[UnlockCapsuleResponse].success(
                 code=200,
                 message="胶囊解锁成功",
-                data={
-                    "access_token": access_token,
-                    "capsule_id": capsule_id,
-                    "unlocked_at": result.get('unlocked_at', current_time.isoformat())
-                }
+                data=response_data
             )
         else:
-            return APIResponse(
-                code=400,
-                message=result.get('message', '解锁失败'),
-                data={
-                    "access_token": "",
-                    "capsule_id": capsule_id,
-                    "unlocked_at": current_time.isoformat()
-                }
+            # Service 层返回失败：解锁条件未满足
+            raise HTTPException(
+                status_code=400,
+                detail=result.get('message', '解锁失败')
             )
 
+    except HTTPException:
+        # 重新抛出已知的 HTTPException
+        raise
     except Exception as e:
-        return APIResponse(
-            code=500,
-            message=f"解锁失败: {str(e)}",
-            data=None
-        )
+        # 捕获其他异常，进行数据库回滚，并返回 500 错误
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"解锁失败: {str(e)}")
 
 
-@router.get("/nearby")
+## 📍 接口: 获取附近胶囊 (Get Nearby Capsules)
+@router.get(
+    "/nearby",
+    response_model=BaseResponse[NearbyCapsulesResponse],
+    summary="获取附近胶囊",
+    description="获取用户当前位置附近可解锁的时光胶囊"
+)
 async def get_nearby_capsules(
     latitude: float = Query(..., description="用户当前纬度"),
     longitude: float = Query(..., description="用户当前经度"),
-    radius_meters: int = Query(1000, ge=10, le=10000, description="搜索半径（米）"),
-    user = Depends(login_required)
+    radius_meters: int = Query(100, ge=10, le=10000, description="搜索半径（米）"), # 搜索半径查询参数
+    page: int = Query(1, ge=1, description="页码"),
+    limit: int = Query(20, ge=1, le=100, description="每页数量"),
+    user: AuthorizedUser = Depends(login_required),
+    db: Session = Depends(get_db)
 ):
     """
-    获取附近可解锁胶囊API
-
-    响应格式: {
-      "code": 200,
-      "data": {
-        "capsules": [
-          {
-            "can_unlock": true,
-            "created_at": "2024-10-25T14:30:00Z",
-            "creator_nickname": "张三",
-            "id": "caps_002",
-            "is_unlocked": false,
-            "location": {
-              "distance": 320.8,
-              "latitude": 39.9052,
-              "longitude": 116.4084
-            },
-            "title": "足球比赛回忆",
-            "visibility": "friends"
-          }
-        ]
-      },
-      "message": "成功获取1个附近胶囊"
-    }
+    获取附近可解锁胶囊API：用于地图展示，发现用户周围满足位置条件的胶囊。
     """
     try:
-        # 调用服务层获取附近可解锁胶囊
-        unlock_manager = UnlockManager()
+        # 实例化服务层管理器
+        unlock_manager = UnlockManager(db)
 
-        result = unlock_manager.check_unlockable_capsules(
-            user_id=user.id,
-            user_latitude=latitude,
-            user_longitude=longitude,
-            max_distance_meters=radius_meters
+        # 调用 Service 层获取附近胶囊列表
+        # Service 负责：1. 执行地理空间查询 (如 PostGIS 或 GeoHash)；2. 过滤权限 (Public 或 Friends)；3. 返回胶囊、距离和是否可解锁状态
+        result = unlock_manager.get_nearby_capsules(
+            latitude=latitude,
+            longitude=longitude,
+            radius_meters=radius_meters,
+            user_id=user.user_id,
+            page=page,
+            limit=limit
         )
 
         if result.get('success', False):
-            # 转换服务层数据为API响应格式
             capsules_data = []
 
-            for capsule in result.get('unlockable_capsules', []):
-                # 转换为API需要的格式
-                capsule_api_data = {
-                    "can_unlock": True,
-                    "created_at": capsule.get('created_at', datetime.now()),
-                    "creator_nickname": "用户",  # 服务层数据中没有此字段，使用默认值
-                    "id": str(capsule.get('capsule_id', '')),
-                    "is_unlocked": False,
-                    "location": {
-                        "distance": capsule.get('distance', 0),
-                        "latitude": capsule['position']['latitude'],
-                        "longitude": capsule['position']['longitude']
-                    },
-                    "title": capsule.get('title', '未知胶囊'),
-                    "visibility": capsule.get('visibility', 'public')
-                }
+            # 遍历 Service 层返回的原始数据，并将其映射为 API 响应模型
+            for capsule_item in result.get('capsules', []):
+                capsule = capsule_item.get('capsule', {})
+
+                # 数据映射：将 Service 层的内部数据结构转换为 API 规范的 Pydantic 模型
+                capsule_api_data = NearbyCapsule(
+                    id=capsule.get('id', ''),
+                    title=capsule.get('title', '未知胶囊'),
+                    location=NearbyCapsuleLocation(
+                        # 假设 Service 层返回的 unlock_location 是 [lat, lng] 列表
+                        latitude=capsule.get('unlock_location', [0, 0])[0],
+                        longitude=capsule.get('unlock_location', [0, 0])[1],
+                        distance=capsule_item.get('distance', 0) # 距离是 Service 层计算出的关键数据
+                    ),
+                    visibility=capsule.get('visibility', 'private'),
+                    is_unlocked=capsule.get('status') == 'unlocked', # 检查胶囊状态
+                    can_unlock=capsule_item.get('unlockable', False),# 检查是否满足所有解锁条件
+                    creator_nickname="用户", # **注意：Service 层数据中缺少此字段，这里使用了默认值**
+                    created_at=capsule.get('created_at', datetime.now())
+                )
                 capsules_data.append(capsule_api_data)
 
-            return APIResponse(
+            response_data = NearbyCapsulesResponse(capsules=capsules_data)
+
+            return BaseResponse[NearbyCapsulesResponse].success(
                 code=200,
                 message=f"成功获取{len(capsules_data)}个附近胶囊",
-                data={
-                    "capsules": capsules_data
-                }
+                data=response_data
             )
         else:
-            return APIResponse(
-                code=500,
-                message=result.get('message', '获取附近胶囊失败'),
-                data={"capsules": []}
+            # Service 层执行失败，返回 500
+            raise HTTPException(
+                status_code=500,
+                detail=result.get('message', '获取附近胶囊失败')
             )
 
+    except HTTPException:
+        raise
     except Exception as e:
-        return APIResponse(
-            code=500,
-            message=f"获取附近胶囊时发生错误: {str(e)}",
-            data={"capsules": []}
+        raise HTTPException(
+            status_code=500,
+            detail=f"获取附近胶囊时发生错误: {str(e)}"
         )
 
 
-@router.get("/{capsule_id}/status")
+## 👁️ 接口: 获取胶囊解锁状态 (Get Unlock Status)
+@router.get(
+    "/{capsule_id}/status",
+    response_model=BaseResponse[dict],
+    summary="获取胶囊解锁状态",
+    description="检查指定胶囊的解锁状态和解锁条件"
+)
 async def get_unlock_status(
     capsule_id: str = Path(..., description="胶囊ID"),
-    user = Depends(login_required)
+    user: AuthorizedUser = Depends(login_required),
+    db: Session = Depends(get_db)
 ):
-    """获取解锁状态"""
+    """获取解锁状态：用于在详情页展示胶囊的解锁进度"""
     try:
-        # 简化的解锁状态检查
-        return APIResponse(
+        unlock_manager = UnlockManager(db)
+
+        # 检查用户是否已解锁该胶囊 (硬状态)
+        has_unlocked = unlock_manager.has_user_unlocked_capsule(user.user_id, capsule_id)
+
+        # 获取胶囊领域模型对象 (Domain Object)
+        capsule_domain = unlock_manager.repository.find_by_id(capsule_id)
+
+        if not capsule_domain:
+            raise HTTPException(status_code=404, detail="胶囊不存在")
+
+        # 检查实时解锁条件 (软状态)
+        # Service 负责：对比当前时间、好友关系等，返回满足和未满足的条件列表
+        unlock_conditions = unlock_manager.check_unlock_conditions(
+            domain=capsule_domain,
+            user_id=user.user_id
+        )
+
+        # 构造响应数据
+        response_data = {
+            "capsule_id": capsule_id,
+            "is_unlocked": has_unlocked, # 是否已解锁 (True/False)
+            "can_unlock": unlock_conditions.get('can_unlock', False), # 是否现在可解锁 (Ture/False)
+            "unlock_time": capsule_domain.unlock_time.isoformat() if capsule_domain.unlock_time else None, # 设定的解锁时间
+            "failed_conditions": unlock_conditions.get('failed_conditions', []), # 未满足的条件列表
+            "conditions_met": unlock_conditions.get('conditions_met', []) # 已满足的条件列表
+        }
+
+        return BaseResponse[dict].success(
             code=200,
             message="获取解锁状态成功",
-            data={
-                "capsule_id": capsule_id,
-                "is_unlocked": False,
-                "can_unlock": True,  # 简化逻辑
-                "unlock_time": None
-            }
+            data=response_data
         )
+
+    except HTTPException:
+        raise
     except Exception as e:
-        return APIResponse(
-            code=500,
-            message=f"获取解锁状态失败: {str(e)}",
-            data=None
+        raise HTTPException(
+            status_code=500,
+            detail=f"获取解锁状态失败: {str(e)}"
         )

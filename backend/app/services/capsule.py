@@ -2,19 +2,23 @@ from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
-from app.domain.capsule import Capsule as CapsuleDomain, CapsuleStatus, Visibility, ContentType
+from app.domain.capsule import (
+    Capsule as CapsuleDomain, CapsuleStatus, Visibility, ContentType,
+    convert_capsule_list_for_api, convert_capsule_basic_for_api
+)
 from app.database.repositories.capsule_repository import CapsuleRepository
 from app.model.capsule import (
     CapsuleCreateRequest, CapsuleUpdateRequest, CapsuleDraftRequest,
     CapsuleCreateResponse, CapsuleUpdateResponse, CapsuleDraftResponse,CapsuleDetail
 )
+from app.core.exceptions import RecordNotFoundException
 
 
 class CapsuleService:
     """胶囊业务服务类"""
-    
-    def __init__(self):
-        self.repository = CapsuleRepository()
+
+    def __init__(self, db: Optional[Session] = None):
+        self.repository = CapsuleRepository(db)
 
     def create_capsule(self, request: CapsuleCreateRequest, user_id: int) -> CapsuleCreateResponse:
         """创建胶囊"""
@@ -56,10 +60,15 @@ class CapsuleService:
         
         saved_domain = self.repository.save(capsule_domain)
         
+        # 确保数据完整性并返回
+        capsule_id = saved_domain.capsule_id
+        if capsule_id is None:
+            raise ValueError("胶囊创建失败：未获取到胶囊ID")
+
         return CapsuleCreateResponse(
-            capsule_id=saved_domain.capsule_id,
+            capsule_id=str(capsule_id),  # int转换为string，匹配新的模型定义
             title=saved_domain.title,
-            status=saved_domain.status.value,
+            status=self._convert_status_for_frontend(saved_domain.status.value),  # 状态转换
             created_at=saved_domain.created_at
         )
 
@@ -73,10 +82,14 @@ class CapsuleService:
     def get_user_capsules(self, user_id: int, page: int = 1, limit: int = 20, status: str = "all"):
         """获取用户胶囊列表"""
         result = self.repository.find_by_user_id(user_id, page, limit, status)
+
+        # 先转换为domain的API格式，再应用类型转换
         basic_list = [domain.to_api_basic() for domain in result['capsules']]
-        
+        # 使用类型转换函数处理ID、状态等字段
+        converted_list = convert_capsule_list_for_api(basic_list)
+
         return {
-            'capsules': basic_list,
+            'capsules': converted_list,
             'total': result['total'],
             'page': result['page'],
             'limit': result['limit'],
@@ -99,8 +112,14 @@ class CapsuleService:
         
         capsule_domain.updated_at = datetime.utcnow()
         
-        self.repository.save(capsule_domain)
-        return True
+        try:
+            # 即使 find_by_id 成功，也使用 try-except 块以应对 Repository 内部的潜在异常
+            self.repository.save(capsule_domain)
+            return True
+        except RecordNotFoundException:
+            # 如果 repository.save 逻辑被重构为抛出此异常（例如，在 find_by_id 逻辑之外）
+            # 捕获它并返回 False，符合原函数返回 bool 的约定
+            return False
 
     def delete_capsule(self, capsule_id: int, user_id: int) -> bool:
         """删除胶囊"""
@@ -158,10 +177,24 @@ class CapsuleService:
         """转换可见性枚举"""
         if visibility == "public":
             return Visibility.CAMPUS
-        elif visibility == "friends":
+        elif visibility in ["friends", "friend"]:
             return Visibility.FRIENDS
-        else:
+        elif visibility == "private":
             return Visibility.PRIVATE
+        else:
+            # 默认为私有
+            return Visibility.PRIVATE
+
+    def _convert_status_for_frontend(self, status: str) -> str:
+        """转换状态为前端期望的格式"""
+        # 数据库内部值 -> 前端API值
+        status_mapping = {
+            "locked": "published",    # 锁定状态对应已发布
+            "unlocked": "published",  # 解锁状态也算已发布
+            "draft": "draft",        # 草稿状态保持不变
+            "expired": "published"    # 过期状态也算已发布
+        }
+        return status_mapping.get(status, "published")
 
 
 # 向后兼容别名

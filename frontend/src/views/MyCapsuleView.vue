@@ -350,17 +350,9 @@ const fetchCapsuleList = async () => {
     //NOTE:分页模型中，后端响应了四个值，分别是页面大小，总页数，总胶囊数，和当前页数。
     //其中页面大小和当前页数是request的，实际只用了总胶囊数，总页数是前端自己算的
 
-    console.log('🔍 [MYCAPSULE DEBUG] API响应结构分析:', {
-      res: res,
-      hasData: !!res.data,
-      hasCapsules: !!res.data?.capsules,
-      capsulesIsArray: Array.isArray(res.data?.capsules),
-      capsulesLength: res.data?.capsules?.length
-    })
-
-    if (res?.data && Array.isArray(res.data.capsules)) {
+    if (res && Array.isArray(res.capsules)) {
       // 数据映射：将后端字段映射到前端组件期望的字段
-      capsuleList.value = res.data.capsules.map(capsule => ({
+      capsuleList.value = res.capsules.map(capsule => ({
         ...capsule,
         // 添加前端需要的状态字段
         is_mine: true,
@@ -369,17 +361,11 @@ const fetchCapsuleList = async () => {
         collected: false,    // 初始化为未收藏
         // 其他字段保持原样，因为组件现在直接使用后端字段名
       }))
-      capsuleTotal.value = res.data.pagination?.total ?? res.data.capsules.length
+      capsuleTotal.value = res.pagination?.total ?? res.capsules.length
       //console.log(`打印获取到的胶囊列表，共 ${capsuleTotal.value} 个胶囊`, JSON.parse(JSON.stringify(capsuleList.value)))
     } else {
       capsuleList.value = []
       capsuleTotal.value = 0
-      console.warn('❌ [MYCAPSULE DEBUG] 接口返回数据格式异常:', {
-        res: res,
-        expectedPath: 'res.data.capsules',
-        actualData: res.data,
-        isArray: Array.isArray(res.data?.capsules)
-      })
     }
   } catch (error) {
     console.error('获取胶囊列表失败:', error)
@@ -565,23 +551,33 @@ const handleLikeCapsule = async(capsuleId) => {
 }
 
 //TODO: 对接更新api
-const handleEditCapsule = (capsuleId) => {
-  // 原代码: const handleEditCapsule = (capsuleId) => { ... }
-  //TODO: 对接更新api (逻辑已在 onCapsuleCreated 中统一处理)
-  const handleEditCapsule = (capsuleId) => {
-    const capsule = capsuleList.value.find(c => c.id === capsuleId)
-    if (capsule) {
-      // 🚨 修改点 10：将详情数据赋给编辑表单，并关闭详情弹窗
-      currentEditData.value = {
-        ...capsule,
-        content: capsule.desc, // 假设表单内容字段名为 content，但详情字段名为 desc
-      }
-      isEditMode.value = true
-      showFormModal.value = true
-      handleCloseDetail() // 关闭详情弹窗，防止两个弹窗同时存在
+const handleEditCapsule = async(capsuleId) => {
+  const capsule = capsuleList.value.find(c => c.id === capsuleId)
+
+  if (capsule) {
+    // 1. 设置编辑数据，并进行字段映射
+    currentEditData.value = {
+      ...capsule,
+      // ⚠️ 字段映射：将列表/详情返回的 `desc` 字段映射为表单组件需要的 `content` 字段
+      content: capsule.desc, 
     }
+
+    // 2. 切换到编辑模式并打开表单
+    isEditMode.value = true
+    showFormModal.value = true
+
+    // 3. 关闭详情弹窗（防止双弹窗）
+    // 确保 handleCloseDetail 函数已定义
+    handleCloseDetail() 
+
+    // 4. 重新加载列表以确保数据最新
+    await fetchCapsuleList() 
   }
+
+  
 }
+
+
 // 原代码: const handleDeleteCapsule = async(capsuleId) => { ... }
 const handleDeleteCapsule = async(capsuleId) => {
   if (!confirm('确定要删除该胶囊吗？此操作不可恢复！')) return
@@ -589,13 +585,18 @@ const handleDeleteCapsule = async(capsuleId) => {
   isProcessing.value[`delete_${capsuleId}`] = true
   try {
     const result = await deleteCapsule(capsuleId)
-    // 🚨 修改点 11：完善删除成功的逻辑 (TODO8)
-    if (result.code === 200 || result.success) {
-      alert('删除成功！') 
-      await fetchCapsuleList() // 重新加载列表
-    } else {
-      alert(result.message || '删除失败，请稍后重试')
-    }
+
+    alert('删除成功！') 
+
+    // 1. ✅ 状态清理：如果删除操作是在详情弹窗内触发的，需要关闭它。
+    handleCloseDetail() 
+      
+    // 2. 本地移除被删除的胶囊 (乐观更新)
+    capsuleList.value = capsuleList.value.filter(c => c.id !== capsuleId)
+
+    // 3. 重新加载列表
+    await fetchCapsuleList() 
+
   } catch (error) {
     console.error(`删除胶囊(${capsuleId})失败：`, error)
     alert('删除失败，请稍后重试')
@@ -632,9 +633,49 @@ const handleCloseForm = () => {
 }
 
 // 只处理表单关闭和刷新，不再直接调用createCapsule，防止重复创建
-const onCapsuleCreated = async() => {
-  handleCloseForm()
-  await fetchCapsuleList() // 重新加载列表
+const onCapsuleCreated = async(formData) => {
+  // 检查是否有数据，如果只是关闭（没有数据）则直接退出
+  if (!formData) {
+    handleCloseForm()
+    return
+  }
+
+  // 如果处于编辑模式，调用 updateCapsule API
+  if (isEditMode.value) {
+    const capsuleId = currentEditData.value.id
+    if (!capsuleId) {
+      alert('编辑失败：无法获取胶囊ID。')
+      handleCloseForm()
+      return
+    }
+
+    try {
+      // ⚠️ 调用 updateCapsule API
+      // 假设 formData 包含了所有需要更新的字段 (title, content, visibility, tags 等)
+      // 需要将表单的 content 字段转回 API 期望的字段（例如：desc 或 content，这里用 content）
+      
+      // 检查更新的字段
+      const updateData = {
+        title: formData.title,
+        content: formData.content,
+        visibility: formData.visibility,
+        tags: formData.tags,
+        // ... 其他需要更新的字段
+      }
+      
+      await updateCapsule(capsuleId, updateData) //
+      alert('胶囊更新成功！')
+    } catch (error) {
+      console.error(`更新胶囊(${capsuleId})失败:`, error)
+      alert(`胶囊更新失败：${error.message || '未知错误'}`)
+      // 更新失败也需要关闭表单
+    }
+  } 
+  // TODO: 如果是创建模式 (isEditMode.value === false)，这里应调用 createCapsule API
+  // 现有代码将创建逻辑委托给 CapsuleForm 组件，所以这里暂时跳过。
+
+  handleCloseForm() // 关闭表单
+  await fetchCapsuleList() // 重新加载列表以显示更新后的数据
 }
 
 // 详情弹窗相关方法 

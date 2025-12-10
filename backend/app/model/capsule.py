@@ -52,7 +52,7 @@ class CapsuleStats(BaseModel):
 
 class CapsuleBasic(BaseModel):
     """胶囊基础信息模型"""
-    id: int
+    id: str  # 修改为字符串类型以符合前端期望
     title: str
     visibility: str  # "private", "friends", "public"
     status: str  # "draft", "pending", "published"
@@ -66,7 +66,7 @@ class CapsuleBasic(BaseModel):
 
 class CapsuleDetail(BaseModel):
     """胶囊详情模型"""
-    id: int
+    id: str  # 修改为字符串类型以符合前端期望
     title: str
     content: str
     visibility: str
@@ -111,7 +111,7 @@ class CapsuleDraftRequest(BaseModel):
 
 class CapsuleCreateResponse(BaseModel):
     """创建胶囊响应模型"""
-    capsule_id: int
+    capsule_id: str  # 前端期望string类型
     title: str
     status: str
     created_at: datetime
@@ -119,7 +119,7 @@ class CapsuleCreateResponse(BaseModel):
 
 class CapsuleUpdateResponse(BaseModel):
     """更新胶囊响应模型"""
-    capsule_id: int
+    capsule_id: str  # 修改为字符串类型以符合前端期望
     updated_at: datetime
 
 

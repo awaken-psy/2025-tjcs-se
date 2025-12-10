@@ -320,12 +320,14 @@ const isLogoutLoading = ref(false)
  */
 onMounted(async() => {
   // 登录校验：未登录则跳转到登录页
-  const token = localStorage.getItem('user_token')
+  // 🔴 修正：使用 'access_token' 或 'refresh_token' 进行校验
+  const token = localStorage.getItem('access_token') // <--- 更改为 access_token
   if (!token) {
-    router.replace({ path: '/login', query: { from: 'hub' } })
+    router.replace({ path: '/login', query: { from: 'hub' } }) 
     return
   }
   
+  // 仅在有 Token 时才加载数据
   await loadPageData()
 })
 

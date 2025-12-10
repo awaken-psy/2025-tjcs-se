@@ -3,11 +3,11 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from datetime import datetime
 
-from ..database import Base
+from app.database.database import Base
 
 # 避免循环导入
 def get_user_model():
-    from database.orm.user import User
+    from app.database.orm.user import User
     return User
 
 class Capsule(Base):
