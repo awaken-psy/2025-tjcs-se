@@ -4,13 +4,20 @@ from datetime import datetime
 
 from app.domain.capsule import Capsule as CapsuleDomain, CapsuleStatus, Visibility, ContentType
 from app.database.orm.capsule import Capsule
+from app.database.database import get_db
 
 
 class CapsuleRepository:
     """胶囊数据访问层 - 处理ORM与Domain对象的转换"""
     
-    def __init__(self, db: Session):
-        self.db = db
+    def __init__(self, db: Optional[Session]=None):
+        try:
+            if db is not None:
+                self.db = db
+            else:
+                self.db = next(get_db())
+        except Exception as e:
+            raise Exception(f"数据库连接失败: {str(e)}")
     
     def find_by_id(self, capsule_id: int) -> Optional[CapsuleDomain]:
         """根据ID查找胶囊"""

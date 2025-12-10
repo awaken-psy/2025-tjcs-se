@@ -1,41 +1,22 @@
-"""
-时光胶囊·校园 - FastAPI 应用入口
-"""
-from fastapi import FastAPI, HTTPException, Query, Path, UploadFile, File
-from fastapi.staticfiles import StaticFiles
-from typing import Optional, List
-from datetime import datetime
-from pydantic import BaseModel
-import os
-import sys
+import __init__
 from dotenv import load_dotenv
-
-
-# 加载环境变量
 load_dotenv()
+import os
+import uvicorn
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 
-# 添加当前目录到Python路径，确保可以找到app模块
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
-# 修复数据库导入路径
-from database.database import create_tables
-# 修复API路由导入路径 - 使用相对导入
-from app.api.v1 import (
-        admin_router,
-        auth_router,
-        capsule_router,
-        unlock_router,
-        interaction_router,
-        user_router,
-        friend_router,
-        upload_router,
-        report_router
-    )
+from app.logger import get_logger, app_logger
+from app.logger.config import config_manager
+from app.database.database import create_tables
+from app.api.v1 import *
 
-
+app_logger.info("======================================================================")
+app_logger.info(f"日志配置：{config_manager.get_config()}")
+#=============================================================#
 # 创建 FastAPI 应用实例
+app_logger.info("创建应用程序实例")
 app = FastAPI(
     title="时光胶囊·校园",
     description="基于地理位置与时间触发的校园记忆数字化平台",
@@ -44,73 +25,77 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json"
 )
-
+app_logger.info("FastAPI 应用实例创建完成")
+#=============================================================#
 # 注册 API 路由
-if admin_router:
-    app.include_router(admin_router, prefix="/api")
-if auth_router:
-    app.include_router(auth_router, prefix="/api")
-if capsule_router:
-    app.include_router(capsule_router, prefix="/api")
-if unlock_router:  # 只有在unlock_router存在时才注册
-    app.include_router(unlock_router, prefix="/api")
-if interaction_router:
-    app.include_router(interaction_router, prefix="/api")
-if user_router:
-    app.include_router(user_router, prefix="/api")
-if friend_router:
-    app.include_router(friend_router, prefix="/api")
-if upload_router:
-    app.include_router(upload_router, prefix="/api")
-if report_router:
-    app.include_router(report_router, prefix="/api")
-
-
-# 配置静态文件服务
-UPLOAD_DIR = os.getenv('UPLOAD_DIR', './uploads')
-if os.path.exists(UPLOAD_DIR):
-    # 挂载上传目录作为静态文件服务
-    app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
-    # print(f"📁 静态文件服务已挂载: {UPLOAD_DIR} -> /uploads")
-else:
-    # 如果上传目录不存在，创建它
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-    app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
-    # print(f"📁 创建并挂载上传目录: {UPLOAD_DIR} -> /uploads")
-
-# 根路径
+app_logger.info("开始注册 API 路由")
 @app.get("/")
 async def root():
     """根路径 - 返回应用信息"""
+    app_logger.debug("访问根路径")
     return {
         "message": "欢迎使用时光胶囊·校园 API",
         "version": "1.0.0",
         "docs": "/docs",
     }
+router_count = 0
+routes = {
+    "admin":       admin_router,       "auth": auth_router,    "capsule": capsule_router, 
+    "interaction": interaction_router, "user": user_router,    "friend":  friend_router,  
+    "report":      report_router,      "unlock": unlock_router,"upload": upload_router,
+}
+for name, router in routes.items():
+    try:
+        app.include_router(router, prefix=f"/api/v1")
+        app_logger.info(f"已注册路由: {name}")
+        router_count += 1
+    except Exception as e:
+        app_logger.error(f"注册路由失败: {name}", exc_info=True)
+app_logger.info(f"API 路由注册完成，共注册 {router_count} 个路由模块")
+#=============================================================#
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["127.0.0.1"],  # 允许的前端域名
+    allow_credentials=True,
+    allow_methods=["*"],  # 允许所有方法
+    allow_headers=["*"],  # 允许所有头（或明确写 ["Content-Type", "Authorization"]）
+)
 
-# 健康检查端点
-@app.get("/health")
-async def health_check():
-    """健康检查"""
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "api_version": "1.0.0"
-    }
+#=============================================================#
+# 配置静态文件服务
+UPLOAD_DIR = os.getenv('UPLOAD_DIR', './uploads')
+app_logger.info(f"配置上传目录: {UPLOAD_DIR}")
 
+if os.path.exists(UPLOAD_DIR):
+    # 挂载上传目录作为静态文件服务
+    app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+    app_logger.info(f"静态文件服务已挂载: {UPLOAD_DIR} -> /uploads")
+else:
+    # 如果上传目录不存在，创建它
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+    app_logger.info(f"创建并挂载上传目录: {UPLOAD_DIR} -> /uploads")
+#=============================================================#
+# 创建数据库表
+app_logger.info("开始初始化数据库表")
+from app.database.orm import *
+create_tables()
+app_logger.info("数据库表初始化完成")
+#=============================================================#
 if __name__ == "__main__":
-    import uvicorn
-    print("🚀 启动时光胶囊API服务...")
-    print("📖 API文档地址: http://127.0.0.1:8000/docs")
-    print("❤️ 健康检查地址: http://127.0.0.1:8000/health")
-    print("=" * 50)
+    app_logger.info("应用程序启动中...")
+    try:
+        # 启动服务器
+        host = os.getenv('HOST', '0.0.0.0')
+        port = int(os.getenv('PORT', 8000))
+        app_logger.info(f"启动服务器: {host}:{port}")
+        uvicorn.run(
+            "main:app",
+            host=host,
+            port=port,
+            reload=True
+        )
+    except Exception as e:
+        app_logger.error(f"应用程序启动失败: {str(e)}", exc_info=True)
+        raise
 
-    # 创建数据库表
-    create_tables()
-
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True
-    )

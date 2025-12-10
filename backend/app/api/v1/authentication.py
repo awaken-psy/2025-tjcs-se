@@ -4,6 +4,7 @@ Authentication API interface
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from app.database.database import get_db
+from logger import api_logging, get_logger
 
    
 
@@ -22,8 +23,10 @@ from app.services.login import LoginManager
 
 
 router = APIRouter(prefix='/auth', tags=['Authorization'])
+logger = get_logger(f"router<{__name__}>")
 
 @router.post("/sendcode", response_model=BaseResponse[None])
+@api_logging(logger)
 async def send_code(request: SendCodeRequest):
     """发送验证码"""
     try:
@@ -39,6 +42,7 @@ async def send_code(request: SendCodeRequest):
 
 
 @router.post("/register", response_model=BaseResponse[UserAuthResponse])
+@api_logging(logger)
 async def register(
     request: UserRegisterRequest,
 ):
@@ -109,6 +113,7 @@ async def check_student_id_availability(
 
 
 @router.post("/login", response_model=BaseResponse[UserAuthResponse])
+@api_logging(logger)
 async def login(
     request: UserLoginRequest,
 ):

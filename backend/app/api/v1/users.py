@@ -13,11 +13,14 @@ from app.model import (
 from app.auth.dependencies import login_required
 from app.domain.user import AuthorizedUser
 from app.services.user_service import UserService
+from app.logger import get_logger, api_logging
 
 router = APIRouter(prefix='/users', tags=['Users'])
+logger = get_logger(f"router<{__name__}>")
 
 
 @router.get("/me", response_model=BaseResponse[UserProfile])
+@api_logging(logger)
 async def get_my_profile(
     current_user: AuthorizedUser = Depends(login_required)
 ):
@@ -39,6 +42,7 @@ async def get_my_profile(
 
 
 @router.put("/me", response_model=BaseResponse[None])
+@api_logging(logger)
 async def update_my_profile(
     request: UpdateUserRequest,
     current_user: AuthorizedUser = Depends(login_required)

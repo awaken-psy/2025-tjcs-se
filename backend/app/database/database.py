@@ -4,6 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.engine import Engine
+from app.logger import db_logger
 
 # 获取项目根目录
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -94,15 +95,13 @@ def get_db():
 def create_tables():
     """创建数据库表"""
     try:
-        print(f"🔧 正在创建数据库表...")
-
+        db_logger.info("开始创建数据库表...")
         Base.metadata.create_all(bind=engine)
-        print("✅ 所有数据库表创建完成")
+        db_logger.info("数据库表创建成功！")
     except Exception as e:
-        print(f"❌ 创建数据库表时出错: {e}")
-        print("🔍 这可能是由于权限问题或路径不存在导致的")
+        db_logger.error(f"创建数据库表时出错: {e}, 这可能是由于权限问题或路径不存在导致的")
         # 不要抛出异常，让应用继续运行
-        print("⚠️  应用将在没有数据库表的情况下继续运行")
+        db_logger.warning(f"程序将在没有数据库的情况下运行")
 
 
 def drop_tables():
