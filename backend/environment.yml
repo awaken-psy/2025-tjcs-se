@@ -77,6 +77,9 @@ dependencies:
   - certifi=2025.10.5
   - tzdata=2025b
 
+  # redis
+  - redis
+
   # 通过pip安装的包（跨平台兼容）
   - pip:
     - watchfiles==1.1.1
