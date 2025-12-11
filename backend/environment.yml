@@ -4,7 +4,7 @@ channels:
   - defaults
 dependencies:
   # Python版本
-  - python=3.13.9
+  - python=3.11
 
   # 核心Web框架
   - fastapi=0.119.1
@@ -76,6 +76,9 @@ dependencies:
   - ca-certificates=2025.10.5
   - certifi=2025.10.5
   - tzdata=2025b
+
+  # redis
+  - redis
 
   # 通过pip安装的包（跨平台兼容）
   - pip:

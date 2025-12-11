@@ -90,6 +90,7 @@ test:backend:
     - conda env create -f backend/environment.yml -n $CONDA_ENV_NAME || conda env update -f backend/environment.yml -n $CONDA_ENV_NAME
     - source activate $CONDA_ENV_NAME
     - conda list
+    - pip install -r backend/requirements.txt
     - conda install coverage
     - conda install pytest-cov
   script:
@@ -122,6 +123,7 @@ test:backend:quick:
     - *default_before_script
     - conda env create -f backend/environment.yml -n $CONDA_ENV_NAME || conda env update -f backend/environment.yml -n $CONDA_ENV_NAME
     - source activate $CONDA_ENV_NAME
+    - pip install -r backend/requirements.txt
   script:
     - echo "Running quick backend tests for feature branch..."
     - pytest backend/tests/ -v --tb=short --color=yes
@@ -139,6 +141,7 @@ test:backend:api:
     - *default_before_script
     - conda env create -f backend/environment.yml -n $CONDA_ENV_NAME || conda env update -f backend/environment.yml -n $CONDA_ENV_NAME
     - source activate $CONDA_ENV_NAME
+    - pip install -r backend/requirements.txt
   script:
     - echo "Testing backend API startup..."
     - timeout 10 python backend/app/main.py &
@@ -246,6 +249,7 @@ build:backend:validate:
     - *default_before_script
     - conda env create -f backend/environment.yml -n $CONDA_ENV_NAME || conda env update -f backend/environment.yml -n $CONDA_ENV_NAME
     - source activate $CONDA_ENV_NAME
+    - pip install -r backend/requirements.txt
   script:
     - echo "Validating backend build..."
     - python -m py_compile backend/app/main.py
@@ -402,92 +406,9 @@ deploy:production:
 
       echo '=== ✅ 代码同步完成 ==='
 
-      # --------------------------
-      # 构建后端 Docker 镜像
-      # --------------------------
-      echo '=== 🐳 开始构建后端 Docker 镜像 ==='
-      echo "检查 backend 目录:"
-      ls -la backend/ || echo "backend 目录不存在"
-      cd $PROJECT_PATH/backend
-      echo "切换后目录: $(pwd)"
-
-      # 生成 Dockerfile（如果项目未包含）
-      if [ ! -f "Dockerfile" ]; then
-        echo 'backend Dockerfile dont exist!'
-        exit 1;
-      fi
-
-      docker build --no-cache -t timecapsule-backend:$CI_COMMIT_SHORT_SHA .
-      # --------------------------
-      # 构建前端 Docker 镜像
-      # --------------------------
-      echo '=== 🐳 构建前端 Docker 镜像 ==='
-      cd $PROJECT_PATH/frontend
-      echo "切换后目录: $(pwd)"
-
-      # ==========================
-      # Stage 1: Build Vue app
-      # ==========================
-
-      # 生成 Dockerfile（如果项目未包含）
-      if [ ! -f "Dockerfile" ]; then
-        echo 'frontend Dockerfile dont exist!'
-        exit 1;
-      fi  
-
-      docker build --no-cache -t timecapsule-frontend:$CI_COMMIT_SHORT_SHA .
-
-      # --------------------------
-      # 运行 Docker 容器
-      # --------------------------
-
-      echo "=== 建立局域网 ==="
-      docker network create timecapsule-net || true
-
-      echo '=== 🧩 启动后端容器 ==='      
-      BACKEND_CONTAINER=$(docker ps -a -q -f name=timecapsule-backend)
-      echo "当前容器ID: $BACKEND_CONTAINER"
-      echo "调试 - 变量长度: ${BACKEND_CONTAINER}"
-      echo "调试 - 变量内容: |$BACKEND_CONTAINER|"
       echo "调试 - 命令退出码: $?"
 
-      if [ -n "$BACKEND_CONTAINER" ]; then
-        echo 'timecapsule-backend exist, stop remove and restart'
-        sudo docker stop timecapsule-backend
-        sudo docker rm -f timecapsule-backend
-      fi
-
-      docker run -d \
-        --name timecapsule-backend \
-        -v $PROJECT_PATH/database:/app/uploads \
-        -p 8000:8000 \
-        --network timecapsule-net \
-        timecapsule-backend:$CI_COMMIT_SHORT_SHA
-        
-      echo '=== 🧩 启动前端容器 ==='
-      FRONTEND_CONTAINER=$(docker ps -a -q -f name=timecapsule-frontend)
-      echo "当前容器ID: $FRONTEND_CONTAINER"
-      echo "调试 - 变量长度: ${FRONTEND_CONTAINER}"
-      echo "调试 - 变量内容: |$FRONTEND_CONTAINER|"
-      echo "调试 - 命令退出码: $?"
-
-      if [ -n "$FRONTEND_CONTAINER" ]; then
-        echo 'timecapsule-frontend exist, stop remove and restart'
-        sudo docker stop timecapsule-frontend
-        sudo docker rm -f timecapsule-frontend
-      fi
-
-      docker run -d \
-        --name timecapsule-frontend \
-        -p 80:80 \
-        --network timecapsule-net \
-        timecapsule-frontend:$CI_COMMIT_SHORT_SHA
-
-      echo '=== ✅ 部署完成 ==='
-      docker ps -a | grep timecapsule-backend
-      docker ps -a | grep timecapsule-frontend
-      REMOTE_SCRIPT
-
+      sudo bash ./setup.sh
   environment:
     name: production
     url: http://$DEPLOY_SERVER

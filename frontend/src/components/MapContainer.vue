@@ -32,8 +32,8 @@
       v-if="showControls"
       class="map-controls"
     >
-      <button 
-        class="control-btn" 
+      <button
+        class="control-btn"
         :disabled="isLocating"
         :title="locationPermission === 'granted' ? '重新定位' : '请求位置权限'"
         @click="handleLocate"
@@ -43,30 +43,6 @@
           :class="locationPermission === 'granted' ? 'fa-location-arrow' : 'fa-location-crosshairs'"
         />
         {{ isLocating ? '定位中...' : '定位' }}
-      </button>
-      <button 
-        class="control-btn" 
-        :title="realTimeTracking ? '关闭实时追踪' : '开启实时追踪'"
-        @click="toggleRealTimeTracking"
-      >
-        <i
-          class="fas"
-          :class="realTimeTracking ? 'fa-satellite-dish' : 'fa-satellite'"
-        />
-      </button>
-      <button 
-        class="control-btn" 
-        title="放大"
-        @click="zoomIn"
-      >
-        <i class="fas fa-plus" />
-      </button>
-      <button 
-        class="control-btn" 
-        title="缩小"
-        @click="zoomOut"
-      >
-        <i class="fas fa-minus" />
       </button>
     </div>
 
@@ -182,7 +158,7 @@ const props = defineProps({
   },
   mapHeight: {
     type: String,
-    default: '600px'
+    default: '1200px'
   },
   showControls: {
     type: Boolean,
@@ -215,6 +191,8 @@ const markers = ref([])
 let userLocationMarker = null
 let locationPulseLayer = null
 
+
+
 // 显示通知
 const showStatusNotification = (text, icon = 'fa-info-circle') => {
   notificationText.value = text
@@ -245,13 +223,24 @@ const initMap = () => {
     // 使用默认中心点（北京）
     const defaultCenter = [116.397428, 39.90923]
     
-    // 初始化地图实例
+    // 1. 创建地图实例
     map = new AMap.Map(mapRef.value, {
-      zoom: 10,
-      center: defaultCenter,
-      viewMode: '2D',
-      mapStyle: 'amap://styles/normal'
+        zoom: 15,
+        center: [120.529881, 31.026362], 
+        mapStyle: 'amap://styles/blue',
     })
+
+    // 【核心修复】：强制地图重绘
+    // 延迟执行确保地图容器 DOM 元素已经获得了最终的像素高度
+    setTimeout(() => {
+        if (map) {
+            // AMap 实例提供了 resize 方法来修复初始化时的尺寸问题
+            map.resize() // 自动调整视图以包含所有覆盖物（或默认视图）
+            // 或者使用 map.resize()
+            // map.resize();
+            console.log("AMap: 强制重绘/适配视图完成，地图应已显示。");
+        }
+    }, 100) // 给予 100ms 足够的时间让浏览器计算布局
 
     // 添加地图控件
     if (AMap.Scale) {
@@ -313,13 +302,20 @@ const handleLocate = () => {
 
 // 执行定位 - 使用新的定位服务
 // 执行定位 - 直接使用高德地图定位
+// MapContainer.vue - locateUser 函数
 const locateUser = async() => {
   isLocating.value = true
   
   try {
     const location = await getCurrentLocation()
     
-    if (location.success) {
+    // 关键修改：不再严格依赖 location.success，而是检查是否有坐标，
+    // 且精度在可接受范围内。
+    // 假设：我们接受精度在 100 米以内的结果
+    const ACCEPTABLE_ACCURACY = 400 // 设定一个可接受的精度阈值
+
+    if (location.longitude && location.latitude && location.accuracy <= ACCEPTABLE_ACCURACY) {
+      // 成功获取到坐标且精度合格 (即使 location.success 可能为 false)
       userLocation.value = {
         lng: location.longitude,
         lat: location.latitude,
@@ -327,22 +323,48 @@ const locateUser = async() => {
         source: location.source
       }
       
+      // 【步骤一完成】：定位成功，将定位信息发射给 MapView.vue
+      emit('location-updated', userLocation.value) 
+      
       updateUserLocationMarker()
       renderCapsuleMarkers()
       updateLastLocationTime()
       
-      showStatusNotification('定位成功！', 'fa-crosshairs')
+      // 显示通知：如果是失败后抢救的定位，可能需要不同的通知
+      if (!location.success) {
+          showStatusNotification(`定位成功，精度 ${location.accuracy} 米`, 'fa-crosshairs')
+      } else {
+          showStatusNotification('定位成功！', 'fa-crosshairs')
+      }
       
       if (locationPermission.value === 'granted' && !realTimeTracking.value) {
         realTimeTracking.value = true
         startRealTimeTracking()
       }
+      
     } else {
-      throw new Error(location.error || '定位失败')
+      // 定位失败 (无坐标、或精度过差、或 getCurrentLocation 彻底失败)
+      // 如果定位失败，且提供了错误信息，则抛出它
+      if (location.error) {
+        throw new Error(location.error)
+      } else if (location.accuracy > ACCEPTABLE_ACCURACY) {
+        // 如果有坐标但精度不满足要求，明确抛出精度不足的错误
+        throw new Error(`定位精度不足（${location.accuracy}米），已设置阈值为 ${ACCEPTABLE_ACCURACY} 米。`)
+      } else {
+        // 彻底的未知失败
+        throw new Error('定位失败')
+      }
     }
   } catch (error) {
     console.error('定位失败:', error)
+    
+    // 定位失败后，使用默认位置并继续渲染地图和胶囊
     userLocation.value = { lng: 116.397428, lat: 39.90923, source: '默认位置' }
+    
+    // 【步骤一完成】：定位失败，但仍需将默认位置信息发射给 MapView.vue
+    // 这样 MapView.vue 才能触发 fetchCapsules()
+    emit('location-updated', userLocation.value) 
+
     updateUserLocationMarker()
     renderCapsuleMarkers()
     
@@ -468,39 +490,14 @@ const startPulseAnimation = () => {
 // 渲染胶囊标记
 const renderCapsuleMarkers = () => {
   if (!map) return
-  
+
   // 清除现有胶囊标记
   markers.value.filter(m => !m.isUserLocation).forEach(marker => {
     map.remove(marker)
   })
   
-  // 使用默认数据渲染标记
-  const defaultCapsules = [
-    {
-      id: 1,
-      lng: 116.397428,
-      lat: 39.90923,
-      title: '示例胶囊1',
-      desc: '这是一个示例胶囊的描述信息',
-      vis: 'public',
-      views: 100,
-      time: new Date(),
-      tags: ['示例', '测试']
-    },
-    {
-      id: 2,
-      lng: 116.407428,
-      lat: 39.91923,
-      title: '示例胶囊2',
-      desc: '另一个示例胶囊的描述',
-      vis: 'friend',
-      views: 50,
-      time: new Date(),
-      tags: ['测试']
-    }
-  ]
-  
-  const capsules = props.capsuleData.length > 0 ? props.capsuleData : defaultCapsules
+  // 只使用传入的胶囊数据，不使用默认数据
+  const capsules = props.capsuleData
   
   capsules.forEach(capsule => {
     const marker = createCapsuleMarker(capsule)
@@ -522,6 +519,9 @@ const createCapsuleMarker = (capsule) => {
   } else if (capsule.vis === 'private') {
     iconUrl = 'https://webapi.amap.com/theme/v1.3/markers/n/mark_r.png' // 红色
   }
+
+  // 🎯 调试：确认创建成功的坐标
+  console.log(`成功创建 Marker 实例，坐标: [${capsule.lng}, ${capsule.lat}]`);
   
   const marker = new AMap.Marker({
     position: [capsule.lng, capsule.lat],
@@ -679,7 +679,8 @@ const handleNavToCapsule = (capsuleId) => {
 }
 
 // 监听胶囊数据变化
-watch(() => props.capsuleData, () => {
+watch(() => props.capsuleData, (newVal) => {
+  //console.log('MapContainer Watch: 接收到新胶囊数据，长度:', newVal.length)
   if (isMapLoaded.value) {
     renderCapsuleMarkers()
   }
@@ -687,22 +688,17 @@ watch(() => props.capsuleData, () => {
 
 // 组件挂载和卸载
 onMounted(() => {
-  // 等待高德地图API加载完成
-  const checkAMap = setInterval(() => {
+    // 假设 AMap 库已加载
     if (window.AMap) {
-      clearInterval(checkAMap)
-      initMap()
+        initMap()
+    } else {
+        // 如果 AMap 是异步加载的，这里需要添加一个延迟或监听机制
+        console.warn('等待 AMap 库加载...')
+        // 实际项目中应监听 AMap Ready 事件，此处简化为 setTimeout
+        setTimeout(() => {
+             if (window.AMap) initMap();
+        }, 500)
     }
-  }, 100)
-  
-  // 10秒后超时
-  setTimeout(() => {
-    clearInterval(checkAMap)
-    if (!window.AMap) {
-      console.error('高德地图API加载超时')
-      showStatusNotification('地图加载超时，请刷新页面', 'fa-exclamation-circle')
-    }
-  }, 10000)
 })
 
 onUnmounted(() => {
@@ -717,6 +713,7 @@ onUnmounted(() => {
 .map-container {
   position: relative;
   width: 100%;
+  height: 100%; /* 【关键修复】：确保根容器继承父组件的 100% 高度 */
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow);
@@ -724,7 +721,7 @@ onUnmounted(() => {
 
 .amap-container {
   width: 100%;
-  height: 100%;
+  height: 100%; 
 }
 
 /* 通知栏 */

@@ -1,15 +1,17 @@
 """
-Admin Service - 管理员服务层
+Admin Service - 处理管理员相关的业务逻辑
 """
-from datetime import datetime
+from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any
 
 from app.database.repositories.admin_repository import AdminRepository
 from app.model.admin import (
     PendingCapsulesQuery,
     PendingCapsulesResponse,
+    PendingCapsule,
     ReportsQuery,
     ReportsResponse,
+    ReportItem,
     ReviewCapsuleRequest,
     Action
 )
@@ -17,10 +19,9 @@ from app.core.exceptions import RecordNotFoundException, ValidationException
 
 
 class AdminService:
-    """管理员服务"""
+    """管理员业务服务类"""
 
-    def __init__(self, db=None):
-        """初始化管理员服务"""
+    def __init__(self, db: Optional[Session] = None):
         self.repository = AdminRepository(db)
 
     def get_pending_capsules(self, query: PendingCapsulesQuery) -> PendingCapsulesResponse:
@@ -29,7 +30,7 @@ class AdminService:
             # 设置默认值
             page = query.page or 1
             page_size = query.page_size or 20
-            sort = query.sort.value if hasattr(query.sort, 'value') else (query.sort if query.sort else "latest")
+            sort = query.sort.value if query.sort else "latest"
 
             result = self.repository.get_pending_capsules(
                 page=page,
@@ -50,9 +51,9 @@ class AdminService:
             # 设置默认值
             page = query.page or 1
             page_size = query.page_size or 20
-            status = query.status.value if hasattr(query.status, 'value') else query.status
-            target_type = query.target_type.value if hasattr(query.target_type, 'value') else query.target_type
-            reason = query.reason.value if hasattr(query.reason, 'value') else query.reason
+            status = query.status.value if query.status else None
+            target_type = query.target_type.value if query.target_type else None
+            reason = query.reason.value if query.reason else None
 
             result = self.repository.get_reports(
                 status=status,
@@ -72,7 +73,7 @@ class AdminService:
     def review_capsule(self, capsule_id: str, request: ReviewCapsuleRequest) -> bool:
         """审核胶囊"""
         try:
-            # 验证输入参数
+            # 验证请求参数
             if not capsule_id:
                 raise ValidationException("胶囊ID不能为空")
 
@@ -82,7 +83,7 @@ class AdminService:
             # 执行审核
             result = self.repository.review_capsule(
                 capsule_id=capsule_id,
-                action=request.action.value if hasattr(request.action, 'value') else request.action,
+                action=request.action.value,
                 reason=request.reason
             )
 
@@ -98,17 +99,12 @@ class AdminService:
     def resolve_report(self, report_id: str) -> bool:
         """处理举报"""
         try:
-            # 验证输入参数
             if not report_id:
                 raise ValidationException("举报ID不能为空")
 
-            # 执行处理
             result = self.repository.resolve_report(report_id)
-
             return result
 
-        except RecordNotFoundException:
-            raise
         except ValidationException:
             raise
         except Exception as e:
