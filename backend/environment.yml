@@ -4,7 +4,7 @@ channels:
   - defaults
 dependencies:
   # Python版本
-  - python=3.13.9
+  - python=3.13
 
   # 核心Web框架
   - fastapi=0.119.1
