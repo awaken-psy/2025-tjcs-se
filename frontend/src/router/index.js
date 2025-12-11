@@ -56,4 +56,43 @@ const router = createRouter({
   routes: routes
 })
 
+// 全局前置守卫：确保用户必须登录后才能访问受保护的页面
+router.beforeEach((to, from, next) => {
+  // 定义不需要登录就能访问的页面（白名单）
+  const publicPages = ['/login']
+
+  // 检查目标路由是否需要认证
+  const requiresAuth = !publicPages.includes(to.path)
+
+  if (requiresAuth) {
+    // 检查用户是否已登录
+    const token = localStorage.getItem('access_token')
+
+    if (!token) {
+      // 未登录，重定向到登录页，并保存原来要访问的页面
+      console.log(`🔒 [路由守卫] 用户未登录，从 ${to.path} 重定向到登录页`)
+      next({
+        path: '/login',
+        query: {
+          redirect: to.fullPath // 保存原始访问路径，登录后可以跳转回来
+        }
+      })
+      return
+    }
+  }
+
+  // 如果是登录页面但用户已经登录，重定向到hub页面
+  if (to.path === '/login') {
+    const token = localStorage.getItem('access_token')
+    if (token) {
+      console.log('🔓 [路由守卫] 用户已登录，从登录页重定向到hub页')
+      next('/hubviews')
+      return
+    }
+  }
+
+  // 允许正常导航
+  next()
+})
+
 export default router

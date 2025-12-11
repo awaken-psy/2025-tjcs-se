@@ -137,3 +137,86 @@ export const likeCapsule = (capsuleId) => {
     method: 'post' // 或 put
   })
 }
+
+/**
+ * 获取胶囊地图标记数据
+ * @param {Object} params - 查询参数
+ * @param {number} params.lat - 纬度
+ * @param {number} params.lng - 经度
+ * @param {number} params.range - 搜索范围（米）
+ * @returns {Promise}
+ */
+export const getCapsuleMarkers = (params = {}) => {
+  // 使用附近胶囊API获取地图标记数据
+  return request({
+    url: '/hub/nearby-capsules',
+    method: 'get',
+    params: {
+      lat: params.lat || 31.2921302, // 默认位置：上海
+      lng: params.lng || 121.2152746,
+      range: params.range || 1000,
+      page: 1,
+      limit: 100
+    }
+  }).then(response => {
+    // 将附近胶囊数据转换为地图标记格式
+    const capsules = response.capsules || []
+    return capsules.map(capsule => ({
+      id: capsule.id,
+      title: capsule.title,
+      lat: capsule.location?.latitude,
+      lng: capsule.location?.longitude,
+      visibility: capsule.visibility,
+      is_unlocked: capsule.is_unlocked,
+      can_unlock: capsule.can_unlock,
+      creator_nickname: capsule.creator_nickname,
+      created_at: capsule.created_at,
+      distance: capsule.location?.distance
+    }))
+  })
+}
+
+/**
+ * 获取热力图数据
+ * @param {Object} params - 查询参数
+ * @returns {Promise}
+ */
+export const getHeatmapData = (params = {}) => {
+  // 暂时返回模拟数据，后续可以对接专门的热力图API
+  return Promise.resolve([
+    { lat: 31.2921302, lng: 121.2152746, intensity: 0.8 },
+    { lat: 31.2931302, lng: 121.2162746, intensity: 0.6 },
+    { lat: 31.2911302, lng: 121.2142746, intensity: 0.4 }
+  ])
+}
+
+/**
+ * 获取用户当前位置
+ * @returns {Promise}
+ */
+export const getUserLocation = () => {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      resolve({ lat: 31.2921302, lng: 121.2152746 }) // 默认位置
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        })
+      },
+      (error) => {
+        console.warn('获取用户位置失败:', error)
+        resolve({ lat: 31.2921302, lng: 121.2152746 }) // 默认位置
+      },
+      {
+        timeout: 10000,
+        enableHighAccuracy: true,
+        maximumAge: 300000 // 5分钟缓存
+      }
+    )
+  })
+}

@@ -170,7 +170,7 @@
             <span v-if="currentDetailData.time"><i class="fas fa-clock" /> {{ formatStandard(currentDetailData.time) }}</span>
             <span v-if="currentDetailData.vis"><i class="fas fa-lock" /> {{ getVisText(currentDetailData.vis) }}</span>
             <span><i class="fas fa-unlock-alt" /> {{ getUnlockText(currentDetailData.unlockType, currentDetailData.unlockValue) }}</span>
-            <span><i class="fas fa-map-marker-alt" /> {{ currentDetailData.location || '未知位置' }}</span>
+            <span><i class="fas fa-map-marker-alt" /> {{ getLocationText(currentDetailData.location) }}</span>
           </div>
           <div
             v-if="currentDetailData.img"
@@ -264,7 +264,7 @@ const capsuleTotal = ref(0)
 
 // 筛选条件
 const filter = ref({
-  vis: 'public', // 可见性：public/friend/private
+  vis: 'public', // 可见性：public/friends/private
   sort: 'newest', // 排序：newest/oldest/popular
   search: '' // 搜索关键词（顶部导航搜索）
 })
@@ -296,7 +296,7 @@ const filteredCapsules = computed(() => {
 
   // 1. 可见性筛选
   if (filter.value.vis !== 'public') {
-    result = result.filter(c => c.vis === filter.value.vis)
+    result = result.filter(c => c.visibility === filter.value.vis)
   }
 
   // 2. 搜索筛选（顶部导航搜索）
@@ -334,34 +334,93 @@ onMounted(async() => {
 
 
 //核心方法：加载我的胶囊列表（调用API）
-// reviewed
+// 🔥 修改：使用 getCapsuleDetail 获取完整信息，确保位置数据一致性
 const fetchCapsuleList = async () => {
   console.log('加载我的胶囊列表，当前筛选条件：', filter.value)
   isLoading.value = true
   try {
+    // 1. 首先获取胶囊基础列表
     const res = await getMyCapsules({
       page: currentPage.value,
       size: pageSize.value,
       status: 'all' // 显示用户的所有胶囊
     })
 
-    //console.log('获取胶囊列表接口返回数据：', res)
-    //NOTE:分页模型中，后端响应了四个值，分别是页面大小，总页数，总胶囊数，和当前页数。
-    //其中页面大小和当前页数是request的，实际只用了总胶囊数，总页数是前端自己算的
+    console.log('获取胶囊基础列表接口返回数据：', res)
 
     if (res && Array.isArray(res.capsules)) {
-      // 数据映射：将后端字段映射到前端组件期望的字段
-      capsuleList.value = res.capsules.map(capsule => ({
-        ...capsule,
-        // 添加前端需要的状态字段
-        is_mine: true,
-        //TODO：返回的json要加一个bool值的liked和collected字段
-        liked: false, // 初始化为未点赞状态，后续可以根据用户数据设置
-        collected: false,    // 初始化为未收藏
-        // 其他字段保持原样，因为组件现在直接使用后端字段名
-      }))
+      // 2. 对每个胶囊调用 getCapsuleDetail 获取完整信息
+      const detailPromises = res.capsules.map(async (capsule) => {
+        try {
+          const detail = await getCapsuleDetail(capsule.id)
+          console.log(`获取胶囊详情 ${capsule.id}:`, detail)
+
+          // 3. 将详细信息映射为列表组件期望的格式
+          return {
+            // 基础信息（来自detail）
+            id: detail.id,
+            title: detail.title,
+            content: detail.content,
+            visibility: detail.visibility,
+            status: detail.status,
+            created_at: detail.created_at,
+            tags: detail.tags || [],
+
+            // 统计信息（来自detail.stats）
+            like_count: detail.stats?.like_count || 0,
+            comment_count: detail.stats?.comment_count || 0,
+            unlock_count: detail.stats?.unlock_count || 0,
+            view_count: detail.stats?.view_count || 0,
+
+            // 🔥 关键：位置信息（来自detail.location）
+            location: detail.location,
+
+            // 解锁条件（来自detail.unlock_conditions）
+            unlock_conditions: detail.unlock_conditions,
+
+            // 媒体文件（来自detail.media_files）
+            media_files: detail.media_files || [],
+
+            // 创建者信息（来自detail.creator）
+            creator: detail.creator,
+
+            // 前端需要的状态字段
+            is_mine: true,
+            liked: detail.stats?.is_liked || false,
+            collected: detail.stats?.is_collected || false,
+
+            // 兼容字段映射（用于旧的组件引用）
+            time: detail.created_at,
+            desc: detail.content,
+            vis: detail.visibility,
+            likes: detail.stats?.like_count || 0,
+            views: detail.stats?.view_count || 0,
+            img: detail.media_files?.[0]?.url || null
+          }
+        } catch (error) {
+          console.error(`获取胶囊详情失败 ${capsule.id}:`, error)
+          // 如果获取详情失败，使用基础信息作为fallback
+          return {
+            ...capsule,
+            is_mine: true,
+            liked: false,
+            collected: false,
+            location: null, // 无法获取位置信息
+            time: capsule.created_at,
+            desc: capsule.content_preview || '',
+            vis: capsule.visibility,
+            likes: capsule.like_count || 0,
+            views: 0
+          }
+        }
+      })
+
+      // 4. 等待所有详情获取完成
+      capsuleList.value = await Promise.all(detailPromises)
       capsuleTotal.value = res.pagination?.total ?? res.capsules.length
-      //console.log(`打印获取到的胶囊列表，共 ${capsuleTotal.value} 个胶囊`, JSON.parse(JSON.stringify(capsuleList.value)))
+
+      console.log(`✅ 成功加载胶囊列表，共 ${capsuleTotal.value} 个胶囊，包含完整位置信息`,
+                  JSON.parse(JSON.stringify(capsuleList.value)))
     } else {
       capsuleList.value = []
       capsuleTotal.value = 0
@@ -376,15 +435,41 @@ const fetchCapsuleList = async () => {
 }
 
 /**
- * 辅助函数：获取可见性文本
+ * 辅助函数：获取可见性文本（与CapsuleCard组件保持一致）
  */
-const getVisText = (vis) => {
-  switch (vis) {
-  case 'public': return '校园公开'
-  case 'friend': return '好友可见'
-  case 'private': return '仅自己可见'
-  default: return '未知'
+const getVisText = (visibility) => {
+  switch (visibility) {
+    case 'private': return '仅自己可见'
+    case 'friends': return '好友可见'
+    case 'public': return '公开'
+    default: return '公开'
   }
+}
+
+/**
+ * 辅助函数：获取位置文本
+ * @param {Object|String|null} location - 位置信息对象或字符串
+ * @returns {String} 位置文本
+ */
+const getLocationText = (location) => {
+  // 如果是字符串，直接返回
+  if (typeof location === 'string') {
+    return location
+  }
+
+  // 如果是对象，构造地址文本
+  if (location && typeof location === 'object') {
+    if (location.address) {
+      return location.address
+    }
+    // 如果没有地址但有坐标，显示坐标
+    if (location.latitude && location.longitude) {
+      return `位置 (${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)})`
+    }
+  }
+
+  // 默认返回未知位置
+  return '未知位置'
 }
 
 /**
@@ -486,28 +571,36 @@ const handlePageChange = async(page) => {
 }
 
 // —— 共用组件 CapsuleActionButtons 事件处理 ——
-// 原代码: const handleViewCapsule = (capsuleId) => { ... }
-const handleViewCapsule = async(capsuleId) => {
-  // 调用 getCapsuleDetail 获取最新详情 (TODO5)
+// 🔥 优化：直接使用列表中已获取的完整信息，无需重复调用API
+const handleViewCapsule = (capsuleId) => {
   isProcessing.value[`view_${capsuleId}`] = true
   try {
-    const detail = await getCapsuleDetail(capsuleId)
-    if (detail) {
-      currentDetailData.value = detail
-      // 将解锁条件和媒体文件等详细信息映射到 currentDetailData
-      currentDetailData.value.unlockType = detail.unlock_conditions?.type
-      currentDetailData.value.unlockValue = detail.unlock_conditions?.value
-      currentDetailData.value.location = detail.location?.address
-      currentDetailData.value.img = detail.media_files?.[0]?.url // 假设取第一个媒体文件作为图片
-      currentDetailData.value.likes = detail.like_count // 确保 likes 字段正确
-      currentDetailData.value.views = detail.view_count // 确保 views 字段正确
+    // 从列表中找到对应的胶囊（已包含完整详情信息）
+    const capsule = capsuleList.value.find(c => c.id === capsuleId)
+    console.log('🔍 [DEBUG] 从列表中获取的胶囊数据:', capsule)
+
+    if (capsule) {
+      // 直接使用列表中的完整信息
+      currentDetailData.value = {
+        ...capsule,
+        // 映射字段为详情弹窗期望的格式
+        unlockType: capsule.unlock_conditions?.type,
+        unlockValue: capsule.unlock_conditions?.value,
+        // location 字段已经是完整的对象
+        // img 字段已经在fetchCapsuleList中设置
+        // likes、views 字段已经在fetchCapsuleList中设置
+        // desc 字段已经在fetchCapsuleList中设置
+      }
+
+      console.log('🔍 [DEBUG] 设置后的 currentDetailData:', currentDetailData.value)
       showDetailModal.value = true
     } else {
-      alert('获取胶囊详情失败')
+      console.error(`未找到胶囊 ${capsuleId}`)
+      alert('未找到胶囊信息')
     }
   } catch (error) {
-    console.error(`获取胶囊详情(${capsuleId})失败：`, error)
-    alert('加载详情失败，请稍后重试')
+    console.error(`查看胶囊详情(${capsuleId})失败：`, error)
+    alert('查看详情失败，请稍后重试')
   } finally {
     isProcessing.value[`view_${capsuleId}`] = false
   }
@@ -548,31 +641,50 @@ const handleLikeCapsule = async(capsuleId) => {
   }
 }
 
-//TODO: 对接更新api
-const handleEditCapsule = async(capsuleId) => {
-  const capsule = capsuleList.value.find(c => c.id === capsuleId)
+//🔥 优化：直接使用列表中已获取的完整信息，无需重复调用API
+const handleEditCapsule = (capsuleId) => {
+  isProcessing.value[`edit_${capsuleId}`] = true
 
-  if (capsule) {
-    // 1. 设置编辑数据，并进行字段映射
-    currentEditData.value = {
-      ...capsule,
-      // ⚠️ 字段映射：将列表/详情返回的 `desc` 字段映射为表单组件需要的 `content` 字段
-      content: capsule.desc, 
+  try {
+    // 从列表中找到对应的胶囊（已包含完整详情信息）
+    const capsule = capsuleList.value.find(c => c.id === capsuleId)
+    console.log('🔍 [DEBUG] 编辑时从列表获取的胶囊数据:', capsule)
+
+    if (capsule) {
+      // 1. 设置编辑数据，使用列表中的完整数据，并映射为CapsuleForm期望的格式
+      currentEditData.value = {
+        id: capsule.id,
+        title: capsule.title,
+        content: capsule.content, // 使用完整的content
+        visibility: capsule.visibility,
+        tags: capsule.tags || [],
+        // 🔥 修复：按照CapsuleForm期望的格式映射位置数据
+        location: capsule.location?.address || '', // 地址字符串
+        lat: capsule.location?.latitude || null,   // 纬度
+        lng: capsule.location?.longitude || null,  // 经度
+        // 其他可能需要的字段
+        unlock_conditions: capsule.unlock_conditions,
+        media_files: capsule.media_files
+      }
+
+      console.log('🔍 [DEBUG] 设置的编辑数据:', currentEditData.value)
+
+      // 2. 切换到编辑模式并打开表单
+      isEditMode.value = true
+      showFormModal.value = true
+
+      // 3. 关闭详情弹窗（防止双弹窗）
+      handleCloseDetail()
+    } else {
+      console.error(`未找到胶囊 ${capsuleId}`)
+      alert('未找到胶囊信息，无法编辑')
     }
-
-    // 2. 切换到编辑模式并打开表单
-    isEditMode.value = true
-    showFormModal.value = true
-
-    // 3. 关闭详情弹窗（防止双弹窗）
-    // 确保 handleCloseDetail 函数已定义
-    handleCloseDetail() 
-
-    // 4. 重新加载列表以确保数据最新
-    await fetchCapsuleList() 
+  } catch (error) {
+    console.error(`编辑胶囊(${capsuleId})失败：`, error)
+    alert('准备编辑失败，请稍后重试')
+  } finally {
+    isProcessing.value[`edit_${capsuleId}`] = false
   }
-
-  
 }
 
 
@@ -652,28 +764,62 @@ const onCapsuleCreated = async(formData) => {
       // 假设 formData 包含了所有需要更新的字段 (title, content, visibility, tags 等)
       // 需要将表单的 content 字段转回 API 期望的字段（例如：desc 或 content，这里用 content）
       
-      // 检查更新的字段
+      // 检查更新的字段，确保包含位置信息
       const updateData = {
         title: formData.title,
         content: formData.content,
         visibility: formData.visibility,
         tags: formData.tags,
-        // ... 其他需要更新的字段
+        // 🔥 关键：包含位置信息
+        location: formData.location ? {
+          latitude: formData.lat,
+          longitude: formData.lng,
+          address: formData.location
+        } : null,
+        // 其他可能的字段
+        unlock_conditions: formData.unlock_conditions,
+        media_files: formData.media_files
       }
+
+      console.log('🔄 准备更新胶囊数据:', updateData)
       
-      await updateCapsule(capsuleId, updateData) //
+      await updateCapsule(capsuleId, updateData)
       alert('胶囊更新成功！')
+
+      // 🔥 修复关键问题：更新成功后，需要同步更新详情弹窗数据
+      // 1. 重新加载列表数据
+      await fetchCapsuleList()
+
+      // 2. 如果详情弹窗是打开的，更新详情弹窗中的数据
+      if (showDetailModal.value && currentDetailData.value.id === capsuleId) {
+        // 从更新后的列表中找到对应胶囊的最新数据
+        const updatedCapsule = capsuleList.value.find(c => c.id === capsuleId)
+        if (updatedCapsule) {
+          console.log('🔄 更新详情弹窗数据:', updatedCapsule)
+          currentDetailData.value = {
+            ...updatedCapsule,
+            // 映射字段为详情弹窗期望的格式
+            unlockType: updatedCapsule.unlock_conditions?.type,
+            unlockValue: updatedCapsule.unlock_conditions?.value,
+          }
+          console.log('✅ 详情弹窗数据已更新:', currentDetailData.value)
+        }
+      }
+
     } catch (error) {
       console.error(`更新胶囊(${capsuleId})失败:`, error)
       alert(`胶囊更新失败：${error.message || '未知错误'}`)
       // 更新失败也需要关闭表单
+      handleCloseForm()
+      return
     }
-  } 
-  // TODO: 如果是创建模式 (isEditMode.value === false)，这里应调用 createCapsule API
-  // 现有代码将创建逻辑委托给 CapsuleForm 组件，所以这里暂时跳过。
+  } else {
+    // TODO: 如果是创建模式 (isEditMode.value === false)，这里应调用 createCapsule API
+    // 现有代码将创建逻辑委托给 CapsuleForm 组件，所以这里暂时跳过。
+    await fetchCapsuleList() // 创建完成后也需要重新加载列表
+  }
 
   handleCloseForm() // 关闭表单
-  await fetchCapsuleList() // 重新加载列表以显示更新后的数据
 }
 
 // 详情弹窗相关方法 

@@ -933,14 +933,16 @@ const handleSubmit = async() => {
     // 调试信息
     console.log('判断成功条件:', {
       result: result,
-      code: result?.code,
-      hasCapsuleId: !!result?.data?.capsule_id,
-      hasId: !!result?.data?.id,
-      condition: result?.code === 200 && result?.data
+      hasCapsuleId: !!result?.capsule_id,
+      hasId: !!result?.id,
+      isValidResult: !!result && (!!result.capsule_id || !!result.id)
     })
 
-    // 修复：根据后端返回的标准格式判断成功
-    if (result?.code === 200 && result?.data) {
+    // 🔥 修复：由于request拦截器自动解包，result直接就是data部分
+    // 判断成功的条件：result存在且包含capsule_id或id字段
+    const isSuccess = result && (result.capsule_id || result.id)
+
+    if (isSuccess) {
       showAlertMessage(successMessage, 'success')
       
       // 延迟关闭模态框，让用户看到成功消息
@@ -953,12 +955,11 @@ const handleSubmit = async() => {
       console.log('判断失败，进入错误分支:', {
         result: result,
         resultType: typeof result,
-        resultMessage: result?.message,
-        code: result?.code,
-        data: result?.data,
-        newCondition: result?.code === 200 && result?.data
+        hasCapsuleId: !!result?.capsule_id,
+        hasId: !!result?.id,
+        isValidResult: !!result && (!!result.capsule_id || !!result.id)
       })
-      throw new Error(result.message || (props.isEdit ? '更新胶囊失败' : '创建胶囊失败'))
+      throw new Error(result?.message || (props.isEdit ? '更新胶囊失败' : '创建胶囊失败'))
     }
 
   } catch (error) {
