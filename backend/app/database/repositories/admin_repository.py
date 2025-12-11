@@ -7,6 +7,7 @@ from typing import Optional, Dict, Any, List
 
 from app.database.orm.capsule import Capsule
 from app.database.orm.user import User
+from app.database.orm.report import Report, ReportStatus, TargetType, Reason
 from app.database.database import get_db
 from app.core.exceptions import RecordNotFoundException
 
@@ -86,28 +87,55 @@ class AdminRepository:
         """获取举报列表"""
         offset = (page - 1) * page_size
 
-        # 这里假设有一个 report 表，需要根据实际表结构调整
-        # 临时返回示例数据，需要根据实际数据库结构调整
-        from app.database.orm import unlock_attempts, capsule_interactions
-
+        # 基础查询 - 获取举报记录
         query = self.db.query(
-            # 这里的字段需要根据实际的 report 表调整
+            Report,
+            User.nickname.label('reporter_nickname')
+        ).join(
+            User, Report.reporter_id == User.id
         )
 
         # 添加筛选条件
         if status:
-            query = query.filter(status == status)
+            try:
+                status_enum = ReportStatus(status)
+                query = query.filter(Report.status == status_enum)
+            except ValueError:
+                pass  # 如果状态无效，忽略筛选
+
         if target_type:
-            query = query.filter(target_type == target_type)
+            try:
+                target_type_enum = TargetType(target_type)
+                query = query.filter(Report.target_type == target_type_enum)
+            except ValueError:
+                pass  # 如果目标类型无效，忽略筛选
+
         if reason:
-            query = query.filter(reason == reason)
+            try:
+                reason_enum = Reason(reason)
+                query = query.filter(Report.reason == reason_enum)
+            except ValueError:
+                pass  # 如果举报原因无效，忽略筛选
+
+        # 排序：按举报时间倒序
+        query = query.order_by(desc(Report.reported_at))
 
         # 分页
         total = query.count()
         reports = query.offset(offset).limit(page_size).all()
 
-        # 这里需要根据实际的 report 结构转换数据
+        # 转换结果
         reports_data = []
+        for report, reporter_nickname in reports:
+            reports_data.append({
+                "report_id": str(report.id),
+                "target_type": report.target_type.value,
+                "target_id": str(report.target_id),
+                "reason": report.reason.value,
+                "reporter_nickname": reporter_nickname,
+                "reported_at": report.reported_at,
+                "status": report.status.value
+            })
 
         return {
             "reports": reports_data,
@@ -135,6 +163,13 @@ class AdminRepository:
 
     def resolve_report(self, report_id: str) -> bool:
         """处理举报"""
-        # 这里需要根据实际的 report 表结构调整
-        # 临时实现
+        report = self.db.query(Report).filter(Report.id == int(report_id)).first()
+        if not report:
+            raise RecordNotFoundException(f"举报记录 {report_id} 不存在")
+
+        # 更新举报状态为已处理
+        report.status = ReportStatus.RESOLVED
+        report.processed_at = func.now()
+
+        self.db.commit()
         return True
