@@ -1,10 +1,12 @@
 import os
+import json
 from urllib.parse import quote_plus
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.engine import Engine
 from app.logger import db_logger
+
 
 # 获取项目根目录
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -35,6 +37,8 @@ DATABASE_CONFIG = {
         "echo": os.getenv("DB_ECHO", "false").lower() == "true"
     }
 }
+
+db_logger.info(f"数据库配置: {json.dumps(DATABASE_CONFIG, ensure_ascii=False, indent=4)}")
 
 
 def get_database_url():
