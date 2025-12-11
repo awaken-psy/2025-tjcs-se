@@ -29,8 +29,10 @@ class User(Base):
     last_login_at = Column(DateTime,                          nullable=True, comment="最后登录时间")
 
     # 关系
-    capsules =       relationship("Capsule", back_populates="user", cascade="all, delete-orphan")
+    capsules = relationship("Capsule", back_populates="user", cascade="all, delete-orphan")
     unlock_records = relationship("UnlockRecord", back_populates="user", cascade="all, delete-orphan")
+    reports_made = relationship("Report", foreign_keys="Report.reporter_id", back_populates="reporter")
+    reports_processed = relationship("Report", foreign_keys="Report.processor_id", back_populates="processor")
 
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', email='{self.email}')>"
