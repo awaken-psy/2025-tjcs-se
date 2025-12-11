@@ -12,6 +12,7 @@ from .users import router as user_router
 from .friends import router as friend_router
 from .upload import router as upload_router
 from .reports import router as report_router
+from .test import router as test_router
 
 # 导出路由器
 capsule_router = capsule_router
@@ -28,6 +29,7 @@ __all__ = [
     'user_router',
     'friend_router',
     'upload_router',
-    'report_router'
+    'report_router',
+    'test_router'
 ]
 

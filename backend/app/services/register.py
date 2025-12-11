@@ -1,6 +1,7 @@
 """
 用户注册管理服务
 """
+import os
 from typing import Tuple, Optional
 from sqlalchemy.orm import Session
 
@@ -9,15 +10,109 @@ from app.auth.password import PasswordManager
 from app.auth.jwt_handler import JWTHandler
 # 🔴 关键：从全局导入使用 Redis 初始化的管理器实例
 from app.services.verifycode import verify_code_manager 
-from app.domain.user import AuthorizedUser, AdminUser
+from app.domain.user import AuthorizedUser, RegisteredUser, AdminUser, UserRole
+from app.services.user_service import UserService
+from app.logger import get_logger
 
 
 class RegisterManager:
     """用户注册管理器"""
+    logger = get_logger("register_manager")
 
-    def __init__(self,db:Session):
+    admin_user_added = False
+    init_admin_user:Optional[AdminUser] = None
+
+    def __init__(self,db:Optional[Session]=None):
         # 这里可能会raise异常
         self.user_repository = UserRepository(db)
+
+    def add_user(
+        self,
+        username: str,
+        email: str,
+        password: str,
+        user_role: UserRole,
+        campus_id: Optional[str] = None,
+    ) -> Tuple[bool, str, Optional[AuthorizedUser]]:
+        """
+        添加新用户
+
+        Args:
+            username: 用户名
+            email: 邮箱
+            password: 密码
+            user_role: 用户角色
+            campus_id: 学号（可选）
+
+        Returns:
+            (success, message, user_data): 是否成功、消息和用户数据
+        """
+        # 1. 检查用户名是否已存在
+        existing_user = self.user_repository.get_user_by_username(username)
+        if existing_user:
+            return False, "用户名已存在", None
+
+        # 2. 检查邮箱是否已存在
+        existing_user = self.user_repository.get_user_by_email(email)
+        if existing_user:
+            return False, "邮箱已存在", None
+        
+        # 3. 检查学号是否已存在（如果提供）
+        if campus_id:
+            existing_student = self.user_repository.get_user_by_student_id(campus_id)
+            if existing_student:
+                return False, "学号已存在", None
+            
+        # 4. 对密码进行哈希处理
+        hash_success, hashed_password = PasswordManager.hash_password(password)
+
+        if not hash_success:
+            return False, "密码哈希失败", None
+
+        # 5. 创建用户
+        try:
+            new_user = self.user_repository.create_user(
+                username=username,
+                nickname=username,
+                email=email,
+                password_hash=hashed_password,
+                user_type="student",
+                userrole=user_role,
+                campus_id=campus_id,
+            )
+
+            return True, "用户创建成功", new_user
+        except Exception as e:
+            return False, "创建用户失败", None
+
+    @classmethod        
+    def add_init_admin_user(cls) -> Optional[AdminUser]:
+        # 创建一个初始管理员账号（如果不存在）
+        user_service = UserService()
+        register_mannager = RegisterManager()
+
+        admin_user = user_service.get_user_by_id(int((os.getenv("INIT_ADMIN_ID", -1))))
+        if not admin_user:
+            cls.logger.info("No admin user found, creating one...")
+            success, message, admin_user = register_mannager.add_user(
+                username = os.getenv("INIT_ADMIN_USERNAME", "admin_user"),
+                user_role = UserRole.ADMIN,
+                email = os.getenv("INIT_ADMIN_EMAIL", "admin@example.com"),
+                password = os.getenv("INIT_ADMIN_PASSWORD", "123456"),
+            )
+            if success:
+                cls.logger.info("Admin user created successfully.")
+            else:
+                cls.logger.error(f"Failed to create admin user: {message}")
+
+        if admin_user:
+            cls.logger.info(f"Initial admin user id:{admin_user.user_id}, email:{admin_user.email}")
+            if not isinstance(admin_user, AdminUser):
+                cls.logger.warning("Initial admin user is not an admin user.")
+                return None
+        return admin_user
+        
+    
 
     def register_user(
         self,
@@ -53,38 +148,16 @@ class RegisterManager:
             # if not password_valid:
             #     return False, password_message, None
 
-            # 3. 检查邮箱是否已存在
-            existing_user = self.user_repository.get_user_by_email_or_username(email)
-            if existing_user:
-                return False, "该邮箱或用户名已被注册", None
+            success, message, new_user = self.add_user(
+                username=email,
+                email=email,
+                password=password,
+                user_role=UserRole.USER,
+                campus_id=campus_id,
+            )
 
-            # 4. 检查学号是否已存在（如果提供）
-            if campus_id:
-                existing_student = self.user_repository.get_user_by_student_id(campus_id)
-                if existing_student:
-                    return False, "该id已被注册", None
-
-            # 5. 对密码进行哈希处理
-            hash_success, hashed_password = PasswordManager.hash_password(password)
-            if not hash_success:
-                return False, hashed_password, None
-
-            # 6. 创建用户
-            try:
-                new_user = self.user_repository.create_user(
-                    username=nickname,
-                    email=email,
-                    password_hash=hashed_password,
-                    nickname=nickname,
-                    campus_id=campus_id,
-                    user_type="student",
-                    userrole="user"
-                )
-
-                if isinstance(new_user, AdminUser):
-                    raise ValueError("无法注册管理员用户")
-            except Exception as e:
-                return False, f"用户创建失败: {str(e)}", None
+            if not success or not new_user:
+                return False, message, None
 
             # 8. 生成JWT令牌
             access_token = JWTHandler.generate_access_token_from_user(new_user)
@@ -94,10 +167,10 @@ class RegisterManager:
             user_response_data = {
                 "user_id": new_user.user_id,
                 "email": new_user.email,
-                "nickname": new_user.nickname,
+                "nickname": nickname,
                 "token": access_token,
                 "refresh_token": refresh_token,
-                "avatar": new_user.avatar_url
+                "avatar": new_user.avatar_url if isinstance(new_user, RegisteredUser) else None,
             }
 
             return True, "注册成功", user_response_data

@@ -2,9 +2,11 @@
 日志系统配置管理模块
 """
 import os
+import json
 from enum import Enum
 from typing import Optional, Dict, Any
 from pydantic import BaseModel
+
 
 
 class LogLevel(str, Enum):
@@ -93,6 +95,9 @@ class LogConfigManager:
         if self._config is None:
             self._config = self.load_from_env()
         return self._config
+    
+    def get_config_as_str(self) -> str:
+        return json.dumps(self.get_config().dict(), indent=4, ensure_ascii=False)
 
     def set_config(self, config: LoggerConfig) -> None:
         """设置配置"""

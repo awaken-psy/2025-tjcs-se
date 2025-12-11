@@ -35,6 +35,7 @@ app_logger = get_logger("timecapsule.app")
 api_logger = get_logger("timecapsule.api")
 db_logger = get_logger("timecapsule.database")
 auth_logger = get_logger("timecapsule.auth")
+service_logger = get_logger("timecapsule.service")
 
 __all__ = [
     'get_logger',

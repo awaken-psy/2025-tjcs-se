@@ -22,8 +22,8 @@ from sqlalchemy import and_, desc, asc, func
 class UserRepository:
     """用户数据仓库"""
 
-    def __init__(self, db: Session):
-        self.db = db
+    def __init__(self, db: Optional[Session] = None):
+        self.db:Session = db if db else next(get_db())
 
     def create_user(
         # 必填
