@@ -41,12 +41,17 @@ class Interaction(BaseModel):
     interaction_type: InteractionType
     comment_content: Optional[str] = None
     comment_rating: Optional[int] = None
+    parent_id: Optional[int] = None  # 添加parent_id字段支持评论回复
     share_platform: Optional[str] = None
     share_url: Optional[str] = None
     interaction_latitude: Optional[float] = None
     interaction_longitude: Optional[float] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    # 评论树相关字段
+    replies: Optional[List['Interaction']] = None
+    like_count: Optional[int] = 0
+    reply_count: Optional[int] = 0
 
     def to_api_comment_item(self, user: User,
                            like_count: int = 0,
@@ -59,6 +64,24 @@ class Interaction(BaseModel):
             avatar=user.avatar_url
         )
 
+        # 递归构建回复列表
+        reply_items = []
+        if self.replies:
+            for reply in self.replies:
+                # 这里需要获取回复用户的信息，暂时简化处理
+                reply_user = User(
+                    user_id=reply.user_id,
+                    username="user",
+                    nickname=f"用户{reply.user_id}",
+                    avatar_url=None
+                )
+                reply_item = reply.to_api_comment_item(
+                    user=reply_user,
+                    like_count=reply.like_count or 0,
+                    is_liked=False
+                )
+                reply_items.append(reply_item)
+
         return CommentItem(
             id=str(self.id) if self.id else "",
             content=self.comment_content or "",
@@ -66,7 +89,7 @@ class Interaction(BaseModel):
             created_at=self.created_at or datetime.now(),
             like_count=like_count,
             is_liked=is_liked,
-            replies=replies
+            replies=reply_items or replies
         )
 
 

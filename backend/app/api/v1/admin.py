@@ -24,7 +24,6 @@ def get_admin_service(db: Session = Depends(get_db)) -> AdminService:
     """依赖注入 AdminService"""
     return AdminService(db)
 
-
 @router.get("/capsules/pending", response_model=BaseResponse[PendingCapsulesResponse])
 async def get_pending_capsules(
     query: PendingCapsulesQuery = Depends(),

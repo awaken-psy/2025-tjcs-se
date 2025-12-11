@@ -86,7 +86,7 @@ import { ref, watch, computed } from 'vue'
 
 /**
  * 组件作用：
- * 1. 统一胶囊列表的筛选、排序、视图切换逻辑，替代MyCapsuleView、TimelineView等页面的重复控制栏代码
+ * 1. 统一胶囊列表的筛选、排序、视图切换逻辑，替代MyCapsuleView等页面的重复控制栏代码
  * 2. 支持配置化：控制是否显示可见性筛选、搜索框、重置按钮，适配不同页面需求
  * 3. 标准化事件：筛选、排序、视图切换事件统一命名，降低页面适配成本
  * 
@@ -94,7 +94,7 @@ import { ref, watch, computed } from 'vue'
  * @param {String} currentVis - 当前可见性筛选值（public/friend/private）
  * @param {String} currentSort - 当前排序值（newest/oldest/popular，默认newest）
  * @param {String} currentViewMode - 当前视图模式（grid/list，默认grid）
- * @param {Boolean} showVisibilityFilter - 是否显示可见性筛选（默认true，如时间轴页可隐藏）
+ * @param {Boolean} showVisibilityFilter - 是否显示可见性筛选（默认true）
  * @param {Boolean} showSearch - 是否显示搜索框（默认true）
  * @param {Boolean} showResetBtn - 是否显示重置按钮（默认true）
  * @param {String} searchPlaceholder - 搜索框提示文字（默认"搜索胶囊..."）

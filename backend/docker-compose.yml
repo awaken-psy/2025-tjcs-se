@@ -7,8 +7,8 @@ services:
     container_name: timecapsule_mysql
     restart: always
     ports:
-      # ⚠️ 注意: 仅为本地调试暴露端口，生产环境通常不需要
-      - '3306:3306'
+      # ⚠️ 注意: 使用 3307 端口避免与系统 MySQL 冲突
+      - '3307:3306'
     environment:
       # ❗ 必须与你的 .env 文件中的 DB_* 变量匹配
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD} # 使用 DB_PASSWORD 作为 root 密码 (方便开发)
@@ -21,6 +21,10 @@ services:
     volumes:
       # 数据持久化，防止容器删除后数据丢失
       - mysql-data:/var/lib/mysql
+      # MySQL配置文件持久化
+      - ./mysql-config:/etc/mysql/conf.d
+      # MySQL日志持久化
+      - ./mysql-logs:/var/log/mysql
     healthcheck:
       test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
       interval: 10s
@@ -67,10 +71,17 @@ services:
 
   # 3. Redis 服务
   redis:
-    image: redis:6.2-alpine
+    image: docker.io/library/redis:6.2-alpine
     container_name: timecapsule_redis
+    restart: always
     ports:
       - '6379:6379'
+    volumes:
+      # Redis数据持久化
+      - redis-data:/data
+      # Redis配置文件
+      - ./redis-config:/usr/local/etc/redis
+    command: redis-server --appendonly yes --appendfsync everysec
     healthcheck: # 健康检查
       test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
@@ -82,3 +93,4 @@ services:
 # ----------------------------------------------------
 volumes:
   mysql-data:
+  redis-data:

@@ -82,7 +82,7 @@ async def add_comment(
             user_id=current_user.user_id,
             capsule_id=int(capsule_id),
             content=request.content,
-            parent_id=int(request.parent_id) if request.parent_id else None
+            parent_id=int(request.parent_id) if request.parent_id and str(request.parent_id).strip() and str(request.parent_id) != "0" else None
         )
 
         return BaseResponse.success("添加评论成功", data=result)
@@ -196,3 +196,5 @@ async def uncollect_capsule(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"取消收藏失败: {str(e)}"
         )
+    
+    

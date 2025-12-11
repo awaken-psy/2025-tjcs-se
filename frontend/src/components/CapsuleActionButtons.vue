@@ -2,93 +2,68 @@
   <!-- 胶囊操作按钮组：统一胶囊的查看、点赞、编辑、删除、分享操作，支持根据权限显示不同按钮 -->
   <div
     class="capsule-actions"
-    :class="viewMode === 'list' ? 'list-mode' : 'grid-mode'"
-  >
+    :class="viewMode === 'list' ? 'list-mode' : 'grid-mode'">
     <!-- 查看详情（所有页面通用） -->
-    <button 
+    <button
       class="action-btn view-btn"
       :disabled="isProcessing.view"
-      @click="$emit('view', capsule.id)"
-    >
-      <span
-        v-if="isProcessing.view"
-        class="loading-spinner small"
-      />
+      @click="$emit('view', capsule.id)">
+      <span v-if="isProcessing.view" class="loading-spinner small" />
       <span class="icon">👁️</span>
       详情
     </button>
 
     <!-- 点赞（所有页面通用） -->
-    <button 
+    <button
       class="action-btn like-btn"
       :class="{ liked: capsule.liked }"
       :disabled="isProcessing.like"
-      @click="$emit('like', capsule.id)"
-    >
-      <span
-        v-if="isProcessing.like"
-        class="loading-spinner small"
-      />
+      @click="$emit('like', capsule.id)">
+      <span v-if="isProcessing.like" class="loading-spinner small" />
       <span class="icon">{{ capsule.liked ? '❤️' : '🤍' }}</span>
       {{ capsule.like_count || 0 }}
     </button>
 
     <!-- 编辑（仅胶囊所有者可见，如我的胶囊页） -->
-    <button 
+    <button
       v-if="isOwner"
       class="action-btn edit-btn"
       :disabled="isProcessing.edit"
-      @click="$emit('edit', capsule.id)"
-    >
-      <span
-        v-if="isProcessing.edit"
-        class="loading-spinner small"
-      />
+      @click="$emit('edit', capsule.id)">
+      <span v-if="isProcessing.edit" class="loading-spinner small" />
       <span class="icon">✏️</span>
       编辑
     </button>
 
     <!-- 删除（仅胶囊所有者可见，如我的胶囊页） -->
-    <button 
+    <button
       v-if="isOwner"
       class="action-btn delete-btn"
       :disabled="isProcessing.delete"
-      @click="$emit('delete', capsule.id)"
-    >
-      <span
-        v-if="isProcessing.delete"
-        class="loading-spinner small"
-      />
+      @click.stop="$emit('delete', capsule.id)">
+      <span v-if="isProcessing.delete" class="loading-spinner small" />
       <span class="icon">🗑️</span>
       删除
     </button>
 
     <!-- 分享（所有页面通用） -->
-    <button 
+    <button
       class="action-btn share-btn"
       :disabled="isProcessing.share"
-      @click="$emit('share', capsule)"
-    >
-      <span
-        v-if="isProcessing.share"
-        class="loading-spinner small"
-      />
+      @click="$emit('share', capsule)">
+      <span v-if="isProcessing.share" class="loading-spinner small" />
       <span class="icon">📤</span>
       分享
     </button>
 
     <!-- 收藏（所有页面通用，可选显示） -->
-    <button 
+    <button
       v-if="showCollect"
       class="action-btn collect-btn"
       :class="{ collected: capsule.collected }"
       :disabled="isProcessing.collect"
-      @click="$emit('collect', capsule.id)"
-    >
-      <span
-        v-if="isProcessing.collect"
-        class="loading-spinner small"
-      />
+      @click="$emit('collect', capsule.id)">
+      <span v-if="isProcessing.collect" class="loading-spinner small" />
       <span class="icon">{{ capsule.collected ? '⭐' : '☆' }}</span>
       收藏
     </button>
@@ -102,7 +77,7 @@
  * 2. 支持根据权限（isOwner）显示/隐藏编辑/删除按钮（仅所有者可见）
  * 3. 支持控制是否显示收藏按钮（showCollect），适配不同页面需求
  * 4. 统一处理按钮加载状态（isProcessing），避免重复的加载逻辑
- * 
+ *
  * 组件接口（Props）：
  * @param {Object} capsule - 胶囊基础数据（必传）
  *   {
@@ -116,7 +91,7 @@
  * @param {String} viewMode - 视图模式（grid/list，控制按钮布局，默认grid）
  * @param {Boolean} showCollect - 是否显示收藏按钮（默认true）
  * @param {Object} isProcessing - 按钮加载状态（key: 操作类型，value: 布尔值，默认空对象）
- * 
+ *
  * 组件事件（Emits）：
  * @emit view - 点击查看详情时触发，参数为胶囊ID（String）
  * @emit like - 点击点赞时触发，参数为胶囊ID（String）
@@ -129,25 +104,25 @@ const props = defineProps({
   capsule: {
     type: Object,
     required: true,
-    validator: (val) => val.id && typeof val.like_count === 'number'
+    validator: (val) => val.id && typeof val.like_count === 'number',
   },
   isOwner: {
     type: Boolean,
-    default: false
+    default: false,
   },
   viewMode: {
     type: String,
     default: 'grid',
-    validator: (val) => ['grid', 'list'].includes(val)
+    validator: (val) => ['grid', 'list'].includes(val),
   },
   showCollect: {
     type: Boolean,
-    default: true
+    default: true,
   },
   isProcessing: {
     type: Object,
-    default: () => ({})
-  }
+    default: () => ({}),
+  },
 })
 
 const emit = defineEmits(['view', 'like', 'edit', 'delete', 'share', 'collect'])
@@ -288,7 +263,9 @@ const emit = defineEmits(['view', 'like', 'edit', 'delete', 'share', 'collect'])
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* 设计令牌：复用全局变量 */

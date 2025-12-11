@@ -14,7 +14,7 @@ const request = axios.create({
 
 // 请求拦截器
 request.interceptors.request.use(config => {
-  const token = localStorage.getItem('user_token')
+  const token = localStorage.getItem('access_token')
   console.log('🔍 [REQUEST DEBUG] URL:', config.url)
   console.log('🔍 [REQUEST DEBUG] Method:', config.method)
   console.log('🔍 [REQUEST DEBUG] Token from localStorage:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN')
@@ -75,7 +75,7 @@ request.interceptors.response.use(response => {
     // 业务成功
     if (result.code === 200) {
       console.log('✅ [RESPONSE DEBUG] 请求成功:', result)
-      return result  // 返回完整响应对象，保持兼容性
+      return result.data // 只返回数据部分
     } else {
       // 业务逻辑错误 - 创建错误对象，包含完整响应信息
       console.log('❌ [RESPONSE DEBUG] 业务逻辑错误:', result)
@@ -112,8 +112,8 @@ request.interceptors.response.use(response => {
         errorCode = responseData.code
         errorData = responseData.data
       } else {
-        // 其他格式的错误响应
-        errorMessage = responseData.message || responseData.error || `服务器错误 (${error.response.status})`
+        // 其他格式的错误响应（FastAPI的HTTPException返回detail字段）
+        errorMessage = responseData.message || responseData.detail || responseData.error || `服务器错误 (${error.response.status})`
         errorCode = error.response.status
         errorData = responseData
       }

@@ -90,11 +90,12 @@ export const getEventList = (params = {}) => {
 
 /**
  * 获取活动详情 
- * @returns {Promise} - 返回活动列表数据
+ * @param {string} eventId - 要获取详情的活动ID
+ * @returns {Promise}
  */
-export const getAllEvents = () => {
+export const getEventDetail = (eventId) => {
     return request({
-        url: '/events/',
+        url: `/events/${eventId}`,
         method: 'get'
     })
 }

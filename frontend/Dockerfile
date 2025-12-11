@@ -15,6 +15,6 @@ RUN rm -rf /usr/share/nginx/html/*
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
-# 修改 Dockerfile 复制配置  
+# 修改 Dockerfile 复制配置
 COPY ./default.conf /etc/nginx/conf.d/default.conf
 
