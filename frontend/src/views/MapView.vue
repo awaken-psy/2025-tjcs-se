@@ -137,12 +137,12 @@ const fetchCapsules = async () => {
         liked: capsule.is_liked ?? false, 
         collected: capsule.is_collected ?? false, 
         // 关键：将位置信息映射为地图组件使用的 lng/lat
-        lng: capsule.location?.longitude, 
-        lat: capsule.location?.latitude, 
+        lng: capsule?.longitude, 
+        lat: capsule?.latitude, 
       }))
       
       // 2. 更新总数
-      capsuleTotal.value = res.pagination?.total ?? res.capsules.length
+      capsuleTotal.value = res.capsules.length
 
       // 3. 仅保留有坐标的胶囊用于地图显示，并更新到 capsules 状态
       // 这是实现“按照定位打印一个气泡”的关键步骤
@@ -216,7 +216,24 @@ onMounted(() => {
 
 <style scoped>
 /* ================================================= */
-/* 整体布局样式 (已清理并确保高度继承) */
+/* 设计令牌 (为组件内使用定义变量) */
+/* ================================================= */
+:root {
+  --bg: #f5f8ff;
+  --card: #ffffff;
+  --muted: #6b7280;
+  --accent: #6c8cff;
+  --accent-hover: #5a7cff;
+  --accent-light: rgba(108, 140, 255, 0.1);
+  --danger: #ef4444;
+  --shadow: 0 6px 18px rgba(12, 18, 36, 0.06);
+  --shadow-deep: 0 0 20px rgba(0, 0, 0, 0.08); /* 新增: 用于侧边栏阴影 */
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+/* ================================================= */
+/* 整体布局样式 */
 /* ================================================= */
 .map-page {
   height: 100vh;
@@ -229,12 +246,13 @@ onMounted(() => {
   display: flex;
 }
 
+/* 侧边栏/筛选栏主体 */
 .map-sidebar {
   width: 280px;
   min-width: 280px;
   padding: 16px;
-  background-color: var(--card);
-  box-shadow: var(--shadow-deep);
+  background-color: var(--bg); /* 使用背景色 */
+  box-shadow: var(--shadow-deep); /* 启用阴影 */
   z-index: 10;
   overflow-y: auto;
 }
@@ -244,17 +262,10 @@ onMounted(() => {
   flex-grow: 1;
   position: relative;
   height: 100%;
-  display: flex; 
-  min-height: 0; 
+  display: flex;
+  min-height: 0;
 }
-.map-container {
-  height: 100%; 
-  width: 100%;
-}
-/* 关键点：根据用户要求将地图容器高度固定为 1200px */
-.amap-container {
-  height: 1200px !important; 
-}
+/* MapContainer 内部的 amap-container 高度已由 props 控制 */
 
 .loading-overlay {
   position: absolute;
@@ -268,27 +279,95 @@ onMounted(() => {
   border-radius: 5px;
 }
 
-/* 样式省略，与前一次提供的版本保持一致 */
-
-:root {
-  --bg: #f5f8ff;
-  --card: #ffffff;
-  --muted: #6b7280;
-  --accent: #6c8cff;
-  --accent-hover: #5a7cff;
-  --accent-light: rgba(108, 140, 255, 0.1);
-  --danger: #ef4444;
-  --shadow: 0 6px 18px rgba(12, 18, 36, 0.06);
-  --radius: 12px;
-  --radius-sm: 8px;
+/* ================================================= */
+/* 筛选栏样式 (Filter Bar) - 新增或修正部分 */
+/* ================================================= */
+.filter-card {
+  background: var(--card);
+  padding: 20px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
+.filter-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 20px 0;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 10px;
+}
+
+.filter-group {
+  margin-bottom: 20px;
+}
+
+.filter-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 10px;
+}
+
+.filter-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.option-item {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.option-item input[type='radio'] {
+  margin-right: 10px;
+  /* 基础美化，实际效果可能依赖浏览器默认样式 */
+  accent-color: var(--accent);
+}
+
+/* 底部按钮样式 (参考 MapContainer.vue) */
+.btn {
+  background: var(--accent);
+  color: white;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  font-size: 13px;
+  display: block; /* 确保按钮占据一行 */
+  width: 100%;
+  margin-top: 10px;
+}
+
+.btn:hover {
+  background: var(--accent-hover);
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+}
+
+.btn.small {
+  padding: 6px 12px;
+  font-size: 14px;
+}
+
+/* ================================================= */
+/* 媒体查询 (保持不变) */
+/* ================================================= */
 @media (max-width: 768px) {
   .map-main {
     flex-direction: column;
   }
 
   .map-sidebar {
+    /* 移动端时默认隐藏，通过 show 类控制显示 */
     display: none;
     position: fixed;
     top: 70px;
@@ -298,7 +377,7 @@ onMounted(() => {
     background: var(--bg);
     padding: 20px;
     border-radius: var(--radius);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-lg); /* 注意：shadow-lg 需在上层或此处定义 */
   }
 
   .map-sidebar.show {

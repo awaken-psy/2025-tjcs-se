@@ -1678,4 +1678,142 @@ input:checked + .slider:before {
   font-size: 14px;
   color: var(--muted);
 }
+
+
+/* ======================================= */
+/* 核心修复：详情弹窗 Modal 容器样式 */
+/* ======================================= */
+
+.capsule-detail-modal {
+  /* 默认隐藏：确保它在没有 .active 类时不可见 */
+  display: none;
+  
+  /* 确保弹窗覆盖整个视口并固定位置 */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  
+  /* 使用 flex 布局居中 modal-panel */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  
+  /* 确保位于所有内容之上 */
+  z-index: 1050; 
+  
+  /* 初始透明度 (用于过渡动画) */
+  opacity: 0;
+  visibility: hidden; /* 用于完全隐藏和显示 */
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+/* 激活状态：当 showDetailModal 为 true 时，添加此样式 */
+.capsule-detail-modal.active {
+  /* 显示弹窗 */
+  opacity: 1;
+  visibility: visible;
+}
+
+/* 模态框背景遮罩 */
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5); /* 半透明黑色背景 */
+  z-index: 1051;
+}
+
+/* 模态框主体内容面板 */
+.modal-panel {
+  position: relative; /* 确保内容在遮罩之上 */
+  background: var(--card); /* 使用白色背景 */
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  max-width: 700px; /* 设定一个最大宽度 */
+  width: 90%;
+  z-index: 1052;
+  
+  /* 确保内容可以滚动，但面板自身不会溢出 */
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh; 
+  overflow: hidden; /* 隐藏滚动条 */
+}
+
+/* 模态框头部 */
+.modal-header {
+  padding: 20px 20px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0; /* 防止标题被压缩 */
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 20px;
+  color: #1e293b;
+}
+
+.modal-close {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+/* 模态框主体内容 */
+.modal-body {
+  padding: 20px;
+  overflow-y: auto; /* 关键：确保内容超长时可以滚动 */
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 模态框操作区 */
+.modal-actions {
+  padding: 10px 20px 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+/* 详情统计 */
+.detail-stats {
+  display: flex;
+  gap: 25px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.detail-stats .stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.detail-stats i {
+  margin-right: 0;
+}
+
+/* 标签样式 */
+.detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tag-item {
+  background: var(--accent-light);
+  color: var(--accent);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+}
 </style>

@@ -490,7 +490,7 @@ const startPulseAnimation = () => {
 // 渲染胶囊标记
 const renderCapsuleMarkers = () => {
   if (!map) return
-  
+
   // 清除现有胶囊标记
   markers.value.filter(m => !m.isUserLocation).forEach(marker => {
     map.remove(marker)
@@ -519,6 +519,9 @@ const createCapsuleMarker = (capsule) => {
   } else if (capsule.vis === 'private') {
     iconUrl = 'https://webapi.amap.com/theme/v1.3/markers/n/mark_r.png' // 红色
   }
+
+  // 🎯 调试：确认创建成功的坐标
+  console.log(`成功创建 Marker 实例，坐标: [${capsule.lng}, ${capsule.lat}]`);
   
   const marker = new AMap.Marker({
     position: [capsule.lng, capsule.lat],
@@ -676,7 +679,8 @@ const handleNavToCapsule = (capsuleId) => {
 }
 
 // 监听胶囊数据变化
-watch(() => props.capsuleData, () => {
+watch(() => props.capsuleData, (newVal) => {
+  //console.log('MapContainer Watch: 接收到新胶囊数据，长度:', newVal.length)
   if (isMapLoaded.value) {
     renderCapsuleMarkers()
   }
