@@ -91,7 +91,7 @@ class RegisterManager:
         user_service = UserService()
         register_mannager = RegisterManager()
 
-        admin_user = user_service.get_user_by_id(int((os.getenv("INIT_ADMIN_ID", -1))))
+        admin_user = user_service.get_user_by_email(os.getenv("INIT_ADMIN_EMAIL", "admin@example.com"))
         if not admin_user:
             cls.logger.info("No admin user found, creating one...")
             success, message, admin_user = register_mannager.add_user(

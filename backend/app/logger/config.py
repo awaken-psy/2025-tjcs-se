@@ -109,7 +109,7 @@ class LogConfigManager:
 
         formats = {
             LogFormat.SIMPLE: "%(levelname)s - %(message)s",
-            LogFormat.DETAILED: f"%(asctime)s - %(name)s - %(levelname)s - %(module)s:%(lineno)d - %(message)s",
+            LogFormat.DETAILED: f"%(asctime)s-%(levelname)s-(%(name)s)%(module)s:%(lineno)d-%(message)s",
             LogFormat.JSON: '{"timestamp": "%(asctime)s", "logger": "%(name)s", "level": "%(levelname)s", "module": "%(module)s", "line": %(lineno)d, "message": "%(message)s"}'
         }
 

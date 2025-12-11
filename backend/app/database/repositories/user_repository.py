@@ -255,6 +255,50 @@ class UserRepository:
         except Exception as e:
             self.db.rollback()
             return False
+        
+    def delete_user(self, user_id: int) -> bool:
+        """
+        删除用户
+
+        Args:
+            user_id: 用户ID
+
+        Returns:
+            是否成功
+        """
+        try:
+            user = self.db.query(User).filter(User.id == user_id).first()
+            if not user:
+                return False
+
+            self.db.delete(user)
+            self.db.commit()
+            return True
+        except Exception as e:
+            self.db.rollback()
+            return False
+        
+    def delete_user_by_email(self, email: str) -> bool:
+        """
+        根据邮箱删除用户
+
+        Args:
+            email: 邮箱
+
+        Returns:
+            是否成功
+        """
+        try:
+            user = self.db.query(User).filter(User.email == email).first()
+            if not user:
+                return False
+
+            self.db.delete(user)
+            self.db.commit()
+            return True
+        except Exception as e:  
+            self.db.rollback()
+            return False
 
     def _orm2domain(self, user:User) -> Optional[AuthorizedUser]:
         """

@@ -170,10 +170,7 @@ async def login(
         )
 
         if success and user_data:
-            # 调试信息打印 (应在生产环境中移除或使用 logger)
-            print("-" * 50)
-            print(f"DEBUG: 登录成功！LoginManager 返回的原始数据：{user_data}")
-            print("-" * 50) 
+            logger.debug(f"登录成功, 返回的数据: {user_data}")
             
             # 登录成功：将 Service 层返回的数据映射为响应模型
             auth_response = UserAuthResponse(
