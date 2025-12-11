@@ -4,6 +4,41 @@ Admin related Pydantic models
 from datetime import datetime
 from typing import List
 from pydantic import BaseModel, Field
+from enum import Enum
+
+
+class Action(str, Enum):
+    """审核动作枚举"""
+    APPROVE = "approve"
+    REJECT = "reject"
+
+
+class Sort(str, Enum):
+    """排序方式枚举"""
+    LATEST = "latest"
+    OLDEST = "oldest"
+    MOST_REPORTED = "most_reported"
+
+
+class Status(str, Enum):
+    """处理状态枚举"""
+    PENDING = "pending"
+    RESOLVED = "resolved"
+
+
+class TargetType(str, Enum):
+    """目标类型枚举"""
+    CAPSULE = "capsule"
+    COMMENT = "comment"
+    USER = "user"
+
+
+class Reason(str, Enum):
+    """举报原因枚举"""
+    VIOLATION = "违规内容"
+    COPYRIGHT = "侵权"
+    INAPPROPRIATE = "不良信息"
+    OTHER = "其他"
 
 
 class PendingCapsule(BaseModel):

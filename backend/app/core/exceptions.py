@@ -5,4 +5,11 @@ class RecordNotFoundException(Exception):
     def __init__(self, message="请求的记录不存在"):
         self.message = message
         super().__init__(self.message)
+
+
+class ValidationException(Exception):
+    """自定义异常：当请求数据验证失败时抛出"""
+    def __init__(self, message="数据验证失败"):
+        self.message = message
+        super().__init__(self.message)
         
