@@ -421,9 +421,11 @@ import { useUserStore } from '@/store/user'
 import { encryptPassword } from '@/utils/encryptionUtils'
 import { routeJump } from '@/utils/routeUtils'
 import { onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 
 // 初始化依赖
 const userStore = useUserStore()
+const route = useRoute()
 
 // ===== 状态管理 =====
 // 标签页状态（登录/注册）
@@ -665,7 +667,10 @@ const handleLogin = async () => {
 
     localStorage.setItem('saved_login_email', loginForm.email)
 
-    routeJump('/hubviews')
+    // 登录成功后跳转到用户原本想访问的页面，或默认跳转到hub页面
+    const redirectPath = route.query.redirect || '/hubviews'
+    console.log('🔓 [登录成功] 跳转到:', redirectPath)
+    routeJump(redirectPath)
   } catch (error) {
     console.error('登录错误详情:', error)
     // 错误信息已经由请求适配层处理，直接显示
@@ -721,8 +726,10 @@ const handleRegister = async () => {
       refresh_token
     )
 
-
-    routeJump('/hubviews')
+    // 注册成功后跳转到用户原本想访问的页面，或默认跳转到hub页面
+    const redirectPath = route.query.redirect || '/hubviews'
+    console.log('🔓 [注册成功] 跳转到:', redirectPath)
+    routeJump(redirectPath)
   } catch (error) {
     console.error('注册错误详情:', error)
     // 错误信息已经由请求适配层处理，直接显示

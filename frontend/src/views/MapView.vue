@@ -125,62 +125,12 @@
           @unlock-request="handleUnlockRequest"
           @view-request="handleViewRequest"
         />
-
-        <!-- 附近胶囊列表（筛选后） -->
-        <div class="nearby-card">
-          <div class="card-header">
-            <h3 class="card-title">
-              附近胶囊（{{ filteredCapsules.length }}个）
-            </h3>
-            <span class="distance-desc">
-              距离范围：{{ filters.range }} 米内
-            </span>
-          </div>
-          <div class="capsule-list">
-            <div 
-              v-for="capsule in filteredCapsules"
-              :key="capsule.id"
-              class="capsule-item"
-              @click="handleFocusCapsule(capsule.id)"
-            >
-              <div class="capsule-info">
-                <h4 class="capsule-title">
-                  {{ capsule.title }}
-                </h4>
-                <p class="capsule-desc">
-                  {{ truncateText(capsule.desc, 30) }}
-                </p>
-                <div class="capsule-meta">
-                  <span><i class="fas fa-clock" /> {{ formatRelative(capsule.time) }}</span>
-                  <span><i class="fas fa-map-marker-alt" /> {{ capsule.distance || '计算中' }}</span>
-                  <span><i class="fas fa-lock" /> {{ getVisText(capsule.vis) }}</span>
-                </div>
-              </div>
-              <button 
-                class="btn small view-btn"
-                @click.stop="handleViewCapsule(capsule.id)"
-              >
-                查看
-              </button>
-            </div>
-            <div
-              v-if="filteredCapsules.length === 0"
-              class="empty-list"
-            >
-              <i class="fas fa-map-marker-alt" />
-              <p>当前筛选条件下无胶囊</p>
-              <p class="empty-desc">
-                尝试扩大范围或调整筛选条件
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- 地图容器（复用共用组件） -->
       <div class="map-container-wrap">
         <MapContainer
-          :capsule-data="filteredCapsules"
+          :capsule-data="allCapsules"
           map-height="calc(100vh - 140px)"
           @view-capsule="handleViewCapsule"
           @nav-capsule="handleNavCapsule"
@@ -189,9 +139,9 @@
       </div>
     </div>
   </div>
-  <CapsuleForm 
-    :is-show="showCapsuleForm" 
-    @close="showCapsuleForm = false" 
+  <CapsuleForm
+    :is-show="showCapsuleForm"
+    @close="showCapsuleForm = false"
     @submit="onCapsuleCreated"
   />
 </template>
@@ -256,54 +206,6 @@ const filters = ref({
   range: 1000
 })
 
-/**
- * 计算属性：筛选后的胶囊数据
- * 逻辑：根据可见性、解锁类型、时间范围、距离筛选
- */
-const filteredCapsules = computed(() => {
-  if (allCapsules.value.length === 0) return []
-
-  return allCapsules.value.filter(capsule => {
-    // 1. 可见性筛选
-    const visPass = filters.value.vis[capsule.vis]
-    if (!visPass) return false
-
-    // 2. 解锁类型筛选
-    const unlockPass = filters.value.unlock[capsule.unlockType]
-    if (!unlockPass) return false
-
-    // 3. 时间范围筛选
-    const timePass = (() => {
-      if (filters.value.timeRange === 'all') return true
-      const capsuleTime = new Date(capsule.time)
-      const now = new Date()
-      const diffMs = now - capsuleTime
-      const diffWeek = 7 * 24 * 60 * 60 * 1000
-      const diffMonth = 30 * 24 * 60 * 60 * 1000
-      const diffYear = 365 * 24 * 60 * 60 * 1000
-
-      switch (filters.value.timeRange) {
-      case 'week': return diffMs <= diffWeek
-      case 'month': return diffMs <= diffMonth
-      case 'year': return diffMs <= diffYear
-      default: return true
-      }
-    })()
-    if (!timePass) return false
-
-    // 4. 距离筛选（计算用户与胶囊的距离，精确到米）
-    if (userPos.value) {
-      const distance = calculateDistance(
-        userPos.value.lat, userPos.value.lng,
-        capsule.lat, capsule.lng
-      )
-      capsule.distance = `${Math.round(distance)}m` // 存储距离，用于展示
-      return distance <= filters.value.range
-    }
-
-    return true
-  })
-})
 
 /**
  * 页面初始化：加载胶囊数据和用户定位
@@ -371,31 +273,6 @@ const calculateDistance = (lat1, lng1, lat2, lng2) => {
   return R * c // 距离（米）
 }
 
-/**
- * 辅助函数：文本截断（替代-webkit-line-clamp）
- * @param {String} text - 待截断文本
- * @param {Number} maxLen - 最大字符长度
- * @returns {String} 截断后文本
- */
-const truncateText = (text, maxLen) => {
-  if (!text) return ''
-  if (text.length <= maxLen) return text
-  return text.slice(0, maxLen) + '...'
-}
-
-/**
- * 辅助函数：获取可见性文本
- * @param {String} vis - 可见性（public/friend/private）
- * @returns {String} 文本描述
- */
-const getVisText = (vis) => {
-  switch (vis) {
-  case 'public': return '校园公开'
-  case 'friend': return '好友可见'
-  case 'private': return '仅自己可见'
-  default: return '未知'
-  }
-}
 
 /**
  * 顶部导航：返回中枢页
@@ -477,8 +354,39 @@ const handleMapReady = (mapInstance) => {
  * 查看胶囊详情
  * @param {String} capsuleId - 胶囊ID
  */
-const handleViewCapsule = (capsuleId) => {
-  alert(`查看胶囊详情：${capsuleId}（后续对接胶囊详情页）`)
+const handleViewCapsule = async (capsuleId) => {
+  try {
+    console.log('🔍 [地图页] 查看胶囊详情:', capsuleId)
+
+    // 调用getCapsuleDetail获取完整详情
+    const detail = await getCapsuleDetail(capsuleId)
+    console.log('🔍 [地图页] 获取到的详情数据:', detail)
+
+    if (detail) {
+      // 使用alert显示胶囊详情信息
+      const locationText = detail.location?.address ||
+                          (detail.location?.latitude && detail.location?.longitude ?
+                           `位置 (${detail.location.latitude.toFixed(6)}, ${detail.location.longitude.toFixed(6)})` :
+                           '未知位置')
+
+      const detailInfo = [
+        `标题: ${detail.title}`,
+        `内容: ${detail.content || '无内容'}`,
+        `可见性: ${detail.visibility}`,
+        `位置: ${locationText}`,
+        `创建时间: ${formatRelative(detail.created_at)}`,
+        `点赞数: ${detail.stats?.like_count || 0}`,
+        `浏览数: ${detail.stats?.view_count || 0}`
+      ].join('\n')
+
+      alert(`📖 胶囊详情:\n\n${detailInfo}`)
+    } else {
+      alert('获取胶囊详情失败')
+    }
+  } catch (error) {
+    console.error(`[地图页] 获取胶囊详情(${capsuleId})失败：`, error)
+    alert('加载详情失败，请稍后重试')
+  }
 }
 
 /**
@@ -564,6 +472,7 @@ const handleFocusCapsule = (capsuleId) => {
     alert(`地图聚焦至胶囊：${capsule.title}`)
   }
 }
+
 </script>
 
 <style scoped>
@@ -662,111 +571,6 @@ const handleFocusCapsule = (capsuleId) => {
   border-color: rgba(239, 68, 68, 0.2);
 }
 
-/* 附近胶囊列表卡片 */
-.nearby-card {
-  background: var(--card);
-  border-radius: var(--radius);
-  padding: 16px;
-  box-shadow: var(--shadow);
-  flex: 1;
-  overflow-y: auto;
-  max-height: calc(100vh - 400px);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.card-title {
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0;
-  color: #1e293b;
-}
-
-.distance-desc {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-/* 胶囊列表项 */
-.capsule-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.capsule-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(12, 18, 36, 0.04);
-  transition: all 0.2s;
-  cursor: pointer;
-}
-
-.capsule-item:hover {
-  background: var(--accent-light);
-  border-color: rgba(108, 140, 255, 0.2);
-}
-
-.capsule-info {
-  flex: 1;
-}
-
-.capsule-title {
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0 0 4px 0;
-  color: #1e293b;
-}
-
-.capsule-desc {
-  font-size: 12px;
-  color: var(--muted);
-  margin: 0 0 8px 0;
-  line-height: 1.4;
-}
-
-.capsule-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.view-btn {
-  background: var(--accent);
-  color: white;
-}
-
-.view-btn:hover {
-  background: var(--accent-hover);
-}
-
-/* 空列表状态 */
-.empty-list {
-  text-align: center;
-  padding: 30px 10px;
-  color: var(--muted);
-}
-
-.empty-list i {
-  font-size: 24px;
-  margin-bottom: 8px;
-  opacity: 0.5;
-}
-
-.empty-desc {
-  font-size: 12px;
-  margin-top: 4px;
-}
 
 /* 地图容器包裹层 */
 .map-container-wrap {
@@ -839,7 +643,7 @@ const handleFocusCapsule = (capsuleId) => {
   .map-main {
     grid-template-columns: 1fr;
   }
-  
+
   .map-sidebar {
     display: none;
     position: fixed;
@@ -852,14 +656,15 @@ const handleFocusCapsule = (capsuleId) => {
     border-radius: var(--radius);
     box-shadow: var(--shadow-lg);
   }
-  
+
   .map-sidebar.show {
     display: flex;
   }
-  
+
   .map-container-wrap {
     order: -1;
   }
+
 }
 </style>
 

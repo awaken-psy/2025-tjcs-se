@@ -13,7 +13,7 @@
         <option value="public">
           公开可见
         </option>
-        <option value="friend">
+        <option value="friends">
           好友可见
         </option>
         <option value="private">
@@ -91,7 +91,7 @@ import { ref, watch, computed } from 'vue'
  * 3. 标准化事件：筛选、排序、视图切换事件统一命名，降低页面适配成本
  * 
  * 组件接口（Props）：
- * @param {String} currentVis - 当前可见性筛选值（public/friend/private）
+ * @param {String} currentVis - 当前可见性筛选值（public/friends/private）
  * @param {String} currentSort - 当前排序值（newest/oldest/popular，默认newest）
  * @param {String} currentViewMode - 当前视图模式（grid/list，默认grid）
  * @param {Boolean} showVisibilityFilter - 是否显示可见性筛选（默认true）
@@ -111,7 +111,7 @@ const props = defineProps({
   currentVis: {
     type: String,
     default: 'public',
-    validator: (val) => ['public', 'friend', 'private'].includes(val)
+    validator: (val) => ['public', 'friends', 'private'].includes(val)
   },
   currentSort: {
     type: String,

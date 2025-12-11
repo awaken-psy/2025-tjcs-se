@@ -4,7 +4,7 @@
     <!-- 顶部导航（复用共用组件） -->
     <AppHeader
       page-title="时光胶囊 · 校园"
-      :page-subtitle="`欢迎回来，${userInfo.name} | 系统已为你准备当日推荐`"
+      :page-subtitle="`欢迎回来，${userInfo.name || userInfo.nickname || '用户'} | 系统已为你准备当日推荐`"
       :show-search="true"
       search-placeholder="搜索地点/标签/用户，例如：图书馆、毕业季..."
       :actions="[
@@ -88,7 +88,7 @@
           </div>
           <div class="welcome-content">
             <h3 class="welcome-title">
-              你好，{{ userInfo.name }} 👋
+              你好，{{ userInfo.name || userInfo.nickname || '用户' }} 👋
             </h3>
             <p class="welcome-desc">
               {{ userInfo.bio || '你可以从这里快速进入地图、创建胶囊或查看附近的惊喜。系统已为你准备好当日推荐与附近解锁提示。' }}
@@ -305,7 +305,46 @@ import { useUserStore } from '@/store/user'
  */
 
 const router = useRouter()
-const userInfo = ref({})
+const userStore = useUserStore()
+
+// 初始化用户信息：优先使用 Pinia store，其次 localStorage，最后默认值
+const initUserInfo = () => {
+  // 1. 尝试从 Pinia store 获取
+  if (userStore.userInfo?.nickname) {
+    return {
+      name: userStore.userInfo.nickname,
+      nickname: userStore.userInfo.nickname,
+      bio: '用时光胶囊记录校园回忆',
+      stats: { pendingCapsules: 0, activeToday: 0 }
+    }
+  }
+
+  // 2. 尝试从 localStorage 获取
+  try {
+    const savedUserInfo = localStorage.getItem('user_info')
+    if (savedUserInfo) {
+      const parsed = JSON.parse(savedUserInfo)
+      return {
+        name: parsed.nickname || parsed.name || '用户',
+        nickname: parsed.nickname || parsed.name || '用户',
+        bio: parsed.bio || '用时光胶囊记录校园回忆',
+        stats: parsed.stats || { pendingCapsules: 0, activeToday: 0 }
+      }
+    }
+  } catch (error) {
+    console.warn('解析本地用户信息失败:', error)
+  }
+
+  // 3. 默认值
+  return {
+    name: '用户',
+    nickname: '用户',
+    bio: '用时光胶囊记录校园回忆',
+    stats: { pendingCapsules: 0, activeToday: 0 }
+  }
+}
+
+const userInfo = ref(initUserInfo())
 const nearbyCapsules = ref([])
 const campusEvents = ref([])
 const recentActivities = ref([])
@@ -354,8 +393,12 @@ const loadPageData = async () => {
     
     if (!isPageActive.value) return
     
-    // 处理各个请求结果
-    userInfo.value = userData
+    // 处理各个请求结果 - 确保用户信息有正确的字段映射
+    userInfo.value = {
+      ...userData,
+      name: userData.nickname || userData.name || '用户',
+      nickname: userData.nickname || userData.name || '用户'
+    }
     
     if (nearbyResult.status === 'fulfilled') {
       nearbyCapsules.value = nearbyResult.value
@@ -394,8 +437,9 @@ const loadPageData = async () => {
  * 设置降级数据
  */
 const setFallbackData = () => {
-  userInfo.value = { 
-    name: '校园用户', 
+  userInfo.value = {
+    name: userStore.userInfo?.nickname || '校园用户',
+    nickname: userStore.userInfo?.nickname || '校园用户',
     bio: '用时光胶囊记录校园回忆',
     stats: {
       pendingCapsules: 0,
@@ -540,45 +584,44 @@ const handleNavChange = async (key) => {
 const handleLogout = async () => {
   // 防止重复点击
   if (isLogoutLoading.value) return
-  
+
   // 标记注销加载状态
   isLogoutLoading.value = true
-      alert("1")
 
   try {
     // 调用logout API通知后端清除会话
     await logout()
     console.log('注销API调用成功')
-        alert("2")
-
   } catch (error) {
     console.error('注销API调用失败:', error)
     // 即使API调用失败，也要继续执行清理逻辑
   } finally {
-    // 清理所有本地存储数据和 Pinia 状态
+    // 清理所有本地存储数据
     const keysToRemove = [
-      'user_token', 
-      'user_info', 
-      'access_token', 
-      'refresh_token', 
+      'user_token',
+      'user_info',
+      'access_token',
+      'refresh_token',
       'saved_login_email'
     ]
     keysToRemove.forEach(key => {
       localStorage.removeItem(key)
     })
     localStorage.removeItem('user-store')
-    // 彻底清空 Pinia 用户状态
+
+    // 手动清空 Pinia 用户状态（不调用 userStore.logout() 避免重复导航）
     const userStore = useUserStore()
-    userStore.logout()
-    alert("3")
+    userStore.token = null
+    userStore.userInfo = null
+    userStore.refreshToken = null
+
     // 重置加载状态
     isLogoutLoading.value = false
-        alert("4")
 
-    // 立即跳转到登录页
-    router.replace({ 
-      path: '/login', 
-      query: { from: 'logout' } 
+    // 跳转到登录页
+    router.replace({
+      path: '/login',
+      query: { from: 'logout' }
     })
   }
 }
