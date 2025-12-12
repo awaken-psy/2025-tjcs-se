@@ -17,6 +17,7 @@ class Visibility(str, Enum):
     PRIVATE = "private"  # 仅所有者可见
     FRIENDS = "friends"  # 好友可见
     CAMPUS = "campus"    # 校园公开
+    PUBLIC = "public"    # 公开 (用于兼容)
 
 
 class ContentType(str, Enum):
@@ -73,12 +74,12 @@ class Capsule:
         # 根据可见性规则判断
         if self.visibility == Visibility.PRIVATE:
             return False
-        elif self.visibility == Visibility.CAMPUS:
+        elif self.visibility in [Visibility.CAMPUS, Visibility.PUBLIC]:
             return True
         elif self.visibility == Visibility.FRIENDS:
             # TODO: 检查是否为好友关系
             return True
-        
+
         return False
     
     def can_edit_by(self, user_id: str, is_admin: bool = False) -> bool:
@@ -296,8 +297,10 @@ def convert_visibility_for_frontend(visibility: str) -> str:
     visibility_mapping = {
         "private": "private",       # 私有保持不变
         "friends": "friends",       # 好友可见保持不变
-        "campus": "public"          # 校园公开转换为前端公开
+        "campus": "public",          # 校园公开转换为前端公开
+        "public": "public"           # 修复错误数据：将public也转为public
     }
+
     return visibility_mapping.get(visibility, "private")
 
 def convert_visibility_from_frontend(visibility: str) -> str:

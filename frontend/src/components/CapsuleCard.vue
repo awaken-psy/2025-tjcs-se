@@ -150,6 +150,8 @@ const getVisibilityIcon = (visibility) => {
   switch (visibility) {
     case 'private': return '🔒'
     case 'friends': return '👥'
+    case 'campus': return '🌐'  // 处理后端返回的campus
+    case 'public': return '🌐'  // 处理前端可能的public
     default: return '🌐'
   }
 }
@@ -161,9 +163,16 @@ const getVisibilityIcon = (visibility) => {
  */
 const getVisibilityText = (visibility) => {
   switch (visibility) {
-    case 'private': return '仅自己可见'
-    case 'friends': return '好友可见'
-    default: return '公开'
+    case 'private':
+      return '仅自己可见'
+    case 'friends':
+      return '好友可见'
+    case 'campus':
+      return '校园公开'  // 处理后端返回的campus
+    case 'public':
+      return '校园公开'  // 处理前端可能的public
+    default:
+      return '公开'
   }
 }
 

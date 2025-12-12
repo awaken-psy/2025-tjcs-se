@@ -503,8 +503,8 @@ import {
   getMyCapsules,
   updateCapsule,
   getCapsuleDetail,
-  likeCapsule,
 } from '@/api/new/capsulesApi.js'
+import { likeCapsule } from '@/api/new/interactionsApi.js'
 
 const router = useRouter()
 
@@ -647,8 +647,10 @@ const fetchCapsuleList = async () => {
 const getVisText = (vis) => {
   switch (vis) {
     case 'public':
+    case 'campus':  // 处理后端返回的campus
       return '校园公开'
-    case 'friend':
+    case 'friends':
+    case 'friend':  // 处理前端可能的friend
       return '好友可见'
     case 'private':
       return '仅自己可见'
@@ -819,11 +821,10 @@ const handleLikeCapsule = async (capsuleId) => {
   try {
     const result = await likeCapsule(capsuleId)
 
-    if (result.code === 200 || result.success) {
-      const isLiked = result.data?.is_liked ?? !capsule.liked
-      const newCount =
-        result.data?.like_count ??
-        (capsule.like_count || 0) + (isLiked ? 1 : -1)
+    // request.js响应拦截器返回的是data部分，所以直接检查result是否存在
+    if (result && (result.is_liked !== undefined || result.like_count !== undefined)) {
+      const isLiked = result.is_liked !== undefined ? result.is_liked : !capsule.liked
+      const newCount = result.like_count !== undefined ? result.like_count : (capsule.like_count || 0) + (isLiked ? 1 : -1)
 
       // 乐观更新
       capsule.liked = isLiked
@@ -916,8 +917,8 @@ const handleCloseForm = () => {
   isEditMode.value = false
 }
 
-const onCapsuleCreated = async (formData) => {
-  if (!formData) {
+const onCapsuleCreated = async (result) => {
+  if (!result) {
     handleCloseForm()
     return
   }
@@ -933,10 +934,10 @@ const onCapsuleCreated = async (formData) => {
     try {
       // 字段映射：content -> desc (假设 API 实际存储字段是 desc)
       const updateData = {
-        title: formData.title,
-        desc: formData.content, // 假设 API 期望的是 desc 字段
-        visibility: formData.visibility,
-        tags: formData.tags,
+        title: result.title,
+        desc: result.content, // 假设 API 期望的是 desc 字段
+        visibility: result.visibility,
+        tags: result.tags,
         // ... 其他需要更新的字段
       }
 
@@ -946,6 +947,10 @@ const onCapsuleCreated = async (formData) => {
       console.error(`更新胶囊(${capsuleId})失败:`, error)
       alert(`胶囊更新失败：${error.message || '未知错误'}`)
     }
+  } else {
+    // 创建模式 - 胶囊已经在 CapsuleForm 中创建成功
+    // CapsuleForm已经处理了成功/失败的显示，这里不需要重复显示
+    console.log('创建模式：接收到CapsuleForm的结果:', result)
   }
 
   handleCloseForm() // 关闭表单
@@ -1677,5 +1682,143 @@ input:checked + .slider:before {
   margin-right: auto;
   font-size: 14px;
   color: var(--muted);
+}
+
+
+/* ======================================= */
+/* 核心修复：详情弹窗 Modal 容器样式 */
+/* ======================================= */
+
+.capsule-detail-modal {
+  /* 默认隐藏：确保它在没有 .active 类时不可见 */
+  display: none;
+  
+  /* 确保弹窗覆盖整个视口并固定位置 */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  
+  /* 使用 flex 布局居中 modal-panel */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  
+  /* 确保位于所有内容之上 */
+  z-index: 1050; 
+  
+  /* 初始透明度 (用于过渡动画) */
+  opacity: 0;
+  visibility: hidden; /* 用于完全隐藏和显示 */
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+/* 激活状态：当 showDetailModal 为 true 时，添加此样式 */
+.capsule-detail-modal.active {
+  /* 显示弹窗 */
+  opacity: 1;
+  visibility: visible;
+}
+
+/* 模态框背景遮罩 */
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5); /* 半透明黑色背景 */
+  z-index: 1051;
+}
+
+/* 模态框主体内容面板 */
+.modal-panel {
+  position: relative; /* 确保内容在遮罩之上 */
+  background: var(--card); /* 使用白色背景 */
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  max-width: 700px; /* 设定一个最大宽度 */
+  width: 90%;
+  z-index: 1052;
+  
+  /* 确保内容可以滚动，但面板自身不会溢出 */
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh; 
+  overflow: hidden; /* 隐藏滚动条 */
+}
+
+/* 模态框头部 */
+.modal-header {
+  padding: 20px 20px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0; /* 防止标题被压缩 */
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 20px;
+  color: #1e293b;
+}
+
+.modal-close {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+/* 模态框主体内容 */
+.modal-body {
+  padding: 20px;
+  overflow-y: auto; /* 关键：确保内容超长时可以滚动 */
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 模态框操作区 */
+.modal-actions {
+  padding: 10px 20px 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+/* 详情统计 */
+.detail-stats {
+  display: flex;
+  gap: 25px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.detail-stats .stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.detail-stats i {
+  margin-right: 0;
+}
+
+/* 标签样式 */
+.detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tag-item {
+  background: var(--accent-light);
+  color: var(--accent);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
 }
 </style>

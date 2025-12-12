@@ -275,6 +275,7 @@
                 <input
                   v-model="formData.visibility"
                   type="radio"
+                  name="visibility"
                   :value="option.key"
                   class="vis-radio"
                 >
@@ -453,6 +454,18 @@ const locationInfo = reactive({
 const locationPermission = ref('')
 const locationMessage = ref('等待位置授权...')
 
+// 转换函数：将后端返回的可见性值转换为前端表单期望的值
+const convertVisibilityToForm = (visibility) => {
+  if (!visibility) return 'public'
+  switch (visibility) {
+    case 'campus': return 'public'  // 后端campus -> 前端public
+    case 'public': return 'public'
+    case 'friends': return 'friends'
+    case 'private': return 'private'
+    default: return 'public'
+  }
+}
+
 // 常量定义
 const visibilityOptions = [
   {
@@ -533,7 +546,7 @@ watch(() => props.editData, (newData) => {
     Object.assign(formData, {
       title: newData.title || '',
       content: newData.content || '',
-      visibility: newData.visibility || 'public',
+      visibility: convertVisibilityToForm(newData.visibility) || 'public',
       // 注意：location、lat、lng 是表单提交的核心数据
       location: newData.location || '',
       lat: newData.lat || null,
@@ -871,7 +884,7 @@ const handleSubmit = async() => {
     const submitData = {
       title: formData.title.trim(),
       content: formData.content.trim(),
-      visibility: formData.visibility,
+      visibility: formData.visibility || 'public', // 确保有默认值
       tags: [...selectedTags.value],
 
       // 位置信息 - 按照后端期望的格式构造
@@ -889,7 +902,7 @@ const handleSubmit = async() => {
       // 其他统计信息 (通常只在创建时初始化)
     }
 
-    console.log('提交的胶囊数据:', submitData)
+    // 移除调试日志，转换逻辑已完成
     let result = null
     let successMessage = ''
 
@@ -912,23 +925,44 @@ const handleSubmit = async() => {
       // 调用创建 API
       result = await createCapsule(submitData)
       successMessage = '胶囊创建成功！'
-      console.log('创建胶囊结果:', result)
+      // 性能优化：移除多余的控制台输出
     }
 
 
-    showAlertMessage(successMessage, 'success')
-      
-    // 延迟关闭模态框，让用户看到成功消息
-    setTimeout(() => {
-      // 传递结果数据给父组件，通常包含新的 ID 或更新后的数据
-      emit('submit', result || submitData)  // result已经是data部分了 
-      handleClose()
-    }, 1500)
+  // 立即处理结果，提升响应速度
+    if (result && (result.id || Object.keys(result).length > 0)) {
+      // 先显示表单内的成功提示
+      showAlertMessage(successMessage, 'success')
+
+      // 同时弹出确认对话框，让用户点击确定
+      setTimeout(() => {
+        alert(`${successMessage}\n\n胶囊标题：${submitData.title}\n\n点击确定返回胶囊列表`)
+
+        // 传递结果数据给父组件
+        emit('submit', result)
+        handleClose()
+      }, 300) // 进一步减少延迟时间，提升响应速度
+    } else {
+      // 如果没有返回有效的数据，这可能是API的问题
+      showAlertMessage('胶囊创建成功但数据异常，请检查列表', 'warning')
+
+      setTimeout(() => {
+        alert('胶囊创建成功，但数据可能不完整。\n\n请检查胶囊列表确认。')
+        emit('submit', { title: submitData.title }) // 至少传递标题用于识别
+        handleClose()
+      }, 300)
+    }
 
 
 
   } catch (error) {
     console.error('表单提交错误:', error)
+    console.error('错误详情:', {
+      message: error.message,
+      code: error.code,
+      data: error.data,
+      fullResponse: error.fullResponse
+    })
     showAlertMessage(error.message || '提交失败，请稍后重试', 'error')
   } finally {
     isSubmitting.value = false

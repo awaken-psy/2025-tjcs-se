@@ -438,21 +438,21 @@
         </div>
         <div class="modal-body">
           <div class="reg-tabs">
-            <button 
+            <button
               class="tab-btn"
               :class="{ active: regTab === 'all' }"
               @click="handleRegTabChange('all')"
             >
               全部报名
             </button>
-            <button 
+            <button
               class="tab-btn"
               :class="{ active: regTab === 'upcoming' }"
               @click="handleRegTabChange('upcoming')"
             >
               待参与
             </button>
-            <button 
+            <button
               class="tab-btn"
               :class="{ active: regTab === 'ended' }"
               @click="handleRegTabChange('ended')"
@@ -462,7 +462,7 @@
           </div>
 
           <div class="reg-list">
-            <div 
+            <div
               v-for="event in filteredMyRegEvents"
               :key="event.id"
               class="reg-item"
@@ -487,7 +487,7 @@
                   <span class="meta-item"><i class="fas fa-calendar" /> {{ event.formattedDate }}</span>
                   <span class="meta-item"><i class="fas fa-map-marker-alt" /> {{ event.location }}</span>
                   <span class="meta-item">
-                    <EventStatusBadge 
+                    <EventStatusBadge
                       :status="event.status"
                       size="small"
                     />
@@ -534,6 +534,189 @@
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 活动创建弹窗 -->
+    <div
+      class="create-event-modal"
+      :class="{ active: showCreateEventModal }"
+    >
+      <div
+        class="modal-overlay"
+        @click="handleCloseCreateEvent"
+      />
+      <div class="modal-panel">
+        <div class="modal-header">
+          <h3 class="modal-title">
+            创建新活动
+          </h3>
+          <button
+            class="modal-close"
+            @click="handleCloseCreateEvent"
+          >
+            <i class="fas fa-times" />
+          </button>
+        </div>
+        <div class="modal-body">
+          <form @submit.prevent="handleSubmitCreateEvent" class="create-event-form">
+            <!-- 活动名称 -->
+            <div class="form-group">
+              <label class="form-label" for="eventName">
+                活动名称 <span class="required">*</span>
+              </label>
+              <input
+                id="eventName"
+                v-model="newEvent.name"
+                type="text"
+                class="form-control"
+                placeholder="请输入活动名称（1-100字符）"
+                maxlength="100"
+                required
+              />
+              <div class="form-help">
+                {{ newEvent.name.length }}/100 字符
+              </div>
+            </div>
+
+            <!-- 活动描述 -->
+            <div class="form-group">
+              <label class="form-label" for="eventDescription">
+                活动描述 <span class="required">*</span>
+              </label>
+              <textarea
+                id="eventDescription"
+                v-model="newEvent.description"
+                class="form-control"
+                rows="4"
+                placeholder="请输入活动描述"
+                required
+              />
+            </div>
+
+            <!-- 活动时间和地点 -->
+            <div class="form-row">
+              <div class="form-group half">
+                <label class="form-label" for="eventDate">
+                  活动时间 <span class="required">*</span>
+                </label>
+                <input
+                  id="eventDate"
+                  v-model="newEvent.date"
+                  type="datetime-local"
+                  class="form-control"
+                  required
+                />
+              </div>
+              <div class="form-group half">
+                <label class="form-label" for="eventLocation">
+                  活动地点 <span class="required">*</span>
+                </label>
+                <input
+                  id="eventLocation"
+                  v-model="newEvent.location"
+                  type="text"
+                  class="form-control"
+                  placeholder="请输入活动地点"
+                  required
+                />
+              </div>
+            </div>
+
+            <!-- 活动标签 -->
+            <div class="form-group">
+              <label class="form-label" for="eventTags">
+                活动标签
+              </label>
+              <div class="tags-input-container">
+                <div class="tags-list">
+                  <span
+                    v-for="(tag, index) in newEvent.tags"
+                    :key="index"
+                    class="tag-chip"
+                  >
+                    {{ tag }}
+                    <button
+                      type="button"
+                      class="tag-remove"
+                      @click="removeTag(index)"
+                    >
+                      <i class="fas fa-times" />
+                    </button>
+                  </span>
+                </div>
+                <input
+                  v-model="tagInput"
+                  type="text"
+                  class="form-control tag-input"
+                  placeholder="输入标签后按回车添加"
+                  @keydown.enter.prevent="addTag"
+                />
+              </div>
+              <div class="form-help">
+                回车添加标签，如：音乐、运动、学习等
+              </div>
+            </div>
+
+            <!-- 封面图片（可选） -->
+            <div class="form-group">
+              <label class="form-label">
+                封面图片（可选）
+              </label>
+              <div class="file-upload-container">
+                <input
+                  ref="coverFileInput"
+                  type="file"
+                  class="file-input"
+                  accept="image/*"
+                  @change="handleCoverImageSelect"
+                />
+                <div
+                  class="file-upload-btn"
+                  @click="$refs.coverFileInput.click()"
+                >
+                  <i class="fas fa-cloud-upload-alt" />
+                  <span>选择图片</span>
+                </div>
+              </div>
+              <div v-if="newEvent.cover_img" class="cover-preview">
+                <img
+                  :src="newEvent.cover_img"
+                  alt="封面预览"
+                  class="cover-preview-img"
+                />
+                <button
+                  type="button"
+                  class="remove-cover-btn"
+                  @click="removeCoverImage"
+                >
+                  <i class="fas fa-times" />
+                </button>
+              </div>
+              <div class="form-help">
+                支持 jpg、png、gif 等图片格式，建议大小不超过2MB
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-actions">
+          <button
+            type="button"
+            class="btn ghost"
+            @click="handleCloseCreateEvent"
+          >
+            <i class="fas fa-arrow-left" /> 取消
+          </button>
+          <button
+            type="button"
+            class="btn primary"
+            :disabled="!isFormValid || isSubmitting"
+            @click="handleSubmitCreateEvent"
+          >
+            <i class="fas fa-plus" />
+            {{ isSubmitting ? '创建中...' : '创建活动' }}
+          </button>
         </div>
       </div>
     </div>
@@ -589,6 +772,26 @@ const showDetailModal = ref(false)
 const currentEvent = ref({})
 const showMyRegModal = ref(false)
 const regTab = ref('all')
+const showCreateEventModal = ref(false)
+
+// 活动创建表单数据
+const newEvent = ref({
+  name: '',
+  description: '',
+  date: '',
+  location: '',
+  tags: [],
+  cover_img: ''
+})
+
+// 标签输入
+const tagInput = ref('')
+
+// 创建状态
+const isSubmitting = ref(false)
+
+// 文件上传相关
+const coverFileInput = ref(null)
 
 // 加载状态
 const isLoading = ref(false)
@@ -650,6 +853,17 @@ const isDeadlinePassed = computed(() => {
   return new Date(currentEvent.value.registerDeadline) < new Date()
 })
 
+// 表单验证
+const isFormValid = computed(() => {
+  return (
+    newEvent.value.name.trim().length >= 1 &&
+    newEvent.value.name.trim().length <= 100 &&
+    newEvent.value.description.trim().length >= 1 &&
+    newEvent.value.date !== '' &&
+    newEvent.value.location.trim().length >= 1
+  )
+})
+
 const totalPages = computed(() => {
   if (totalEvents.value === 0 || pageSize.value === 0) return 0
   return Math.ceil(totalEvents.value / pageSize.value)
@@ -699,27 +913,41 @@ const processEventData = (event) => {
 const processApiResponse = (result) => {
   let list = []
   let total = 0
-  
+
   console.log('processApiResponse 输入:', result)
 
-  // 添加对直接数组的处理
-  if (Array.isArray(result)) {
-    // 输入直接是数组
-    list = result
-    total = result.length
-  }
-  // 添加对其他可能结构的处理
-  else if (result && typeof result === 'object') {
-    // 尝试从对象中提取列表数据
-    if (result.records) {
+  // 处理后端BaseResponse格式: { code, message, data: { list, total, page, page_size } }
+  if (result && typeof result === 'object') {
+    // 优先处理后端的标准响应格式
+    if (result.data && typeof result.data === 'object') {
+      // 后端返回的BaseResponse[data]格式
+      if (result.data.list && Array.isArray(result.data.list)) {
+        list = result.data.list || []
+        total = result.data.total || list.length
+      } else if (result.data.data && Array.isArray(result.data.data)) {
+        // 嵌套一层的情况
+        list = result.data.data || []
+        total = result.data.total || list.length
+      } else if (Array.isArray(result.data)) {
+        // data直接是数组
+        list = result.data || []
+        total = result.total || list.length
+      }
+    }
+    // 处理直接包含records的情况
+    else if (result.records && Array.isArray(result.records)) {
       list = result.records || []
-      total = result.total || 0
-    } else if (result.list) {
-      list = result.list || []
-      total = result.total || 0
-    } else if (result.data && Array.isArray(result.data)) {
-      list = result.data || []
       total = result.total || list.length
+    }
+    // 处理直接包含list的情况
+    else if (result.list && Array.isArray(result.list)) {
+      list = result.list || []
+      total = result.total || list.length
+    }
+    // 处理直接是数组的情况
+    else if (Array.isArray(result)) {
+      list = result
+      total = result.length
     }
     // 如果是单个对象，也包装成数组
     else if (result.id || result.name) {
@@ -727,7 +955,7 @@ const processApiResponse = (result) => {
       total = 1
     }
   }
-  
+
   console.log('processApiResponse 输出:', { list, total })
   return { list, total }
 }
@@ -738,6 +966,16 @@ const processApiResponse = (result) => {
 const fetchEventsList = async () => {
   isLoading.value = true
   try {
+    console.log('🚀 [fetchEventsList] 开始获取活动列表，参数:', {
+      page: currentPage.value,
+      size: pageSize.value,
+      keyword: filter.value.search,
+      status: filter.value.status,
+      sort: filter.value.sort,
+      startTime: filter.value.startTime,
+      endTime: filter.value.endTime
+    })
+
     const result = await getEventList({ // <--- 使用新的 API 函数
       page: currentPage.value,
       size: pageSize.value,
@@ -747,14 +985,21 @@ const fetchEventsList = async () => {
       startTime: filter.value.startTime,
       endTime: filter.value.endTime
     })
-    
+
+    console.log('📥 [fetchEventsList] API返回原始结果:', result)
+
     const { list, total } = processApiResponse(result)
-    
+
+    console.log('📋 [fetchEventsList] 处理后的数据:', { list, total })
+
     eventsList.value = list.map(processEventData)
     totalEvents.value = total
-    
+
+    console.log('✅ [fetchEventsList] 最终eventsList:', eventsList.value)
+    console.log('📊 [fetchEventsList] 总数:', totalEvents.value)
+
   } catch (error) {
-    console.error('加载活动列表失败：', error)
+    console.error('❌ [fetchEventsList] 加载活动列表失败：', error)
     eventsList.value = []
     totalEvents.value = 0
   } finally {
@@ -767,16 +1012,28 @@ const fetchEventsList = async () => {
  */
 const fetchMyRegEvents = async () => {
   try {
+    console.log('🚀 [fetchMyRegEvents] 开始获取我的报名列表，参数:', {
+      page: currentPage.value,
+      size: pageSize.value
+    })
+
     const result = await getMyRegisteredEvents({
       page: currentPage.value,
-      size: pageSize.value 
+      size: pageSize.value
     })
-    
+
+    console.log('📥 [fetchMyRegEvents] API返回原始结果:', result)
+
     const { list } = processApiResponse(result)
+
+    console.log('📋 [fetchMyRegEvents] 处理后的数据:', { list })
+
     myRegEvents.value = list.map(processEventData)
-    
+
+    console.log('✅ [fetchMyRegEvents] 最终myRegEvents:', myRegEvents.value)
+
   } catch (error) {
-    console.error('加载我的报名列表失败：', error)
+    console.error('❌ [fetchMyRegEvents] 加载我的报名列表失败：', error)
     myRegEvents.value = []
   }
 }
@@ -829,40 +1086,198 @@ const handleSearch = (keyword) => {
 /**
  * 5. 使用 createEvent API 创建活动
  */
-const handleCreateEvent = async () => {
-    // 假设您有一个活动数据对象用于创建
-    const dummyEventData = {
-        name: `新创建的活动 ${new Date().toLocaleTimeString()}`,
-        description: '这是一个通过新API创建的测试活动。',
-        date: new Date(Date.now() + 86400000).toISOString(), // 明天的日期
-        location: '线上/线下待定',
-        tags: ['测试', '演示']
+const handleCreateEvent = () => {
+  console.log('🎯 [handleCreateEvent] 按钮被点击了!')
+  try {
+    // 打开活动创建弹窗
+    showCreateEventModal.value = true
+    console.log('✅ [handleCreateEvent] 弹窗状态已设置为:', showCreateEventModal.value)
+  } catch (error) {
+    console.error('❌ [handleCreateEvent] 创建活动出错:', error)
+  }
+}
+
+// 关闭创建活动弹窗
+const handleCloseCreateEvent = () => {
+  showCreateEventModal.value = false
+  resetCreateForm()
+}
+
+// 重置创建表单
+const resetCreateForm = () => {
+  newEvent.value = {
+    name: '',
+    description: '',
+    date: '',
+    location: '',
+    tags: [],
+    cover_img: ''
+  }
+  tagInput.value = ''
+  // 重置文件输入
+  if (coverFileInput.value) {
+    coverFileInput.value.value = ''
+  }
+}
+
+// 处理封面图片选择
+const handleCoverImageSelect = (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  // 检查文件类型
+  if (!file.type.startsWith('image/')) {
+    alert('请选择图片文件')
+    return
+  }
+
+  // 检查文件大小 (限制2MB)
+  if (file.size > 2 * 1024 * 1024) {
+    alert('图片大小不能超过2MB')
+    return
+  }
+
+  // 读取文件并转换为base64或上传到服务器
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    newEvent.value.cover_img = e.target.result
+    console.log('📷 图片读取成功:', file.name)
+  }
+  reader.onerror = () => {
+    alert('图片读取失败，请重试')
+  }
+  reader.readAsDataURL(file)
+}
+
+// 移除封面图片
+const removeCoverImage = () => {
+  newEvent.value.cover_img = ''
+  if (coverFileInput.value) {
+    coverFileInput.value.value = ''
+  }
+}
+
+// 添加标签
+const addTag = () => {
+  const tag = tagInput.value.trim()
+  if (tag && !newEvent.value.tags.includes(tag) && newEvent.value.tags.length < 10) {
+    newEvent.value.tags.push(tag)
+    tagInput.value = ''
+  }
+}
+
+// 移除标签
+const removeTag = (index) => {
+  newEvent.value.tags.splice(index, 1)
+}
+
+// 格式化日期为后端API兼容格式
+const formatDateForAPI = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  const pad = (num) => num.toString().padStart(2, '0')
+  const year = date.getFullYear()
+  const month = pad(date.getMonth() + 1)
+  const day = pad(date.getDate())
+  const hours = pad(date.getHours())
+  const minutes = pad(date.getMinutes())
+  const seconds = pad(date.getSeconds())
+  const ms = date.getMilliseconds().toString().padStart(3, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}+08:00`
+}
+
+// 提交创建活动表单
+const handleSubmitCreateEvent = async () => {
+  if (!isFormValid.value || isSubmitting.value) return
+
+  // 检查用户是否已登录
+  const token = localStorage.getItem('access_token')
+  if (!token) {
+    alert('请先登录后再创建活动')
+    return
+  }
+
+  isSubmitting.value = true
+
+  try {
+    console.log('🚀 [handleSubmitCreateEvent] 开始创建活动')
+
+    const eventData = {
+      name: newEvent.value.name.trim(),
+      description: newEvent.value.description.trim(),
+      date: formatDateForAPI(newEvent.value.date),
+      location: newEvent.value.location.trim(),
+      tags: newEvent.value.tags,
+      ...(newEvent.value.cover_img.trim() && { cover_img: newEvent.value.cover_img.trim() })
     }
-    
-    try {
-        const result = await createEvent(dummyEventData) // <--- 使用新的 API 函数
-        if (result?.id) {
-            alert(`活动创建成功! ID: ${result.id}`)
-            await fetchEventsList() // 刷新列表
-        } else {
-            alert(result?.message || '活动创建失败')
-        }
-    } catch (error) {
-        console.error('活动创建失败：', error)
-        alert('活动创建失败，请检查数据或权限。')
+
+    console.log('📤 [handleSubmitCreateEvent] 发送创建请求:', eventData)
+
+    const result = await createEvent(eventData)
+    console.log('📥 [handleSubmitCreateEvent] 创建API返回:', result)
+
+    // 创建成功
+    alert(`活动创建成功! ID: ${result.id}`)
+    handleCloseCreateEvent()
+    await fetchEventsList() // 刷新列表
+
+  } catch (error) {
+    console.error('❌ [handleSubmitCreateEvent] 活动创建失败：', error)
+
+    // 打印详细的422错误信息
+    console.error('❌ [handleSubmitCreateEvent] 完整错误对象:', error)
+    console.error('❌ [handleSubmitCreateEvent] error.data:', error.data)
+    console.error('❌ [handleSubmitCreateEvent] error.fullResponse:', error.fullResponse)
+
+    if (error.data && error.data.detail && Array.isArray(error.data.detail)) {
+      console.error('❌ [handleSubmitCreateEvent] 详细验证错误:', error.data.detail)
+      error.data.detail.forEach((validationError, index) => {
+        console.error(`  验证错误 ${index + 1}:`, validationError)
+        console.error(`    - type: ${validationError.type}`)
+        console.error(`    - loc: ${JSON.stringify(validationError.loc)}`)
+        console.error(`    - msg: ${validationError.msg}`)
+        console.error(`    - input: ${JSON.stringify(validationError.input)}`)
+      })
+
+      // 显示具体验证错误
+      const errorMessages = error.data.detail.map(err =>
+        `${err.loc?.join('.') || '字段'}: ${err.msg}`
+      ).join('\n')
+      alert(`创建失败，请检查以下信息：\n${errorMessages}`)
+    } else {
+      alert(error.message || '活动创建失败，请检查数据或权限。')
     }
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
 const handleHeaderAction = (key) => {
-  switch (key) {
-    //TODO:完善创建活动功能
-  case 'create': alert('创建校园活动（后续对接活动创建表单）'); break
-  case 'myReg': handleShowMyReg(); break
-  case 'refresh': 
-    currentPage.value = 1
-    filter.value.search = ''
-    fetchEventsList() 
-    break
+  console.log('🎯 [handleHeaderAction] 按键被点击:', key)
+  console.log('🎯 [handleHeaderAction] 按键类型:', typeof key)
+  console.log('🎯 [handleHeaderAction] 调用栈:', new Error().stack)
+
+  try {
+    switch (key) {
+    case 'create':
+      console.log('🎯 [handleHeaderAction] 调用 handleCreateEvent')
+      handleCreateEvent();
+      break
+    case 'myReg':
+      console.log('🎯 [handleHeaderAction] 调用 handleShowMyReg')
+      handleShowMyReg();
+      break
+    case 'refresh':
+      console.log('🎯 [handleHeaderAction] 刷新页面')
+      currentPage.value = 1
+      filter.value.search = ''
+      fetchEventsList()
+      break
+    default:
+      console.warn('🎯 [handleHeaderAction] 未知按键:', key)
+    }
+  } catch (error) {
+    console.error('🎯 [handleHeaderAction] 处理按键时出错:', error)
   }
 }
 
@@ -900,16 +1315,22 @@ const handlePageChange = async(page) => {
 // 活动详情相关方法
 const handleViewEvent = async(eventId) => {
   if (!eventId) return
-  
+
   isLoading.value = true
   try {
+    console.log('🚀 [handleViewEvent] 开始获取活动详情:', eventId)
     const event = await getEventDetail(eventId)
+    console.log('📥 [handleViewEvent] 活动详情API返回:', event)
+
     // 使用统一的事件数据处理函数
     currentEvent.value = processEventData(event)
     showDetailModal.value = true
+
+    console.log('✅ [handleViewEvent] 处理后的活动详情:', currentEvent.value)
+
   } catch (error) {
-    console.error(`查看活动(${eventId})详情失败：`, error)
-    alert('获取活动详情失败，请稍后重试')
+    console.error(`❌ [handleViewEvent] 查看活动(${eventId})详情失败：`, error)
+    alert(error.message || '获取活动详情失败，请稍后重试')
   } finally {
     isLoading.value = false
   }
@@ -926,19 +1347,20 @@ const handleCloseDetail = () => {
  */
 const handleRegister = async(eventId) => {
   if (!eventId) return
-  
+
   isProcessing.value[eventId] = true
   try {
+    console.log('🚀 [handleRegister] 开始报名活动:', eventId)
     const result = await registerForEvent(eventId) // <--- 使用新的 API 函数
-    if (result?.code === 200 || result?.success) {
-      alert(result.message || '报名成功')
-      await Promise.all([fetchEventsList(), fetchMyRegEvents()])
-    } else {
-      alert(result?.message || '报名失败')
-    }
+    console.log('📥 [handleRegister] 报名API返回:', result)
+
+    // axios拦截器已经处理了成功的情况，直接走到这里就是成功
+    alert('报名成功！')
+    await Promise.all([fetchEventsList(), fetchMyRegEvents()])
+
   } catch (error) {
-    console.error(`报名活动(${eventId})失败：`, error)
-    alert('报名失败，请稍后重试')
+    console.error(`❌ [handleRegister] 报名活动(${eventId})失败：`, error)
+    alert(error.message || '报名失败，请稍后重试')
   } finally {
     isProcessing.value[eventId] = false
   }
@@ -949,19 +1371,20 @@ const handleRegister = async(eventId) => {
  */
 const handleCancelReg = async(eventId) => {
   if (!eventId) return
-  
+
   isProcessing.value[eventId] = true
   try {
+    console.log('🚀 [handleCancelReg] 开始取消报名活动:', eventId)
     const result = await cancelEventRegistration(eventId) // <--- 使用新的 API 函数
-    if (result?.code === 200 || result?.success) {
-      alert(result.message || '取消报名成功')
-      await Promise.all([fetchEventsList(), fetchMyRegEvents()])
-    } else {
-      alert(result?.message || '取消报名失败')
-    }
+    console.log('📥 [handleCancelReg] 取消报名API返回:', result)
+
+    // axios拦截器已经处理了成功的情况，直接走到这里就是成功
+    alert('取消报名成功！')
+    await Promise.all([fetchEventsList(), fetchMyRegEvents()])
+
   } catch (error) {
-    console.error(`取消活动(${eventId})报名失败：`, error)
-    alert('取消报名失败，请稍后重试')
+    console.error(`❌ [handleCancelReg] 取消活动(${eventId})报名失败：`, error)
+    alert(error.message || '取消报名失败，请稍后重试')
   } finally {
     isProcessing.value[eventId] = false
   }
@@ -2036,6 +2459,232 @@ const handleDeleteEvent = async(eventId) => {
   align-items: center;
   gap: 6px;
   margin-top: 4px;
+}
+
+/* 活动创建弹窗样式 */
+.create-event-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.create-event-modal.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: modalFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.create-event-form {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 10px 0;
+}
+
+/* 表单布局 */
+.form-row {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.form-row .form-group {
+  margin-bottom: 0;
+}
+
+.form-row .form-group.half {
+  flex: 1;
+}
+
+/* 表单控件升级 */
+.form-group {
+  margin-bottom: 24px;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #2d3748;
+  font-weight: 600;
+}
+
+.form-label .required {
+  color: #e53e3e;
+  margin-left: 2px;
+}
+
+.form-control {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 2px solid #e2e8f0;
+  background: white;
+  font-size: 15px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  color: #2d3748;
+  font-weight: 400;
+  box-sizing: border-box;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: #4299e1;
+  box-shadow: 0 0 0 4px rgba(66, 153, 225, 0.1);
+  transform: translateY(-1px);
+}
+
+.form-control:invalid {
+  border-color: #e53e3e;
+}
+
+textarea.form-control {
+  resize: vertical;
+  min-height: 100px;
+  font-family: inherit;
+}
+
+/* 表单帮助文本 */
+.form-help {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #718096;
+  line-height: 1.4;
+}
+
+/* 文件上传样式 */
+.file-upload-container {
+  position: relative;
+  width: 100%;
+}
+
+.file-input {
+  display: none;
+}
+
+.file-upload-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 20px;
+  border: 2px dashed #cbd5e0;
+  border-radius: 14px;
+  background: rgba(66, 153, 225, 0.02);
+  color: #718096;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.file-upload-btn:hover {
+  border-color: #4299e1;
+  background: rgba(66, 153, 225, 0.05);
+  color: #4299e1;
+  transform: translateY(-2px);
+}
+
+.file-upload-btn i {
+  font-size: 20px;
+}
+
+/* 封面预览样式 */
+.cover-preview {
+  position: relative;
+  margin-top: 12px;
+  width: 100%;
+  max-width: 400px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.cover-preview-img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+}
+
+.remove-cover-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(237, 100, 166, 0.9);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-size: 12px;
+}
+
+.remove-cover-btn:hover {
+  background: rgba(237, 100, 166, 1);
+  transform: scale(1.1);
+}
+
+/* 标签输入样式 */
+.tags-input-container {
+  border: 2px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 8px;
+  background: white;
+  transition: all 0.3s ease;
+}
+
+.tags-input-container:focus-within {
+  border-color: #4299e1;
+  box-shadow: 0 0 0 4px rgba(66, 153, 225, 0.1);
+}
+
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(66, 153, 225, 0.1);
+  color: #4299e1;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.tag-remove {
+  background: none;
+  border: none;
+  color: #4299e1;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.tag-remove:hover {
+  background: rgba(66, 153, 225, 0.2);
+}
+
+.tag-input {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  padding: 4px 8px !important;
+  background: transparent !important;
 }
 
 /* 按钮系统（全量升级） */

@@ -27,8 +27,12 @@ export const getCurrentLocation = () => {
       navigator.geolocation.getCurrentPosition(
         (nativeResult) => {
           const acc = nativeResult.coords.accuracy
-          // 只有精度小于100米才认为是高精度
-          if (typeof acc === 'number' && acc < 100 && nativeResult.coords.latitude && nativeResult.coords.longitude) {
+          // 检查坐标是否有效（排除明显异常值）
+          const isValidCoord = nativeResult.coords.latitude && nativeResult.coords.longitude &&
+            nativeResult.coords.latitude >= -90 && nativeResult.coords.latitude <= 90 &&
+            nativeResult.coords.longitude >= -180 && nativeResult.coords.longitude <= 180
+
+          if (isValidCoord && typeof acc === 'number' && acc < 1000 && acc > 0) {
             console.log('✅ 浏览器原生定位成功，精度:', acc, '米')
             resolve({
               success: true,
@@ -41,11 +45,11 @@ export const getCurrentLocation = () => {
               timestamp: nativeResult.timestamp,
               source: 'Browser High Accuracy Geolocation',
               locationType: 'browser_gps',
-              note: acc < 30 ? '高精度' : '中等精度',
-              warning: acc > 30 ? '当前定位精度一般，建议在空旷环境下重试' : undefined
+              note: acc < 30 ? '高精度' : acc < 100 ? '中等精度' : '较低精度',
+              warning: acc > 100 ? '当前定位精度较低，建议在空旷环境下重试' : undefined
             })
           } else {
-            console.warn('⚠️ 浏览器原生定位精度不足（', acc, '米），fallback 到高德定位')
+            console.warn('⚠️ 浏览器原生定位精度不足（', acc, '米）或坐标无效，fallback 到高德定位')
             tryAMapGeolocation(resolve)
           }
         },
@@ -65,9 +69,10 @@ export const getCurrentLocation = () => {
 function tryAMapGeolocation(resolve, nativeError) {
   if (typeof AMap !== 'undefined') {
     AMap.plugin('AMap.Geolocation', () => {
+      // 第一次尝试：高精度GPS定位
       const geolocation = new AMap.Geolocation({
         enableHighAccuracy: true,
-        timeout: 15000,
+        timeout: 10000,
         maximumAge: 0,
         convert: true,
         noIpLocate: 1,
@@ -86,8 +91,9 @@ function tryAMapGeolocation(resolve, nativeError) {
         if (status === 'complete' && result.position) {
           const acc = result.accuracy
           const locType = result.location_type || ''
-          // 只有精度<100米且location_type为gps/lbs才算高精度
-          if (typeof acc === 'number' && acc < 100 && /gps|lbs/i.test(locType)) {
+
+          // 更宽松的精度判断 - 只要精度<200米就接受
+          if (typeof acc === 'number' && acc < 200 && acc > 0) {
             resolve({
               success: true,
               longitude: result.position.lng,
@@ -96,14 +102,14 @@ function tryAMapGeolocation(resolve, nativeError) {
               address: result.formattedAddress,
               locationType: locType,
               source: 'AMAP Enhanced Geolocation',
-              note: acc < 30 ? '高精度' : '中等精度',
-              warning: acc > 30 ? '当前定位精度一般，建议在空旷环境下重试' : undefined,
+              note: acc < 30 ? '高精度' : acc < 100 ? '中等精度' : '较低精度',
+              warning: acc > 100 ? '当前定位精度较低，建议在空旷环境下重试' : undefined,
               rawData: result
             })
           } else {
             resolve({
               success: false,
-              error: `高德定位精度不足（${acc}米，类型:${locType}），请在手机端+GPS+HTTPS下重试`,
+              error: `高德定位精度不足（${acc}米，类型:${locType}），请在空旷环境下重试`,
               code: 'AMAP_LOW_ACCURACY',
               details: result,
               nativeError

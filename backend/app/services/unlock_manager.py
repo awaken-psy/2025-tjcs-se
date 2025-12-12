@@ -56,6 +56,7 @@ class UnlockManager:
                 query = query.filter(Capsule.user_id != user_id)
 
             total = query.count()
+
             offset = (page - 1) * limit
             capsules = query.order_by(Capsule.created_at.desc()).offset(offset).limit(limit).all()
 
@@ -72,19 +73,17 @@ class UnlockManager:
                 if distance <= radius_meters:
                     # 通过Repository转换为Domain对象
                     domain = self.repository._orm_to_domain(capsule)
+
                     if domain and (user_id is None or self._can_user_view_capsule(user_id, domain)):
                         # 使用Domain的to_api_basic方法转换为API模型
                         api_basic = domain.to_api_basic()
 
-                        # 转换为字典以便添加位置信息
-                        capsule_dict = api_basic.model_dump() if hasattr(api_basic, 'model_dump') else api_basic
+                        # 转换为字典
+                        capsule_dict = api_basic.model_dump() if hasattr(api_basic, 'model_dump') else api_basic.model_dump()
 
-                        # 添加位置信息（从Domain对象获取）
-                        if domain.unlock_location and len(domain.unlock_location) >= 2:
-                            capsule_dict['latitude'] = domain.unlock_location[0]
-                            capsule_dict['longitude'] = domain.unlock_location[1]
-                        else:
-                            # 从ORM对象获取位置信息作为备用
+                        # 确保位置信息存在（to_api_basic已经处理了位置转换）
+                        if capsule_dict.get('latitude') is None or capsule_dict.get('longitude') is None:
+                            # 如果Domain对象转换后仍然没有位置信息，从ORM对象直接获取
                             capsule_dict['latitude'] = getattr(capsule, 'latitude', 0.0)
                             capsule_dict['longitude'] = getattr(capsule, 'longitude', 0.0)
 
@@ -93,6 +92,8 @@ class UnlockManager:
                             'distance': round(distance, 2),
                             'unlockable': self._can_user_unlock_capsule(user_id, domain, (latitude, longitude)) if user_id is not None else False
                         })
+                    else:
+                        continue
 
             # 按距离排序
             nearby_capsules.sort(key=lambda x: x['distance'])
@@ -131,7 +132,7 @@ class UnlockManager:
         """
         try:
             # 通过Repository获取Domain对象
-            domain = self.repository.find_by_id(capsule_id)
+            domain = self.repository.find_by_id(int(capsule_id))
             if not domain:
                 return {
                     'success': False,
@@ -446,7 +447,10 @@ class UnlockManager:
             unlock_history = []
             for record in records:
                 # 通过Repository获取胶囊信息
-                domain = self.repository.find_by_id(str(record.capsule_id))
+                capsule_id = getattr(record, 'capsule_id', None)
+                domain = None
+                if capsule_id is not None:
+                    domain = self.repository.find_by_id(int(capsule_id))
                 if domain:
                     api_basic = domain.to_api_basic()
                     unlock_history.append({
@@ -481,6 +485,9 @@ class UnlockManager:
         """
         使用Haversine公式计算两点间距离（米）
         """
+        if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
+            return float('inf')
+
         R = 6371000  # 地球半径（米）
 
         lat1_rad = math.radians(lat1)
@@ -528,33 +535,4 @@ class UnlockManager:
             'check_time': current_time.isoformat() if current_time else datetime.now().isoformat()
         }
 
-    @staticmethod
-    def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-        """
-        计算两个坐标点之间的距离（单位：米）
-        使用 Haversine 公式
-        """
-        if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
-            return float('inf')
-
-        # 地球半径（单位：千米）
-        R = 6371.0
-
-        # 转换为弧度
-        lat1_rad = math.radians(lat1)
-        lon1_rad = math.radians(lon1)
-        lat2_rad = math.radians(lat2)
-        lon2_rad = math.radians(lon2)
-
-        # 计算差值
-        dlat = lat2_rad - lat1_rad
-        dlon = lon2_rad - lon1_rad
-
-        # Haversine 公式
-        a = math.sin(dlat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-
-        # 计算距离（转换为米）
-        distance = R * c * 1000
-
-        return distance
+    

@@ -8,6 +8,7 @@ import EventsView from '@/views/EventsView.vue'
 import LoginView from '@/views/LoginView.vue'
 import HubView from '@/views/HubView.vue'
 import MapView from '@/views/MapView.vue'
+import TimeLineView from '@/views/TimeLineView.vue'
 
 const routes = [
   {
@@ -39,18 +40,23 @@ const routes = [
   {
     path: '/my-capsule',
     name: 'MyCapsule',
-    component: () => import('@/views/MyCapsuleView.vue')
+    component: () => import('@/views/MyCapsuleView.vue'),
   },
   {
     path: '/test-location',
     name: 'TestLocation',
-    component: () => import('@/views/TestLocationView.vue')
+    component: () => import('@/views/TestLocationView.vue'),
   },
   {
     path: '/test-position',
     name: 'TestPosition',
-    component: () => import('@/views/TestLocationView.vue')
-  }
+    component: () => import('@/views/TestLocationView.vue'),
+  },
+  {
+    path: '/timeline',
+    name: 'TimeLine',
+    component: () => import('@/views/TimeLineView.vue'), // 动态导入 TimeLineView
+  },
 ]
 
 const router = createRouter({

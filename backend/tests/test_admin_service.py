@@ -42,6 +42,13 @@ class TestAdminService:
     @patch('app.services.admin_service.AdminRepository')
     def test_get_pending_capsules_success(self, mock_repository_class):
         """测试获取待审核胶囊成功"""
+<<<<<<< HEAD
+
+        # Arrange
+        mock_repository = Mock()
+        mock_repository_class.return_value = mock_repository
+
+=======
         print("\n[开始测试] test_get_pending_capsules_success")
 
         # Arrange
@@ -50,6 +57,7 @@ class TestAdminService:
         mock_repository_class.return_value = mock_repository
 
         print("[数据准备] 准备模拟数据")
+>>>>>>> eeb10977b314e35f6a85d7b04b3dc5cf065b62ce
         mock_data = {
             "capsules": [
                 {
@@ -65,6 +73,23 @@ class TestAdminService:
             "page": 1,
             "page_size": 20
         }
+<<<<<<< HEAD
+        mock_repository.get_pending_capsules.return_value = mock_data
+
+        query = PendingCapsulesQuery(page=1, page_size=20, sort=Sort.LATEST)
+        service = AdminService(self.mock_db)
+
+        # Act
+        result = service.get_pending_capsules(query)
+
+        # Assert
+        assert isinstance(result, PendingCapsulesResponse)
+        assert len(result.capsules) == 1
+        assert result.capsules[0].id == "1"
+        assert result.capsules[0].title == "测试胶囊"
+        assert result.capsules[0].creator_nickname == "测试用户"
+        assert result.capsules[0].report_count == 2
+=======
         print(f"   模拟返回数据包含 {len(mock_data['capsules'])} 个胶囊")
         mock_repository.get_pending_capsules.return_value = mock_data
 
@@ -112,6 +137,7 @@ class TestAdminService:
         print("   [OK] 举报次数正确")
 
         print("[完成] 测试get_pending_capsules_success完成！")
+>>>>>>> eeb10977b314e35f6a85d7b04b3dc5cf065b62ce
 
     @patch('app.services.admin_service.AdminRepository')
     def test_get_pending_capsules_with_defaults(self, mock_repository_class):
@@ -163,6 +189,8 @@ class TestAdminService:
 
         # Assert
         assert isinstance(result, ReportsResponse)
+<<<<<<< HEAD
+=======
         mock_repository.get_reports.assert_called_once_with(
             status=None,
             page=1,
@@ -206,6 +234,7 @@ class TestAdminService:
             reason="违规内容"
         )
         assert isinstance(result, ReportsResponse)
+>>>>>>> eeb10977b314e35f6a85d7b04b3dc5cf065b62ce
 
     @patch('app.services.admin_service.AdminRepository')
     def test_review_capsule_approve_success(self, mock_repository_class):
@@ -223,28 +252,48 @@ class TestAdminService:
 
         # Assert
         assert result is True
+<<<<<<< HEAD
+=======
         mock_repository.review_capsule.assert_called_once_with(
             capsule_id="123",
             action="approve",
             reason=None
         )
+>>>>>>> eeb10977b314e35f6a85d7b04b3dc5cf065b62ce
 
     @patch('app.services.admin_service.AdminRepository')
     def test_review_capsule_reject_with_reason(self, mock_repository_class):
         """测试审核胶囊拒绝并填写原因"""
+<<<<<<< HEAD
+
+        # Arrange
+=======
         print("\n[开始测试] test_review_capsule_reject_with_reason")
 
         # Arrange
         print("[设置阶段] 创建Mock对象")
+>>>>>>> eeb10977b314e35f6a85d7b04b3dc5cf065b62ce
         mock_repository = Mock()
         mock_repository_class.return_value = mock_repository
         mock_repository.review_capsule.return_value = True
 
+<<<<<<< HEAD
+=======
         print("[请求创建] 创建审核请求")
+>>>>>>> eeb10977b314e35f6a85d7b04b3dc5cf065b62ce
         request = ReviewCapsuleRequest(
             action=Action.REJECT,
             reason="内容违规"
         )
+<<<<<<< HEAD
+        service = AdminService(self.mock_db)
+
+        # Act
+        result = service.review_capsule("456", request)
+
+        # Assert
+        assert result is True
+=======
         print(f"   审核动作: {request.action}")
         print(f"   拒绝原因: {request.reason}")
 
@@ -284,6 +333,7 @@ class TestAdminService:
         # Act & Assert
         with pytest.raises(ValidationException, match="拒绝时必须提供拒绝原因"):
             service.review_capsule("789", request)
+>>>>>>> eeb10977b314e35f6a85d7b04b3dc5cf065b62ce
 
     def test_review_capsule_empty_capsule_id(self):
         """测试审核胶囊时胶囊ID为空"""
@@ -295,6 +345,8 @@ class TestAdminService:
         with pytest.raises(ValidationException, match="胶囊ID不能为空"):
             service.review_capsule("", request)
 
+<<<<<<< HEAD
+=======
     def test_review_capsule_none_capsule_id(self):
         """测试审核胶囊时胶囊ID为None"""
         # Arrange
@@ -337,6 +389,7 @@ class TestAdminService:
         assert result is True
         mock_repository.resolve_report.assert_called_once_with("report123")
 
+>>>>>>> eeb10977b314e35f6a85d7b04b3dc5cf065b62ce
     def test_resolve_report_empty_report_id(self):
         """测试处理举报时举报ID为空"""
         # Arrange
@@ -344,6 +397,9 @@ class TestAdminService:
 
         # Act & Assert
         with pytest.raises(ValidationException, match="举报ID不能为空"):
+<<<<<<< HEAD
+            service.resolve_report("")
+=======
             service.resolve_report("")
 
     def test_resolve_report_none_report_id(self):
@@ -398,3 +454,4 @@ class TestAdminService:
         # Act & Assert
         with pytest.raises(Exception, match="处理举报失败"):
             service.resolve_report("report123")
+>>>>>>> eeb10977b314e35f6a85d7b04b3dc5cf065b62ce

@@ -30,22 +30,27 @@ export const checkUnlockableCapsules = async (params = {}) => {
   })
 }
 
+// src/api/unlockApi.js
 /**
  * 解锁胶囊
  * @param {Object} params - 解锁参数
  * @param {string} params.capsule_id - 胶囊ID
  * @param {Object} params.user_location - 用户当前位置（可选）
- * @param {number} params.user_location.latitude - 纬度
- * @param {number} params.user_location.longitude - 经度
+ * @param {Object} params.current_location - 用户当前位置（可选，优先使用）
+ * @param {number} params.user_location?.latitude - 纬度
+ * @param {number} params.user_location?.longitude - 经度
  * @param {string} params.current_time - 当前时间（可选）
  * @returns {Promise}
  */
 export const unlockCapsule = async (params = {}) => {
+  // 优先使用 current_location，如果没有则使用 user_location
+  const locationData = params.current_location || params.user_location
+
   return await request({
-    url: `/unlock/${params.capsule_id}`,  // 修正：使用正确的RESTful URL格式
+    url: `/unlock/${params.capsule_id}`,
     method: 'post',
     data: {
-      current_location: params.user_location,  // 修正：使用 current_location 匹配后端
+      current_location: locationData,  // 确保字段名正确
       current_time: params.current_time
     }
   })

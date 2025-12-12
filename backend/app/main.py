@@ -56,7 +56,8 @@ from app.api.v1 import (
     user_router,
     friend_router,
     upload_router,
-    report_router
+    report_router,
+    event_router
 )
 
 
@@ -131,6 +132,7 @@ app.include_router(user_router, prefix="/api")
 app.include_router(friend_router, prefix="/api")
 app.include_router(upload_router, prefix="/api")
 app.include_router(report_router, prefix="/api")
+app.include_router(event_router, prefix="/api")
 
 
 # -----------------------------------------------------------
