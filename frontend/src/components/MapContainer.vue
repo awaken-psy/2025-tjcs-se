@@ -410,7 +410,7 @@ const updateUserLocationMarker = () => {
       zIndex: 50
     })
     map.add(locationPulseLayer)
-    
+
     // 创建显著的用户位置标记
     userLocationMarker = new AMap.Marker({
       position: [userLocation.value.lng, userLocation.value.lat],
@@ -422,7 +422,7 @@ const updateUserLocationMarker = () => {
     
     userLocationMarker.isUserLocation = true
     map.add(userLocationMarker)
-    
+
     // 创建精度圆（如果精度信息可用）
     if (userLocation.value.accuracy) {
       const accuracyCircle = new AMap.Circle({
@@ -514,26 +514,106 @@ const createCapsuleMarker = (capsule) => {
   
   // 根据可见性设置不同的图标
   let iconUrl = 'https://webapi.amap.com/theme/v1.3/markers/n/mark_b.png' // 默认蓝色
-  if (capsule.vis === 'friend') {
-    iconUrl = 'https://webapi.amap.com/theme/v1.3/markers/n/mark_g.png' // 绿色
-  } else if (capsule.vis === 'private') {
-    iconUrl = 'https://webapi.amap.com/theme/v1.3/markers/n/mark_r.png' // 红色
+
+  // 检查可见性字段，支持多种可能的字段名
+  const visibility = capsule.visibility || capsule.vis || 'public'
+
+  if (visibility === 'friends' || visibility === 'friend') {
+    iconUrl = 'https://webapi.amap.com/theme/v1.3/markers/n/mark_g.png' // 绿色 - 好友可见
+  } else if (visibility === 'private') {
+    iconUrl = 'https://webapi.amap.com/theme/v1.3/markers/n/mark_r.png' // 红色 - 私有
+  } else {
+    // public/campus 保持默认蓝色
+    iconUrl = 'https://webapi.amap.com/theme/v1.3/markers/n/mark_b.png' // 蓝色 - 公开
   }
 
-  // 🎯 调试：确认创建成功的坐标
-  console.log(`成功创建 Marker 实例，坐标: [${capsule.lng}, ${capsule.lat}]`);
+  // 过滤掉无效坐标的胶囊不在地图显示
+  if (capsule.lng < 73 || capsule.lng > 135 || capsule.lat < 18 || capsule.lat > 54) {
+    console.warn(`跳过无效坐标的胶囊: [${capsule.lng}, ${capsule.lat}] (超出中国范围)`)
+    return null
+  }
   
+  // 创建自定义图标，调整图标大小
+  const icon = new AMap.Icon({
+    size: new AMap.Size(20, 20),  // 减小图标大小
+    image: iconUrl,
+    imageSize: new AMap.Size(16, 16),  // 减小图片大小
+    imageOffset: new AMap.Pixel(-2, -2)  // 图片偏移，使图标居中
+  })
+
   const marker = new AMap.Marker({
     position: [capsule.lng, capsule.lat],
-    icon: iconUrl,
-    offset: new AMap.Pixel(-12, -12),
-    extData: capsule // 将胶囊数据存储在标记中
+    icon: icon,
+    offset: new AMap.Pixel(-10, -10),  // 调整偏移以匹配新的图标大小
+    extData: capsule, // 将胶囊数据存储在标记中
+    zIndex: 100,  // 设置层级，确保标记在上层
+    cursor: 'pointer',  // 鼠标样式
+    // 移除动画参数，避免 API 兼容性问题
+  })
+
+  // 添加鼠标悬停效果（适度放大）
+  marker.on('mouseover', () => {
+    marker.setIcon(new AMap.Icon({
+      size: new AMap.Size(24, 24),  // 适度放大图标
+      image: iconUrl,
+      imageSize: new AMap.Size(20, 20),
+      imageOffset: new AMap.Pixel(-2, -2)
+    }))
+  })
+
+  marker.on('mouseout', () => {
+    marker.setIcon(icon)  // 恢复原始图标
   })
   
-  // 添加点击事件
-  marker.on('click', () => {
-    handleMarkerClick(capsule)
+  // 创建信息窗内容
+  const infoWindowContent = `
+    <div style="padding: 10px; min-width: 200px;">
+      <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: bold; color: #333;">${capsule.title || '未命名胶囊'}</h3>
+      <p style="margin: 4px 0; font-size: 12px; color: #666;">${capsule.content_preview || '暂无描述'}</p>
+      <div style="margin-top: 8px; font-size: 11px; color: #999;">
+        <span>🔒 ${getVisibilityText(capsule.visibility || 'public')}</span>
+        <span style="margin-left: 8px;">👍 ${capsule.like_count || 0}</span>
+        <span style="margin-left: 8px;">💬 ${capsule.comment_count || 0}</span>
+      </div>
+      <div style="margin-top: 8px;">
+        <button id="view-detail-${capsule.id}" style="background: #6c8cff; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;">查看详情</button>
+      </div>
+    </div>
+  `
+
+  // 创建信息窗
+  const infoWindow = new AMap.InfoWindow({
+    content: infoWindowContent,
+    offset: new AMap.Pixel(0, -35)
   })
+
+  // 添加点击事件
+  marker.on('click', (e) => {
+    // 打开信息窗
+    infoWindow.open(map, marker.getPosition())
+
+    // 为查看详情按钮绑定事件
+    setTimeout(() => {
+      const detailBtn = document.getElementById(`view-detail-${capsule.id}`)
+      if (detailBtn) {
+        detailBtn.onclick = () => {
+          infoWindow.close()
+          handleMarkerClick(capsule)
+        }
+      }
+    }, 100)
+  })
+
+  // 辅助函数：获取可见性文字
+  function getVisibilityText(visibility) {
+    switch (visibility) {
+      case 'private': return '仅自己可见'
+      case 'friends': return '好友可见'
+      case 'campus':
+      case 'public': return '校园公开'
+      default: return '公开'
+    }
+  }
   
   return marker
 }

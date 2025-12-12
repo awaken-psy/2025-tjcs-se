@@ -251,9 +251,10 @@ export default {
 
     const getVisibilityText = (visibility) => {
       const map = {
-        'public': '公开',
-        'campus': '校园',
-        'private': '私密'
+        'public': '校园公开',
+        'campus': '校园公开',  // 处理后端返回的campus
+        'friends': '好友可见',
+        'private': '仅自己可见'
       }
       return map[visibility] || visibility
     }

@@ -2,6 +2,7 @@
 // 用户相关状态管理（Pinia 示例）
 import { defineStore } from 'pinia'
 import { logout as callLogoutApi } from '@/api/new/authenticationApi'
+import router from '@/router'
 
 export const useUserStore = defineStore('user', {
   state: () => ({

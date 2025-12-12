@@ -503,8 +503,8 @@ import {
   getMyCapsules,
   updateCapsule,
   getCapsuleDetail,
-  likeCapsule,
 } from '@/api/new/capsulesApi.js'
+import { likeCapsule } from '@/api/new/interactionsApi.js'
 
 const router = useRouter()
 
@@ -647,8 +647,10 @@ const fetchCapsuleList = async () => {
 const getVisText = (vis) => {
   switch (vis) {
     case 'public':
+    case 'campus':  // 处理后端返回的campus
       return '校园公开'
-    case 'friend':
+    case 'friends':
+    case 'friend':  // 处理前端可能的friend
       return '好友可见'
     case 'private':
       return '仅自己可见'
@@ -819,11 +821,10 @@ const handleLikeCapsule = async (capsuleId) => {
   try {
     const result = await likeCapsule(capsuleId)
 
-    if (result.code === 200 || result.success) {
-      const isLiked = result.data?.is_liked ?? !capsule.liked
-      const newCount =
-        result.data?.like_count ??
-        (capsule.like_count || 0) + (isLiked ? 1 : -1)
+    // request.js响应拦截器返回的是data部分，所以直接检查result是否存在
+    if (result && (result.is_liked !== undefined || result.like_count !== undefined)) {
+      const isLiked = result.is_liked !== undefined ? result.is_liked : !capsule.liked
+      const newCount = result.like_count !== undefined ? result.like_count : (capsule.like_count || 0) + (isLiked ? 1 : -1)
 
       // 乐观更新
       capsule.liked = isLiked
@@ -916,8 +917,8 @@ const handleCloseForm = () => {
   isEditMode.value = false
 }
 
-const onCapsuleCreated = async (formData) => {
-  if (!formData) {
+const onCapsuleCreated = async (result) => {
+  if (!result) {
     handleCloseForm()
     return
   }
@@ -933,10 +934,10 @@ const onCapsuleCreated = async (formData) => {
     try {
       // 字段映射：content -> desc (假设 API 实际存储字段是 desc)
       const updateData = {
-        title: formData.title,
-        desc: formData.content, // 假设 API 期望的是 desc 字段
-        visibility: formData.visibility,
-        tags: formData.tags,
+        title: result.title,
+        desc: result.content, // 假设 API 期望的是 desc 字段
+        visibility: result.visibility,
+        tags: result.tags,
         // ... 其他需要更新的字段
       }
 
@@ -946,6 +947,10 @@ const onCapsuleCreated = async (formData) => {
       console.error(`更新胶囊(${capsuleId})失败:`, error)
       alert(`胶囊更新失败：${error.message || '未知错误'}`)
     }
+  } else {
+    // 创建模式 - 胶囊已经在 CapsuleForm 中创建成功
+    // CapsuleForm已经处理了成功/失败的显示，这里不需要重复显示
+    console.log('创建模式：接收到CapsuleForm的结果:', result)
   }
 
   handleCloseForm() // 关闭表单

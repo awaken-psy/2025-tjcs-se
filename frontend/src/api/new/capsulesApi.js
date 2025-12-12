@@ -125,15 +125,4 @@ export const createCapsuleDraft = (draftData) => {
   })
 }
 
-//TODO:newapi
-/**
- * 点赞/取消点赞胶囊
- * @param {string} capsuleId - 胶囊ID
- * @returns {Promise}
- */
-export const likeCapsule = (capsuleId) => {
-  return request({
-    url: `/capsules/${capsuleId}/like`, // 假设的API路径
-    method: 'post' // 或 put
-  })
-}
+// 点赞功能已移至 interactionsApi.js，请使用 import { likeCapsule } from '@/api/new/interactionsApi.js'

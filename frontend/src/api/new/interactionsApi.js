@@ -5,25 +5,27 @@ import request from '@/utils/request'
 
 /**
  * 点赞胶囊
+ * @param {string} capsuleId - 胶囊ID
  * @returns {Promise}
  */
-export const likeCapsule = () => {
+export const likeCapsule = (capsuleId) => {
   return request({
-    url: '/capsules//like',
+    url: `/interactions/${capsuleId}/like`,
     method: 'post'
   })
 }
 
 /**
  * 评论胶囊
+ * @param {string} capsuleId - 胶囊ID
  * @param {Object} commentData - 评论数据
  * @param {string} commentData.content - 评论内容
  * @param {string} commentData.parent_id - 父评论ID
  * @returns {Promise}
  */
-export const commentCapsule = (commentData) => {
+export const commentCapsule = (capsuleId, commentData) => {
   return request({
-    url: '/capsules//comments',
+    url: `/interactions/${capsuleId}/comments`,
     method: 'post',
     data: commentData
   })
@@ -31,15 +33,16 @@ export const commentCapsule = (commentData) => {
 
 /**
  * 获取胶囊评论列表
+ * @param {string} capsuleId - 胶囊ID
  * @param {Object} params - 查询参数
  * @param {number} params.page - 页码
  * @param {number} params.page_size - 每页数量
  * @param {string} params.sort - 排序方式
  * @returns {Promise}
  */
-export const getCapsuleComments = (params = {}) => {
+export const getCapsuleComments = (capsuleId, params = {}) => {
   return request({
-    url: '/capsules//comments',
+    url: `/interactions/${capsuleId}/comments`,
     method: 'get',
     params
   })
@@ -47,11 +50,12 @@ export const getCapsuleComments = (params = {}) => {
 
 /**
  * 收藏胶囊
+ * @param {string} capsuleId - 胶囊ID
  * @returns {Promise}
  */
-export const collectCapsule = () => {
+export const collectCapsule = (capsuleId) => {
   return request({
-    url: '/capsules//collect',
+    url: `/interactions/${capsuleId}/collect`,
     method: 'post'
   })
 }
@@ -67,7 +71,7 @@ export const collectCapsule = () => {
  */
 export const submitReport = (reportData) => {
   return request({
-    url: '/reports',
+    url: '/reports/',
     method: 'post',
     data: reportData
   })
