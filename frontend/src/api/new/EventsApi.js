@@ -1,7 +1,7 @@
 // src/api/eventsApi.js
 // 活动相关API接口
 
-import request from '@/utils/request' 
+import request from '@/utils/request'
 
 /**
  * 创建新活动
@@ -16,9 +16,9 @@ import request from '@/utils/request'
  */
 export const createEvent = (eventData) => {
     return request({
-        url: '/events',
+        url: '/events/',  // 添加尾部斜杠避免307重定向
         method: 'post',
-        data: eventData 
+        data: eventData
     })
 }
 
@@ -37,8 +37,8 @@ export const createEvent = (eventData) => {
 export const updateEvent = (eventId, eventData) => {
     return request({
         url: `/events/${eventId}`,
-        method: 'put', 
-        data: eventData 
+        method: 'put',
+        data: eventData
     })
 }
 
@@ -81,9 +81,9 @@ export const cancelEventRegistration = (eventId) => {
  */
 export const getEventList = (params = {}) => {
     return request({
-        url: '/events',
+        url: '/events/',  // 添加尾部斜杠避免307重定向
         method: 'get',
-        params: params 
+        params: params
     })
 }
 
@@ -101,7 +101,7 @@ export const getEventDetail = (eventId) => {
 }
 
 /**
- * 获取当前用户已报名的活动列表 
+ * 获取当前用户已报名的活动列表
  * @param {Object} [params] - 查询参数 (可选)
  * @param {number} [params.page] - 页码
  * @param {number} [params.page_size] - 每页数量
@@ -111,7 +111,7 @@ export const getMyRegisteredEvents = (params = {}) => {
     return request({
         url: '/events/my-registered',
         method: 'get',
-        params: params 
+        params: params
     })
 }
 

@@ -33,6 +33,7 @@ class User(Base):
     unlock_records = relationship("UnlockRecord", back_populates="user", cascade="all, delete-orphan")
     reports_made = relationship("Report", foreign_keys="Report.reporter_id", back_populates="reporter")
     reports_processed = relationship("Report", foreign_keys="Report.processor_id", back_populates="processor")
+    created_events = relationship("Event", back_populates="creator", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', email='{self.email}')>"
