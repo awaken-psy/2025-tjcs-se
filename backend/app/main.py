@@ -60,8 +60,8 @@ from app.api.v1 import (
     user_router,
     friend_router,
     upload_router,
-    report_router
-    test_router
+    report_router,
+    test_router,
     event_router
 )
 
