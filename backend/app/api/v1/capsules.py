@@ -112,9 +112,10 @@ async def get_my_capsules(
     size: int = Query(20, ge=1, le=100),  # 分页参数：每页大小，默认 20
     status: str = Query("all", regex="^(all|draft|published)$"), # 过滤状态：all, draft (草稿), published (已发布)
     user: AuthorizedUser = Depends(login_required), # 确保用户已登录
+    db: Session = Depends(get_db), # 依赖注入：获取数据库会话
 ):
     """获取我的胶囊列表"""
-    manager = CapsuleManager() # 实例化管理器 (这里假设 CapsuleManager 可以在没有 DB session 时工作，或在内部获取)
+    manager = CapsuleManager(db) # 🔥 修复：传递数据库会话
     # 调用 Service 层获取用户胶囊列表、总数和分页信息
     result = manager.get_user_capsules(user.user_id, page, size, status)
     
@@ -143,9 +144,10 @@ async def get_my_capsules(
 async def get_capsule_detail(
     capsule_id: int = Path(..., description="胶囊ID"), # 路径参数：胶囊ID
     user: AuthorizedUser = Depends(login_required),
+    db: Session = Depends(get_db), # 依赖注入：获取数据库会话
 ):
     """获取胶囊详情"""
-    manager = CapsuleManager()
+    manager = CapsuleManager(db) # 🔥 修复：传递数据库会话
     # 调用 Service 层获取胶囊详情，Service 层会处理权限检查和解锁状态判断
     capsule_detail = manager.get_capsule_detail(capsule_id, user.user_id, user)
     
@@ -174,10 +176,11 @@ async def update_capsule(
     capsule_id: int = Path(..., description="胶囊ID"),
     request: CapsuleUpdateRequest = ..., # 请求体模型
     user: AuthorizedUser = Depends(login_required),
+    db: Session = Depends(get_db), # 依赖注入：获取数据库会话
 ):
     """更新胶囊"""
     try:
-        manager = CapsuleManager()
+        manager = CapsuleManager(db)
         # 调用 Service 层执行更新操作，Service 负责权限验证和数据持久化
         success = manager.update_capsule(capsule_id, request, user.user_id)
         
@@ -189,7 +192,7 @@ async def update_capsule(
             code=200,
             message="更新成功",
             data=CapsuleUpdateResponse(
-                capsule_id=capsule_id,
+                capsule_id=str(capsule_id),  # 🔥 修复：将整数ID转换为字符串
                 updated_at=datetime.utcnow() # 返回更新时间
             )
         )
@@ -210,10 +213,11 @@ async def update_capsule(
 async def delete_capsule(
     capsule_id: int = Path(..., description="胶囊ID"),
     user: AuthorizedUser = Depends(login_required),
+    db: Session = Depends(get_db), # 依赖注入：获取数据库会话
 ):
     """删除胶囊"""
     try:
-        manager = CapsuleManager()
+        manager = CapsuleManager(db)
         # 调用 Service 层执行删除操作，Service 负责权限验证和数据删除
         success = manager.delete_capsule(capsule_id, user.user_id)
         
@@ -244,10 +248,11 @@ async def delete_capsule(
 async def save_draft(
     request: CapsuleDraftRequest,
     user: AuthorizedUser = Depends(login_required),
+    db: Session = Depends(get_db), # 依赖注入：获取数据库会话
 ):
     """保存草稿"""
     try:
-        manager = CapsuleManager()
+        manager = CapsuleManager(db)
         # 调用 Service 层处理草稿保存逻辑
         response = manager.save_draft(request, user.user_id)
 
@@ -276,10 +281,11 @@ async def browse_capsules(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     user: AuthorizedUser = Depends(login_required),
+    db: Session = Depends(get_db), # 依赖注入：获取数据库会话
 ):
     """多模式浏览胶囊"""
     try:
-        manager = CapsuleManager()
+        manager = CapsuleManager(db)
         
         if mode == "map":
             # 地图模式：获取带有地理位置信息的胶囊，用于在地图上展示
