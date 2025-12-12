@@ -617,77 +617,77 @@ class TestEventsAPI:
 
 
 # 独立测试函数
-def test_create_event_success():
-    """独立测试：创建活动成功"""
-    test_instance = TestEventsAPI()
-    event_data = {
-        "name": "校园马拉松",
-        "description": "欢迎参加一年一度的校园马拉松活动，一起挑战自我！",
-        "date": (datetime.now() + timedelta(days=30)).isoformat(),
-        "location": "同济大学嘉定校区体育场",
-        "tags": ["运动", "健康", "校园活动"]
-    }
-    test_instance.test_create_event_success(event_data)
+# def test_create_event_success():
+#     """独立测试：创建活动成功"""
+#     test_instance = TestEventsAPI()
+#     event_data = {
+#         "name": "校园马拉松",
+#         "description": "欢迎参加一年一度的校园马拉松活动，一起挑战自我！",
+#         "date": (datetime.now() + timedelta(days=30)).isoformat(),
+#         "location": "同济大学嘉定校区体育场",
+#         "tags": ["运动", "健康", "校园活动"]
+#     }
+#     test_instance.test_create_event_success(event_data)
 
 
-def test_get_events_list_success():
-    """独立测试：获取活动列表成功"""
-    test_instance = TestEventsAPI()
-    test_instance.test_get_events_list_success()
+# def test_get_events_list_success():
+#     """独立测试：获取活动列表成功"""
+#     test_instance = TestEventsAPI()
+#     test_instance.test_get_events_list_success()
 
 
-def test_events_comprehensive():
-    """活动接口综合测试"""
-    print("\n=== 开始活动接口综合测试 ===")
+# def test_events_comprehensive():
+#     """活动接口综合测试"""
+#     print("\n=== 开始活动接口综合测试 ===")
 
-    test_instance = TestEventsAPI()
-    event_data = {
-        "name": "综合测试活动",
-        "description": "用于综合测试的活动",
-        "date": (datetime.now() + timedelta(days=40)).isoformat(),
-        "location": "综合测试地点",
-        "tags": ["综合测试"]
-    }
-    update_data = {
-        "name": "综合测试活动（更新）",
-        "description": "更新后的综合测试活动描述",
-        "date": (datetime.now() + timedelta(days=45)).isoformat(),
-        "location": "更新后的综合测试地点",
-        "tags": ["综合测试", "更新"]
-    }
+#     test_instance = TestEventsAPI()
+#     event_data = {
+#         "name": "综合测试活动",
+#         "description": "用于综合测试的活动",
+#         "date": (datetime.now() + timedelta(days=40)).isoformat(),
+#         "location": "综合测试地点",
+#         "tags": ["综合测试"]
+#     }
+#     update_data = {
+#         "name": "综合测试活动（更新）",
+#         "description": "更新后的综合测试活动描述",
+#         "date": (datetime.now() + timedelta(days=45)).isoformat(),
+#         "location": "更新后的综合测试地点",
+#         "tags": ["综合测试", "更新"]
+#     }
 
-    # 创建活动
-    event_id = test_instance.test_create_event_success(event_data)
+#     # 创建活动
+#     event_id = test_instance.test_create_event_success(event_data)
 
-    # 获取活动列表
-    test_instance.test_get_events_list_success()
+#     # 获取活动列表
+#     test_instance.test_get_events_list_success()
 
-    # 获取活动详情
-    test_instance.test_get_event_detail_success()
+#     # 获取活动详情
+#     test_instance.test_get_event_detail_success()
 
-    # 更新活动
-    test_instance.test_update_event_success(update_data)
+#     # 更新活动
+#     test_instance.test_update_event_success(update_data)
 
-    # 测试报名功能
-    test_instance.test_register_event_success()
+#     # 测试报名功能
+#     test_instance.test_register_event_success()
 
-    # 测试取消报名
-    test_instance.test_cancel_registration_success()
+#     # 测试取消报名
+#     test_instance.test_cancel_registration_success()
 
-    # 获取我创建的活动
-    test_instance.test_get_my_events()
+#     # 获取我创建的活动
+#     test_instance.test_get_my_events()
 
-    # 获取我报名的活动
-    test_instance.test_get_my_registrations()
+#     # 获取我报名的活动
+#     test_instance.test_get_my_registrations()
 
-    # 删除活动
-    test_instance.test_delete_event_success()
+#     # 删除活动
+#     test_instance.test_delete_event_success()
 
-    print("\n=== 活动接口综合测试完成 ===")
+#     print("\n=== 活动接口综合测试完成 ===")
 
 
-if __name__ == "__main__":
-    # 如果直接运行此文件，执行独立测试
-    test_create_event_success()
-    test_get_events_list_success()
-    test_events_comprehensive()
+# if __name__ == "__main__":
+#     # 如果直接运行此文件，执行独立测试
+#     test_create_event_success()
+#     test_get_events_list_success()
+#     test_events_comprehensive()

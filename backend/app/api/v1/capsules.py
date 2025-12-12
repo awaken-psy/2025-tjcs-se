@@ -110,7 +110,7 @@ async def create_capsule(
 async def get_my_capsules(
     page: int = Query(1, ge=1), # 分页参数：当前页码，默认 1
     size: int = Query(20, ge=1, le=100),  # 分页参数：每页大小，默认 20
-    status: str = Query("all", regex="^(all|draft|published)$"), # 过滤状态：all, draft (草稿), published (已发布)
+    status: str = Query("all", pattern="^(all|draft|published)$"), # 过滤状态：all, draft (草稿), published (已发布)
     user: AuthorizedUser = Depends(login_required), # 确保用户已登录
     db: Session = Depends(get_db), # 依赖注入：获取数据库会话
 ):
@@ -118,7 +118,7 @@ async def get_my_capsules(
     manager = CapsuleManager(db) # 🔥 修复：传递数据库会话
     # 调用 Service 层获取用户胶囊列表、总数和分页信息
     result = manager.get_user_capsules(user.user_id, page, size, status)
-    
+
     # 构造标准分页信息响应
     pagination = Pagination(
         page=result['page'],
@@ -126,13 +126,81 @@ async def get_my_capsules(
         total=result['total'],
         total_pages=result['total_pages']
     )
-    
+
     return BaseResponse[CapsuleListResponse].success(
         code=200,
         message="获取成功",
         # 构造列表响应模型，包含胶囊列表和分页信息
         data=CapsuleListResponse(capsules=result['capsules'], pagination=pagination)
     )
+
+## 🌐 胶囊多模式浏览
+
+@router.get(
+    "/browse",
+    response_model=BaseResponse[MultiModeBrowseResponse],
+    summary="多模式浏览胶囊",
+    description="支持地图模式、时间轴模式、标签模式浏览胶囊"
+)
+@api_logging(logger)
+async def browse_capsules(
+    mode: str = Query(..., pattern="^(map|timeline|tags)$"), # 查询参数：浏览模式，强制限制为 'map', 'timeline', 'tags' 之一
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    user: AuthorizedUser = Depends(login_required),
+    db: Session = Depends(get_db), # 依赖注入：获取数据库会话
+):
+    """多模式浏览胶囊"""
+    try:
+        manager = CapsuleManager(db)
+
+        if mode == "map":
+            # 地图模式：获取带有地理位置信息的胶囊，用于在地图上展示
+            capsules = manager.get_capsules_with_location(user.user_id, page, size)
+            return BaseResponse[MultiModeBrowseResponse].success(
+                code=200,
+                message="获取成功",
+                data=MultiModeBrowseResponse(
+                    mode=mode,
+                    # 将领域模型对象转换为 API 基础响应模型
+                    capsules=[capsule.to_api_basic() for capsule in capsules]
+                )
+            )
+        elif mode == "timeline":
+            # 时间轴模式：获取按时间分组的胶囊数据
+            timeline_groups: Dict[str, List] = manager.get_capsules_by_timeline(user.user_id)
+            api_timeline_groups = {}
+            # 遍历 Service 层返回的分组数据，转换为 API 响应格式
+            for month, capsules in timeline_groups.items():
+                api_timeline_groups[month] = [capsule.to_api_basic() for capsule in capsules]
+
+            return BaseResponse[MultiModeBrowseResponse].success(
+                code=200,
+                message="获取成功",
+                data=MultiModeBrowseResponse(
+                    mode=mode,
+                    timeline_groups=api_timeline_groups # 返回按月分组的列表
+                )
+            )
+        elif mode == "tags":
+            # 标签模式：获取按标签分类或简单列表的胶囊数据
+            capsules = manager.get_capsules_by_tags(user.user_id, page, size)
+            return BaseResponse[MultiModeBrowseResponse].success(
+                code=200,
+                message="获取成功",
+                data=MultiModeBrowseResponse(
+                    mode=mode,
+                    capsules=[capsule.to_api_basic() for capsule in capsules]
+                )
+            )
+        else:
+            # 路由参数已使用 pattern 限制，但为了健壮性保留此检查
+            raise HTTPException(status_code=400, detail="不支持的浏览模式")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取胶囊时发生错误: {str(e)}")
 
 @router.get(
     "/{capsule_id}",
@@ -150,11 +218,11 @@ async def get_capsule_detail(
     manager = CapsuleManager(db) # 🔥 修复：传递数据库会话
     # 调用 Service 层获取胶囊详情，Service 层会处理权限检查和解锁状态判断
     capsule_detail = manager.get_capsule_detail(capsule_id, user.user_id, user)
-    
+
     if not capsule_detail:
         # 如果 Service 层返回空，则表示胶囊不存在或用户无权访问
         raise HTTPException(status_code=404, detail="胶囊不存在或无权访问")
-    
+
     return BaseResponse[CapsuleDetail].success(
         code=200,
         message="获取成功",
@@ -267,70 +335,3 @@ async def save_draft(
 
  
 
-## 🌐 胶囊多模式浏览
-
-@router.get(
-    "/browse",
-    response_model=BaseResponse[MultiModeBrowseResponse],
-    summary="多模式浏览胶囊",
-    description="支持地图模式、时间轴模式、标签模式浏览胶囊"
-)
-@api_logging(logger)
-async def browse_capsules(
-    mode: str = Query(..., regex="^(map|timeline|tags)$"), # 查询参数：浏览模式，强制限制为 'map', 'timeline', 'tags' 之一
-    page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
-    user: AuthorizedUser = Depends(login_required),
-    db: Session = Depends(get_db), # 依赖注入：获取数据库会话
-):
-    """多模式浏览胶囊"""
-    try:
-        manager = CapsuleManager(db)
-        
-        if mode == "map":
-            # 地图模式：获取带有地理位置信息的胶囊，用于在地图上展示
-            capsules = manager.get_capsules_with_location(user.user_id, page, size)
-            return BaseResponse[MultiModeBrowseResponse].success(
-                code=200,
-                message="获取成功",
-                data=MultiModeBrowseResponse(
-                    mode=mode,
-                    # 将领域模型对象转换为 API 基础响应模型
-                    capsules=[capsule.to_api_basic() for capsule in capsules] 
-                )
-            )
-        elif mode == "timeline":
-            # 时间轴模式：获取按时间分组的胶囊数据
-            timeline_groups: Dict[str, List] = manager.get_capsules_by_timeline(user.user_id)
-            api_timeline_groups = {}
-            # 遍历 Service 层返回的分组数据，转换为 API 响应格式
-            for month, capsules in timeline_groups.items():
-                api_timeline_groups[month] = [capsule.to_api_basic() for capsule in capsules]
-            
-            return BaseResponse[MultiModeBrowseResponse].success(
-                code=200,
-                message="获取成功",
-                data=MultiModeBrowseResponse(
-                    mode=mode,
-                    timeline_groups=api_timeline_groups # 返回按月分组的列表
-                )
-            )
-        elif mode == "tags":
-            # 标签模式：获取按标签分类或简单列表的胶囊数据
-            capsules = manager.get_capsules_by_tags(user.user_id, page, size)
-            return BaseResponse[MultiModeBrowseResponse].success(
-                code=200,
-                message="获取成功",
-                data=MultiModeBrowseResponse(
-                    mode=mode,
-                    capsules=[capsule.to_api_basic() for capsule in capsules]
-                )
-            )
-        else:
-            # 路由参数已使用 regex 限制，但为了健壮性保留此检查
-            raise HTTPException(status_code=400, detail="不支持的浏览模式")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取胶囊时发生错误: {str(e)}")
