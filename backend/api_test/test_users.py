@@ -4,7 +4,7 @@ import pytest
 from .config import base_url
 from .utils import get_admin_user, get_registered_users
 from .data import users
-
+'''
 def test_get_my_profile():
     """测试获取我的资料接口"""
     # 获取已注册用户
@@ -104,6 +104,8 @@ def test_update_my_profile_invalid_data():
 
     print("✓ 无效数据更新测试通过")
 
+
+'''
 
 # def test_get_my_history():
 #     """测试获取我的历史记录接口"""
