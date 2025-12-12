@@ -27,7 +27,7 @@
           { key: 'map', label: '地图', icon: '🗺️' },
           { key: 'create', label: '创建胶囊', icon: '✚' },
           { key: 'events', label: '校园活动', icon: '🎪' },
-          { key: 'logout', label: '注销', icon: '🔐' },
+          { key: 'logout', label: isLogoutLoading ? '注销中...' : '注销', icon: '🔐', disabled: isLogoutLoading },
         ]"
         current-active="myCapsule"
         tip-text="提示：点击胶囊卡片可查看详情，支持网格/列表视图切换"
@@ -505,6 +505,9 @@ import {
   getCapsuleDetail,
 } from '@/api/new/capsulesApi.js'
 import { likeCapsule } from '@/api/new/interactionsApi.js'
+import { logout } from '@/api/new/authenticationApi'
+// 引入用户状态
+import { useUserStore } from '@/store/user'
 
 const router = useRouter()
 
@@ -719,7 +722,7 @@ const handleHeaderAction = (key) => {
 }
 
 // —— 侧边导航相关方法 ——
-const handleNavChange = (key) => {
+const handleNavChange = async (key) => {
   const routeMap = {
     myCapsule: '/my-capsule',
     hub: '/hubviews',
@@ -739,9 +742,8 @@ const handleNavChange = (key) => {
   }
 
   if (key === 'logout') {
-    localStorage.removeItem('user_token')
-    localStorage.removeItem('user_info')
-    router.push('/login')
+    // 使用logout API实现注销
+    await handleLogout()
     return
   }
 
@@ -840,6 +842,53 @@ const handleLikeCapsule = async (capsuleId) => {
     alert('点赞失败，请稍后重试')
   } finally {
     isProcessing.value[`like_${capsuleId}`] = false
+  }
+}
+
+// 注销加载状态
+const isLogoutLoading = ref(false)
+
+/**
+ * 注销处理函数
+ */
+const handleLogout = async () => {
+  // 防止重复点击
+  if (isLogoutLoading.value) return
+
+  // 标记注销加载状态
+  isLogoutLoading.value = true
+
+  try {
+    // 调用logout API通知后端清除会话
+    await logout()
+    console.log('注销API调用成功')
+  } catch (error) {
+    console.error('注销API调用失败:', error)
+    // 即使API调用失败，也要继续执行清理逻辑
+  } finally {
+    // 清理所有本地存储数据和 Pinia 状态
+    const keysToRemove = [
+      'user_token',
+      'user_info',
+      'access_token',
+      'refresh_token',
+      'saved_login_email'
+    ]
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key)
+    })
+    localStorage.removeItem('user-store')
+    // 彻底清空 Pinia 用户状态
+    const userStore = useUserStore()
+    userStore.logout()
+    // 重置加载状态
+    isLogoutLoading.value = false
+
+    // 立即跳转到登录页
+    router.replace({
+      path: '/login',
+      query: { from: 'logout' }
+    })
   }
 }
 
