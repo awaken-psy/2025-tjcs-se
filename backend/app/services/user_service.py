@@ -126,6 +126,18 @@ class UserService:
 
         except Exception as e:
             return False, None, f"更新用户资料失败: {str(e)}"
+        
+    def get_user_by_email(self, email: str) -> Optional[AuthorizedUser]:
+        """
+        根据邮箱获取用户领域模型
+
+        Args:
+            email: 邮箱
+
+        Returns:
+            用户领域模型或None
+        """
+        return self.user_repository.get_user_by_email(email)
 
     def get_user_by_id(self, user_id: int) -> Optional[AuthorizedUser]:
         """
@@ -138,6 +150,30 @@ class UserService:
             用户领域模型或None
         """
         return self.user_repository.get_user_by_id(user_id)
+    
+    def delete_user(self, user_id: int) -> bool:
+        """
+        删除用户
+
+        Args:
+            user_id: 用户ID
+
+        Returns:
+            是否成功
+        """
+        return self.user_repository.delete_user(user_id)
+    
+    def delete_user_by_email(self, email: str) -> bool:
+        """
+        根据邮箱删除用户
+
+        Args:
+            email: 邮箱
+
+        Returns:
+            是否成功
+        """
+        return self.user_repository.delete_user_by_email(email)
 
     def validate_user_permission(self, user: AuthorizedUser, required_permission: str) -> bool:
         """

@@ -876,6 +876,7 @@ onMounted(() => {
     flex-direction: column;
   }
 
+
   .map-sidebar {
     /* 移动端时默认隐藏，通过 show 类控制显示 */
     display: none;
@@ -890,6 +891,7 @@ onMounted(() => {
     box-shadow: var(--shadow-lg); /* 注意：shadow-lg 需在上层或此处定义 */
   }
 
+
   .map-sidebar.show {
     display: flex;
   }
@@ -897,5 +899,6 @@ onMounted(() => {
   .map-container-wrapper {
     order: -1;
   }
+
 }
 </style>

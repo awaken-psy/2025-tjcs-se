@@ -4,20 +4,26 @@
 这个文件是整个后端服务的启动文件，负责所有的初始化工作，包括加载配置、
 配置中间件、注册路由、初始化数据库连接和启动 uvicorn 服务器。
 """
-
+import os
+import sys
 from fastapi import FastAPI, HTTPException, Query, Path, UploadFile, File, Request
 from fastapi.staticfiles import StaticFiles # 用于挂载静态文件目录 (如上传的图片)
 from fastapi.middleware.cors import CORSMiddleware # 导入 CORS 中间件，解决跨域问题
 from fastapi.exceptions import RequestValidationError # 用于处理请求体数据验证失败的异常
+
+# 导入自定义的日志模块
+from app.logger import get_logger, app_logger
+from app.logger.config import config_manager
+app_logger.info("\n================================重启分隔线=================================")
+app_logger.info(f"日志配置：{config_manager.get_config_as_str()}")
 from fastapi.responses import JSONResponse
 from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY # HTTP 422 状态码
 import uvicorn # ASGI 服务器，用于运行 FastAPI 应用
 from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel # 用于类型提示和可能未使用的导入
-import os
-import sys
 from dotenv import load_dotenv # 用于加载 .env 文件中的环境变量
+from app.services import create_admin
 
 # 加载环境变量
 load_dotenv()
@@ -40,9 +46,7 @@ origins = [
     "http://127.0.0.1:8080",
 ]
 
-# 导入自定义的日志模块
-from app.logger import get_logger, app_logger
-from app.logger.config import config_manager
+
 # 导入数据库初始化函数
 from app.database.database import create_tables
 # 导入所有 v1 版本的 API 路由模块
@@ -56,7 +60,8 @@ from app.api.v1 import (
     user_router,
     friend_router,
     upload_router,
-    report_router,
+    report_router
+    test_router
     event_router
 )
 
@@ -64,8 +69,6 @@ from app.api.v1 import (
 # ------------------------------------------------------------------
 # 2. FastAPI 实例创建与配置
 # ------------------------------------------------------------------
-app_logger.info("======================================================================")
-app_logger.info(f"日志配置：{config_manager.get_config()}")
 #=============================================================#
 # 创建 FastAPI 应用实例
 app_logger.info("创建应用程序实例")
@@ -132,6 +135,7 @@ app.include_router(user_router, prefix="/api")
 app.include_router(friend_router, prefix="/api")
 app.include_router(upload_router, prefix="/api")
 app.include_router(report_router, prefix="/api")
+app.include_router(test_router, prefix="/api")
 app.include_router(event_router, prefix="/api")
 
 
@@ -169,7 +173,7 @@ app_logger.info("开始初始化数据库表")
 from app.database.orm import * 
 create_tables() # 调用数据库模块中的函数，创建所有 ORM 定义的数据库表
 app_logger.info("数据库表初始化完成")
-
+create_admin() # 创建管理员用户
 
 
 #=============================================================#

@@ -7,7 +7,7 @@
     <button
       class="action-btn view-btn"
       :disabled="isProcessing.view"
-      @click="$emit('view', capsule.id)">
+      @click.stop="$emit('view', capsule.id)">
       <span v-if="isProcessing.view" class="loading-spinner small" />
       <span class="icon">👁️</span>
       详情
@@ -18,7 +18,7 @@
       class="action-btn like-btn"
       :class="{ liked: capsule.liked }"
       :disabled="isProcessing.like"
-      @click="$emit('like', capsule.id)">
+      @click.stop="$emit('like', capsule.id)">
       <span v-if="isProcessing.like" class="loading-spinner small" />
       <span class="icon">{{ capsule.liked ? '❤️' : '🤍' }}</span>
       {{ capsule.like_count || 0 }}
@@ -29,7 +29,7 @@
       v-if="isOwner"
       class="action-btn edit-btn"
       :disabled="isProcessing.edit"
-      @click="$emit('edit', capsule.id)">
+      @click.stop="$emit('edit', capsule.id)">
       <span v-if="isProcessing.edit" class="loading-spinner small" />
       <span class="icon">✏️</span>
       编辑
@@ -50,7 +50,7 @@
     <button
       class="action-btn share-btn"
       :disabled="isProcessing.share"
-      @click="$emit('share', capsule)">
+      @click.stop="$emit('share', capsule)">
       <span v-if="isProcessing.share" class="loading-spinner small" />
       <span class="icon">📤</span>
       分享
@@ -62,7 +62,7 @@
       class="action-btn collect-btn"
       :class="{ collected: capsule.collected }"
       :disabled="isProcessing.collect"
-      @click="$emit('collect', capsule.id)">
+      @click.stop="$emit('collect', capsule.id)">
       <span v-if="isProcessing.collect" class="loading-spinner small" />
       <span class="icon">{{ capsule.collected ? '⭐' : '☆' }}</span>
       收藏

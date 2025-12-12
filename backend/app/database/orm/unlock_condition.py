@@ -12,7 +12,7 @@ class UnlockCondition(Base):
     __tablename__ = "unlock_conditions"
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="解锁条件ID")
-    capsule_id = Column(Integer, ForeignKey("capsules.id"), nullable=False, unique=True, comment="胶囊ID")
+    capsule_id = Column(Integer, ForeignKey("capsules.id", ondelete="CASCADE"), nullable=False, unique=True, comment="胶囊ID")
     condition_type = Column(String(20), nullable=False, comment="条件类型: time, location, combined")
 
     # 时间条件

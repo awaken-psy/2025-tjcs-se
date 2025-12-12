@@ -170,10 +170,7 @@ async def login(
         )
 
         if success and user_data:
-            # 调试信息打印 (应在生产环境中移除或使用 logger)
-            print("-" * 50)
-            print(f"DEBUG: 登录成功！LoginManager 返回的原始数据：{user_data}")
-            print("-" * 50) 
+            logger.debug(f"登录成功, 返回的数据: {user_data}")
             
             # 登录成功：将 Service 层返回的数据映射为响应模型
             auth_response = UserAuthResponse(
@@ -200,11 +197,19 @@ async def login(
 @router.post("/logout", response_model=BaseResponse[None])
 async def logout():
     """用户登出"""
-    # TODO: 实现用户登出逻辑
-    # 1. 核心逻辑通常涉及：
-    #    a) 从请求头获取当前 Access Token。
-    #    b) 将该 Access Token 加入到 **Token 黑名单** (通常存储在 Redis 中)，使其在过期前失效。
-    pass
+    # 🔥 实现简单的登出逻辑
+    # 对于JWT无状态token，服务端只需要返回成功响应
+    # 真正的注销由前端删除token完成
+    #
+    # 注意：如果需要更安全的注销（如token黑名单），可以：
+    # 1. 从请求头获取当前 Access Token
+    # 2. 将该 Token 加入Redis黑名单，使其在过期前失效
+    # 3. 在JWT验证中间件中检查黑名单
+
+    return BaseResponse[None].success(
+        code=200,
+        message="注销成功"
+    )
 
 
 # ------------------------------------------------------------------

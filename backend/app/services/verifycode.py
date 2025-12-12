@@ -159,7 +159,7 @@ class EmailVerifyCodeManager:
 
         # 🔴 关键：检查冷却期（使用 Redis TTL）
         # TTL 返回 Key 的剩余秒数，如果 Key 存在且剩余有效期大于 1 分钟 (60秒)，则发送过于频繁
-        if self.redis_client.ttl(key) > (expire_seconds - 60):
+        if self.redis_client.ttl(key) > (expire_seconds - 1):
             return False, "验证码发送过于频繁，请稍后再试"
 
         # 开发模式：使用固定验证码123456，避免SMTP配置问题

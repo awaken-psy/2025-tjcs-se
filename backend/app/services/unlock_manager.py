@@ -51,9 +51,10 @@ class UnlockManager:
                 )
             )
 
-            if user_id:
-                # 排除用户自己的胶囊
-                query = query.filter(Capsule.user_id != user_id)
+            # 🔥 修改：允许用户搜索到自己的胶囊，不再排除自己的胶囊
+            # if user_id:
+            #     # 排除用户自己的胶囊
+            #     query = query.filter(Capsule.user_id != user_id)
 
             total = query.count()
 

@@ -289,7 +289,7 @@ def convert_visibility_for_frontend(visibility: str) -> str:
     将可见性转换为前端期望的值
 
     Args:
-        visibility: 数据库可见性值 (private, friends, campus)
+        visibility: 数据库可见性值 (private, friends, campus, public)
 
     Returns:
         str: 前端期望的可见性值 (private, friends, public)
@@ -297,8 +297,8 @@ def convert_visibility_for_frontend(visibility: str) -> str:
     visibility_mapping = {
         "private": "private",       # 私有保持不变
         "friends": "friends",       # 好友可见保持不变
-        "campus": "public",          # 校园公开转换为前端公开
-        "public": "public"           # 修复错误数据：将public也转为public
+        "campus": "public",         # 校园公开转换为前端公开
+        "public": "public"          # 🔥 修复：已经是public的保持不变
     }
 
     return visibility_mapping.get(visibility, "private")

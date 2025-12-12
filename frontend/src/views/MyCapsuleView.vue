@@ -615,6 +615,7 @@ const fetchCapsuleList = async () => {
   console.log('加载我的胶囊列表，当前筛选条件：', filter.value)
   isLoading.value = true
   try {
+    // 1. 首先获取胶囊基础列表
     const res = await getMyCapsules({
       page: currentPage.value,
       size: pageSize.value,
@@ -799,11 +800,12 @@ const handleViewCapsule = async (capsuleId) => {
       }
       showDetailModal.value = true
     } else {
-      alert('获取胶囊详情失败')
+      console.error(`未找到胶囊 ${capsuleId}`)
+      alert('未找到胶囊信息')
     }
   } catch (error) {
-    console.error(`获取胶囊详情(${capsuleId})失败：`, error)
-    alert('加载详情失败，请稍后重试')
+    console.error(`查看胶囊详情(${capsuleId})失败：`, error)
+    alert('查看详情失败，请稍后重试')
   } finally {
     isProcessing.value[`view_${capsuleId}`] = false
   }
@@ -854,9 +856,9 @@ const handleEditCapsule = (capsuleId) => {
       content: capsule.desc,
     }
 
-    // 2. 切换到编辑模式并打开表单
-    isEditMode.value = true
-    showFormModal.value = true
+      // 2. 切换到编辑模式并打开表单
+      isEditMode.value = true
+      showFormModal.value = true
 
     // 3. 关闭详情弹窗
     handleCloseDetail()
@@ -943,6 +945,27 @@ const onCapsuleCreated = async (result) => {
 
       await updateCapsule(capsuleId, updateData)
       alert('胶囊更新成功！')
+
+      // 🔥 修复关键问题：更新成功后，需要同步更新详情弹窗数据
+      // 1. 重新加载列表数据
+      await fetchCapsuleList()
+
+      // 2. 如果详情弹窗是打开的，更新详情弹窗中的数据
+      if (showDetailModal.value && currentDetailData.value.id === capsuleId) {
+        // 从更新后的列表中找到对应胶囊的最新数据
+        const updatedCapsule = capsuleList.value.find(c => c.id === capsuleId)
+        if (updatedCapsule) {
+          console.log('🔄 更新详情弹窗数据:', updatedCapsule)
+          currentDetailData.value = {
+            ...updatedCapsule,
+            // 映射字段为详情弹窗期望的格式
+            unlockType: updatedCapsule.unlock_conditions?.type,
+            unlockValue: updatedCapsule.unlock_conditions?.value,
+          }
+          console.log('✅ 详情弹窗数据已更新:', currentDetailData.value)
+        }
+      }
+
     } catch (error) {
       console.error(`更新胶囊(${capsuleId})失败:`, error)
       alert(`胶囊更新失败：${error.message || '未知错误'}`)
@@ -954,7 +977,6 @@ const onCapsuleCreated = async (result) => {
   }
 
   handleCloseForm() // 关闭表单
-  await fetchCapsuleList() // 重新加载列表以显示更新后的数据
 }
 
 // 详情弹窗相关方法

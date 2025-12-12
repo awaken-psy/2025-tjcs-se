@@ -19,9 +19,9 @@ class BaseResponse(BaseModel, Generic[T]):
         return cls(code=code, message=message, data=data)
 
     @classmethod
-    def fail(cls, message: str = "fail", data: Optional[T] = None) -> 'BaseResponse[T]':
+    def fail(cls, message: str = "fail", data: Optional[T] = None, code: int = 400) -> 'BaseResponse[T]':
         """失败响应"""
-        return cls(code=400, message=message, data=data)
+        return cls(code=code, message=message, data=data)
 
 
 class Pagination(BaseModel):
