@@ -18,8 +18,7 @@ const routes = [
   },
   {
     path: '/',
-    // ⭐️ 移除硬编码重定向，交由导航守卫处理
-    // redirect: '/hubviews'
+    //redirect: '/hubviews'
   },
   {
     path: '/login',
@@ -48,14 +47,9 @@ const routes = [
     component: () => import('@/views/TestLocationView.vue'),
   },
   {
-    path: '/test-position',
-    name: 'TestPosition',
-    component: () => import('@/views/TestLocationView.vue'),
-  },
-  {
     path: '/timeline',
     name: 'TimeLine',
-    component: () => import('@/views/TimeLineView.vue'), // 动态导入 TimeLineView
+    component: () => import('@/views/TimeLineView.vue'), 
   },
 ]
 

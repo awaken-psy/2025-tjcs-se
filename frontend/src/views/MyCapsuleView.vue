@@ -63,6 +63,10 @@
                 :capsule="capsule"
                 :is-owner="capsule.is_mine"
                 :view-mode="viewMode"
+                :is-unlocked="
+                  capsule.unlock_conditions &&
+                  capsule.unlock_conditions.is_unlocked
+                "
                 :is-processing="{
                   view: isProcessing[`view_${capsule.id}`],
                   edit: isProcessing[`edit_${capsule.id}`],
@@ -119,114 +123,13 @@
       @close="handleCloseForm"
       @submit="onCapsuleCreated" />
 
-    <div class="capsule-detail-modal" :class="{ active: showDetailModal }">
-      <div class="modal-overlay" @click="handleCloseDetail" />
-      <div class="modal-panel">
-        <div class="modal-header">
-          <h3 class="modal-title">
-            {{ currentDetailData.title }}
-          </h3>
-          <button class="modal-close" @click="handleCloseDetail">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="detail-meta">
-            <span v-if="currentDetailData.time" class="meta-item"
-              ><i class="fas fa-clock" /> **投递时间：**
-              {{ formatStandard(currentDetailData.time) }}</span
-            >
-            <span v-if="currentDetailData.vis" class="meta-item"
-              ><i class="fas fa-eye" /> **可见性：**
-              {{ getVisText(currentDetailData.vis) }}</span
-            >
-            <span class="meta-item"
-              ><i :class="getUnlockIcon(currentDetailData.unlockType)" />
-              **解锁条件：**
-              {{
-                getUnlockText(
-                  currentDetailData.unlockType,
-                  currentDetailData.unlockValue
-                )
-              }}</span
-            >
-            <span class="meta-item"
-              ><i class="fas fa-map-marker-alt" /> **投递位置：**
-              {{ currentDetailData.location || '未知位置' }}</span
-            >
-          </div>
-
-          <div
-            v-if="
-              currentDetailData.media_files &&
-              currentDetailData.media_files.length > 0
-            "
-            class="detail-media-preview">
-            <img
-              :src="currentDetailData.media_files[0].url"
-              alt="胶囊媒体预览"
-              class="detail-img-preview"
-              @click="handleOpenMediaViewer(currentDetailData.media_files)" />
-            <div
-              v-if="currentDetailData.media_files.length > 1"
-              class="media-count">
-              <i class="fas fa-images" /> +{{
-                currentDetailData.media_files.length - 1
-              }}
-            </div>
-            <div class="media-tip">**点击图片查看所有媒体文件**</div>
-          </div>
-
-          <div class="detail-desc">
-            **内容描述：**
-            {{ currentDetailData.desc || '无内容描述' }}
-          </div>
-
-          <div
-            v-if="currentDetailData.tags && currentDetailData.tags.length > 0"
-            class="detail-tags">
-            <span
-              v-for="(tag, idx) in currentDetailData.tags"
-              :key="idx"
-              class="tag-item">
-              # {{ tag }}
-            </span>
-          </div>
-
-          <div class="detail-stats">
-            <span class="stat-item"
-              ><i
-                class="fas fa-heart"
-                :class="{ liked: currentDetailData.liked }" />
-              {{ currentDetailData.likes || 0 }} 点赞</span
-            >
-            <span class="stat-item"
-              ><i class="fas fa-eye" />
-              {{ currentDetailData.views || 0 }} 浏览</span
-            >
-            <span class="stat-item"
-              ><i
-                class="fas fa-bookmark"
-                :class="{ collected: currentDetailData.collected }" />
-              {{ currentDetailData.collected ? '已收藏' : '未收藏' }}</span
-            >
-          </div>
-        </div>
-
-        <div class="modal-actions">
-          <button class="btn ghost" @click="handleCloseDetail">关闭</button>
-          <button
-            class="btn primary"
-            v-if="currentDetailData.is_mine"
-            @click="handleEditCapsule(currentDetailData.id)">
-            编辑胶囊
-          </button>
-          <button
-            class="btn ghost"
-            @click="handleShareCapsule(currentDetailData)">
-            <i class="fas fa-share-alt" /> 分享
-          </button>
-        </div>
-      </div>
-    </div>
+    <CapsuleDetail
+      :show-modal="showDetailModal"
+      :detail-data="currentDetailData"
+      @close="handleCloseDetail"
+      @edit="handleEditCapsule"
+      @share="handleShareCapsule"
+      @openMedia="handleOpenMediaViewer" />
 
     <GenericModal
       :is-show="showExportModal"
@@ -487,12 +390,14 @@
 import { formatStandard } from '@/utils/formatTime.js'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useUserStore } from '@/store/user'
 // 假设这些组件存在，如果不存在，需要创建它们。
 import AppHeader from '@/components/AppHeader.vue'
 import CapsuleActionButtons from '@/components/CapsuleActionButtons.vue'
 import CapsuleCard from '@/components/CapsuleCard.vue'
 import CapsuleFilterBar from '@/components/CapsuleFilterBar.vue'
 import CapsuleForm from '@/components/CapsuleForm.vue'
+import CapsuleDetail from '@/components/CapsuleDetail.vue'
 import Sidebar from '@/components/Sidebar.vue'
 // 假设新增一个通用弹窗组件，用于设置/导出/媒体查看
 import GenericModal from '@/components/GenericModal.vue'
@@ -503,10 +408,12 @@ import {
   getMyCapsules,
   updateCapsule,
   getCapsuleDetail,
+  createCapsule,
 } from '@/api/new/capsulesApi.js'
-import { likeCapsule } from '@/api/new/interactionsApi.js'
+import { likeCapsule, collectCapsule } from '@/api/new/interactionsApi.js'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 // 胶囊数据
 const capsuleList = ref([])
@@ -612,7 +519,7 @@ onMounted(async () => {
 
 // 核心方法：加载我的胶囊列表（调用API）
 const fetchCapsuleList = async () => {
-  console.log('加载我的胶囊列表，当前筛选条件：', filter.value)
+  //console.log('加载我的胶囊列表，当前筛选条件：', filter.value)
   isLoading.value = true
   try {
     // 1. 首先获取胶囊基础列表
@@ -648,10 +555,10 @@ const fetchCapsuleList = async () => {
 const getVisText = (vis) => {
   switch (vis) {
     case 'public':
-    case 'campus':  // 处理后端返回的campus
+    case 'campus': // 处理后端返回的campus
       return '校园公开'
     case 'friends':
-    case 'friend':  // 处理前端可能的friend
+    case 'friend': // 处理前端可能的friend
       return '好友可见'
     case 'private':
       return '仅自己可见'
@@ -781,33 +688,56 @@ const handlePageChange = async (page) => {
 // —— 胶囊操作相关方法 ——
 
 const handleViewCapsule = async (capsuleId) => {
-  isProcessing.value[`view_${capsuleId}`] = true
+  const loadingKey = `view_${capsuleId}`;
+  isProcessing.value[loadingKey] = true;
+  
   try {
-    const detail = await getCapsuleDetail(capsuleId)
+    // 调用 API 获取详情数据
+    const detail = await getCapsuleDetail(capsuleId); 
+    
     if (detail) {
+      // 🌟 关键：根据 API 响应结构进行精确映射
       currentDetailData.value = {
+        // 展开基础数据，直接继承 API 的 id, title, content, visibility, tags 等
         ...detail,
-        is_mine: true, // 假设详情页也知道是否是自己的
-        // 字段映射和增强
+        
+        // --- 归属权判断 (is_mine) ---
+        // 💡 必须从外部逻辑判断（例如当前用户ID与 detail.creator.user_id 比较）
+        // ⚠️ 这里保持您之前的假设，但实际应用中需替换为真正的比较逻辑
+        is_mine: detail.creator?.user_id === userStore.user_id, // 假设存在全局的 currentUser
+
+        // --- 元信息映射/增强 ---
+        time: detail.created_at,      // 详情页显示投递时间
+        vis: detail.visibility,       // 详情页显示可见性
+        desc: detail.content,         // 详情页内容描述
+
+        // --- 解锁/位置映射 (直接从嵌套对象中取值) ---
         unlockType: detail.unlock_conditions?.type,
         unlockValue: detail.unlock_conditions?.value,
-        location: detail.location?.address,
-        media_files: detail.media_files || [], // 确保是数组
-        likes: detail.like_count,
-        views: detail.view_count,
-        liked: detail.is_liked ?? false, // 假设详情 API 也返回点赞状态
-        collected: detail.is_collected ?? false, // 假设详情 API 也返回收藏状态
-      }
-      showDetailModal.value = true
+        location: detail.location?.address, // 投递位置地址
+        
+        // --- 媒体映射 (API 已经是数组，直接赋值) ---
+        media_files: detail.media_files || [], 
+        
+        // --- 统计/状态映射 (从 stats 字段中提取) ---
+        likes: detail.stats?.like_count || 0,
+        views: detail.stats?.view_count || 0,
+        
+        // 🔥 关键：将 API 嵌套的 is_liked 和 is_collected 提取到顶层
+        liked: detail.stats?.is_liked ?? false, 
+        collected: detail.stats?.is_collected ?? false, 
+      };
+      
+      showDetailModal.value = true;
     } else {
-      console.error(`未找到胶囊 ${capsuleId}`)
-      alert('未找到胶囊信息')
+      console.error(`未找到胶囊 ${capsuleId}`);
+      alert('未找到胶囊信息');
     }
   } catch (error) {
-    console.error(`查看胶囊详情(${capsuleId})失败：`, error)
-    alert('查看详情失败，请稍后重试')
+    console.error(`查看胶囊详情(${capsuleId})失败：`, error);
+    alert('查看详情失败，请稍后重试');
   } finally {
-    isProcessing.value[`view_${capsuleId}`] = false
+    isProcessing.value[loadingKey] = false;
   }
 }
 
@@ -824,9 +754,16 @@ const handleLikeCapsule = async (capsuleId) => {
     const result = await likeCapsule(capsuleId)
 
     // request.js响应拦截器返回的是data部分，所以直接检查result是否存在
-    if (result && (result.is_liked !== undefined || result.like_count !== undefined)) {
-      const isLiked = result.is_liked !== undefined ? result.is_liked : !capsule.liked
-      const newCount = result.like_count !== undefined ? result.like_count : (capsule.like_count || 0) + (isLiked ? 1 : -1)
+    if (
+      result &&
+      (result.is_liked !== undefined || result.like_count !== undefined)
+    ) {
+      const isLiked =
+        result.is_liked !== undefined ? result.is_liked : !capsule.liked
+      const newCount =
+        result.like_count !== undefined
+          ? result.like_count
+          : (capsule.like_count || 0) + (isLiked ? 1 : -1)
 
       // 乐观更新
       capsule.liked = isLiked
@@ -847,21 +784,31 @@ const handleLikeCapsule = async (capsuleId) => {
 
 // 优化：移除打开编辑表单时的 fetchCapsuleList 调用
 const handleEditCapsule = (capsuleId) => {
-  const capsule = capsuleList.value.find((c) => c.id === capsuleId)
+  // 💡 优化：从当前列表数据中查找，避免重复 API 调用
+  const capsule = capsuleList.value.find((c) => c.id === capsuleId); 
 
   if (capsule) {
-    // 1. 设置编辑数据，并进行字段映射 (假设 API 的 desc 对应表单的 content)
+    // 1. 设置编辑数据，并进行字段映射
+    // 假设 CapsuleForm 期望 content 字段来显示内容
     currentEditData.value = {
       ...capsule,
-      content: capsule.desc,
+      content: capsule.desc, // 🔥 核心：将列表的 desc 映射为表单的 content
+      
+      // 💡 补充：确保将复杂的对象结构也映射给表单，表单可能需要这些来初始化控件
+      location: capsule.location,
+      unlock_conditions: capsule.unlock_conditions,
+      media_files: capsule.media_files,
+      tags: capsule.tags,
     }
 
-      // 2. 切换到编辑模式并打开表单
-      isEditMode.value = true
-      showFormModal.value = true
+    // 2. 切换到编辑模式并打开表单
+    isEditMode.value = true
+    showFormModal.value = true
 
-    // 3. 关闭详情弹窗
-    handleCloseDetail()
+    // 3. 关闭详情弹窗（解耦调用，使用单独的函数）
+    handleCloseDetail() 
+  } else {
+    alert('编辑失败：未能找到该胶囊的列表数据。');
   }
 }
 
@@ -890,19 +837,46 @@ const handleDeleteCapsule = async (capsuleId) => {
 }
 
 const handleShareCapsule = (capsule) => {
-  // 变更：改为打开一个分享弹窗 (可选)
-  alert(`分享胶囊：${capsule.title}（后续对接分享接口，支持复制链接/微信分享）`)
+  // 💡 最佳实践：此处应调用一个专用的分享服务函数
+  // 例如：shareService.openShareModal(capsule)
+  console.log(`准备分享胶囊：${capsule.title}`);
+  alert(`分享胶囊：${capsule.title}（后续对接分享接口，支持复制链接/微信分享）`);
 }
 
 const handleCollectCapsule = async (capsuleId) => {
   const capsule = capsuleList.value.find((c) => c.id === capsuleId)
-  if (capsule) {
-    // 假设这里调用 collectCapsule API
+  if (!capsule) {
+    console.error('未找到胶囊:', capsuleId)
+    return
+  }
+
+  // 🌟 建议：可以设置一个局部的 loading 状态
+  const loadingKey = `collect_${capsuleId}`
+  isProcessing.value[loadingKey] = true // 假设 isProcessing 是一个响应式对象
+
+  try {
+    // 假设 collectCapsule(capsuleId) 返回成功或失败
+    await collectCapsule(capsuleId)
+
+    // 只有 API 成功后，才更新前端状态
     capsule.collected = !capsule.collected
+
+    // 成功提示
     alert(capsule.collected ? '收藏成功' : '取消收藏成功')
 
-    // 刷新列表
-    await fetchCapsuleList()
+    // 刷新列表以获取最新数据（推荐但非必须，如果 API 返回了新状态，可以直接更新列表项）
+    // await fetchCapsuleList()
+  } catch (error) {
+    console.error(`收藏操作失败 (${capsuleId}):`, error)
+
+    // 📢 重点：捕获后端错误信息并提示用户
+    // 假设您的 request.js 已经处理了错误，并将后端消息放在 error.message 中
+    const errorMessage = error.message || '操作失败，请检查网络或解锁状态。'
+    alert(`收藏/取消收藏失败: ${errorMessage}`)
+
+    // 错误发生时，前端状态不应改变 (保持原状)
+  } finally {
+    isProcessing.value[loadingKey] = false // 结束 loading 状态
   }
 }
 
@@ -920,12 +894,30 @@ const handleCloseForm = () => {
 }
 
 const onCapsuleCreated = async (result) => {
+  // ℹ️ result 期望的格式就是完整的 API 请求体格式，例如：
+  // { title: '...', content: '...', visibility: '...', location: { ... }, unlock_conditions: { ... }, tags: [...] }
+
   if (!result) {
     handleCloseForm()
     return
   }
 
+  // 统一的请求数据结构 (包含所有新字段)
+  const payload = {
+    title: result.title,
+    content: result.content,
+    visibility: result.visibility,
+    tags: result.tags,
+    // 🌟 关键：从表单结果中直接获取格式化好的对象
+    location: result.location,
+    unlock_conditions: result.unlock_conditions,
+    // media_files 字段如果由表单组件处理并返回，也应包含进来
+    media_files: result.media_files || [],
+    // 假设您在 CapsuleForm.vue 中处理了 media_files 并将其包含在 result 中
+  }
+
   if (isEditMode.value) {
+    // 🚀 更新模式
     const capsuleId = currentEditData.value.id
     if (!capsuleId) {
       alert('编辑失败：无法获取胶囊ID。')
@@ -934,46 +926,49 @@ const onCapsuleCreated = async (result) => {
     }
 
     try {
-      // 字段映射：content -> desc (假设 API 实际存储字段是 desc)
-      const updateData = {
-        title: result.title,
-        desc: result.content, // 假设 API 期望的是 desc 字段
-        visibility: result.visibility,
-        tags: result.tags,
-        // ... 其他需要更新的字段
-      }
+      console.log(`📡 准备更新胶囊ID: ${capsuleId}`, payload)
 
-      await updateCapsule(capsuleId, updateData)
+      // 调用更新 API，使用完整的 payload
+      // 假设 updateCapsule 签名: (id, payload)
+      await updateCapsule(capsuleId, payload)
       alert('胶囊更新成功！')
 
-      // 🔥 修复关键问题：更新成功后，需要同步更新详情弹窗数据
-      // 1. 重新加载列表数据
+      // 1. 重新加载列表数据 (假设该函数存在)
       await fetchCapsuleList()
 
-      // 2. 如果详情弹窗是打开的，更新详情弹窗中的数据
+      // 2. 如果详情弹窗是打开的，更新详情弹窗中的数据 (保持原有逻辑，确保视图同步)
       if (showDetailModal.value && currentDetailData.value.id === capsuleId) {
-        // 从更新后的列表中找到对应胶囊的最新数据
-        const updatedCapsule = capsuleList.value.find(c => c.id === capsuleId)
+        const updatedCapsule = capsuleList.value.find((c) => c.id === capsuleId)
         if (updatedCapsule) {
           console.log('🔄 更新详情弹窗数据:', updatedCapsule)
           currentDetailData.value = {
             ...updatedCapsule,
-            // 映射字段为详情弹窗期望的格式
+            // 映射字段为详情弹窗期望的格式 (如果需要)
             unlockType: updatedCapsule.unlock_conditions?.type,
             unlockValue: updatedCapsule.unlock_conditions?.value,
+            // ... 其他详情弹窗需要的映射
           }
           console.log('✅ 详情弹窗数据已更新:', currentDetailData.value)
         }
       }
-
     } catch (error) {
       console.error(`更新胶囊(${capsuleId})失败:`, error)
       alert(`胶囊更新失败：${error.message || '未知错误'}`)
     }
   } else {
-    // 创建模式 - 胶囊已经在 CapsuleForm 中创建成功
-    // CapsuleForm已经处理了成功/失败的显示，这里不需要重复显示
-    console.log('创建模式：接收到CapsuleForm的结果:', result)
+    // 🆕 创建模式
+    // 胶囊创建逻辑已在 CapsuleForm 中完成，这里只需要处理后续的页面状态更新
+
+    // 💡 建议：如果 CapsuleForm 返回的是后端创建成功后的响应数据，
+    // 您应该用 result 来更新列表，而不是再次调用 createCapsule API。
+
+    console.log('创建模式：CapsuleForm已成功提交。')
+    // 仅重新加载列表以获取最新创建的胶囊
+    await fetchCapsuleList()
+
+    // 注意：如果您的后端API在创建成功后立即返回了结果对象 (result)，
+    // 并且您在 CapsuleForm.vue 的 handleSubmit 中已经调用了 createCapsule(submitData)，
+    // 那么这里就不需要再次调用API了。
   }
 
   handleCloseForm() // 关闭表单
@@ -982,7 +977,8 @@ const onCapsuleCreated = async (result) => {
 // 详情弹窗相关方法
 const handleCloseDetail = () => {
   showDetailModal.value = false
-  currentDetailData.value = {}
+  // 清空数据，释放内存
+  currentDetailData.value = {} 
 }
 
 const handleExportData = async () => {
@@ -1706,7 +1702,6 @@ input:checked + .slider:before {
   color: var(--muted);
 }
 
-
 /* ======================================= */
 /* 核心修复：详情弹窗 Modal 容器样式 */
 /* ======================================= */
@@ -1714,22 +1709,22 @@ input:checked + .slider:before {
 .capsule-detail-modal {
   /* 默认隐藏：确保它在没有 .active 类时不可见 */
   display: none;
-  
+
   /* 确保弹窗覆盖整个视口并固定位置 */
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  
+
   /* 使用 flex 布局居中 modal-panel */
   display: flex;
   justify-content: center;
   align-items: center;
-  
+
   /* 确保位于所有内容之上 */
-  z-index: 1050; 
-  
+  z-index: 1050;
+
   /* 初始透明度 (用于过渡动画) */
   opacity: 0;
   visibility: hidden; /* 用于完全隐藏和显示 */
@@ -1763,11 +1758,11 @@ input:checked + .slider:before {
   max-width: 700px; /* 设定一个最大宽度 */
   width: 90%;
   z-index: 1052;
-  
+
   /* 确保内容可以滚动，但面板自身不会溢出 */
   display: flex;
   flex-direction: column;
-  max-height: 90vh; 
+  max-height: 90vh;
   overflow: hidden; /* 隐藏滚动条 */
 }
 

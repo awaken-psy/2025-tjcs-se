@@ -18,13 +18,13 @@
 初始化数据库
 
 ```bash
-(TimeCapsule) PS D:\web-p\TimeCapsule\backend> docker exec -it timecapsule_backend python scripts/init_database.py
+docker exec -it timecapsule_backend python scripts/init_database.py
 ```
 
 查看docker环境,输出应有两个环境
 
 ```bash
-(TimeCapsule) PS D:\web-p\TimeCapsule\backend> docker ps
+docker ps
 CONTAINER ID   IMAGE             COMMAND                   CREATED          STATUS                   PORTS                               NAMES
 4de02e6827e6   backend-backend   "uvicorn app.main:ap…"   7 minutes ago    Up 7 minutes             0.0.0.0:8000->8000/tcp              timecapsule_backend
 880f69c6183d   mysql:8.0         "docker-entrypoint.s…"   11 minutes ago   Up 7 minutes (healthy)   0.0.0.0:3306->3306/tcp, 33060/tcp   timecapsule_mysql
@@ -33,7 +33,7 @@ CONTAINER ID   IMAGE             COMMAND                   CREATED          STAT
 设置日志为动态刷新
 
 ```bash
-(TimeCapsule) PS D:\web-p\TimeCapsule\backend> docker logs -f timecapsule_backend
+docker logs -f timecapsule_backend
 ```
 
 数据库操作

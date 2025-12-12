@@ -109,20 +109,19 @@ export const deleteCapsule = (capsuleId) => {
   })
 }
 
-/**
- * 创建胶囊草稿
- * @param {Object} draftData - 草稿数据
- * @param {string} draftData.title - 草稿标题
- * @param {string} draftData.content - 草稿内容
- * @param {string} draftData.visibility - 可见性
- * @returns {Promise}
- */
-export const createCapsuleDraft = (draftData) => {
-  return request({
-    url: '/capsules/drafts',
-    method: 'post',
-    data: draftData
-  })
-}
+// /**
+//  * 创建胶囊草稿
+//  * @param {Object} draftData - 草稿数据
+//  * @param {string} draftData.title - 草稿标题
+//  * @param {string} draftData.content - 草稿内容
+//  * @param {string} draftData.visibility - 可见性
+//  * @returns {Promise}
+//  */
+// export const createCapsuleDraft = (draftData) => {
+//   return request({
+//     url: '/capsules/drafts',
+//     method: 'post',
+//     data: draftData
+//   })
+// }
 
-// 点赞功能已移至 interactionsApi.js，请使用 import { likeCapsule } from '@/api/new/interactionsApi.js'

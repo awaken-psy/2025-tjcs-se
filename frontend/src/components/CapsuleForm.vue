@@ -189,6 +189,73 @@
             </div>
           </div>
 
+<div class="form-section">
+          <div class="section-header">
+            <i class="fas fa-lock section-icon" />
+            <h3 class="section-title">
+              解锁条件
+            </h3>
+            <span class="optional-badge">选填</span>
+          </div>
+          <div class="unlock-conditions-section">
+            <div class="form-group">
+              <label class="form-label">解锁类型</label>
+              <select
+                v-model="unlockType"
+                class="form-select"
+              >
+                <option value="time">
+                  时间 (Time)
+                </option>
+                <option value="location">
+                  地点 (Location)
+                </option>
+                <option value="event">
+                  事件 (Event)
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group dynamic-input">
+              <label class="form-label">
+                {{ unlockTypeLabel }}
+              </label>
+              
+              <input
+                v-if="unlockType === 'time'"
+                v-model="unlockValue"
+                type="datetime-local"
+                class="form-input"
+              >
+
+              <div v-else-if="unlockType === 'location'" class="input-with-unit">
+                <input
+                  v-model.number="unlockRadius"
+                  type="number"
+                  min="1"
+                  max="1000"
+                  class="form-input"
+                  placeholder="请输入解锁半径 (米)"
+                >
+                <span class="input-unit">米 (1-1000)</span>
+              </div>
+
+              <input
+                v-else-if="unlockType === 'event'"
+                v-model="unlockEventId"
+                type="text"
+                class="form-input"
+                placeholder="请输入事件名称或ID"
+                maxlength="50"
+              >
+              
+              <div class="form-footer">
+                <span class="char-count">{{ unlockHintText }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
           <!-- 4. 图片上传 -->
           <div class="form-section">
             <div class="section-header">
@@ -454,6 +521,12 @@ const locationInfo = reactive({
 const locationPermission = ref('')
 const locationMessage = ref('等待位置授权...')
 
+// 🔓 新增：解锁条件相关
+const unlockType = ref('time') // 默认解锁类型：time, location, event
+const unlockValue = ref('')    // 对应 'time' 的时间值 (例如: 2024-12-31T23:59)
+const unlockRadius = ref(50)   // 对应 'location' 的半径 (默认 50米)
+const unlockEventId = ref('')  // 对应 'event' 的事件 ID/名称
+
 // 转换函数：将后端返回的可见性值转换为前端表单期望的值
 const convertVisibilityToForm = (visibility) => {
   if (!visibility) return 'public'
@@ -505,6 +578,33 @@ const locationIcon = computed(() => {
   }
 })
 
+// 🔓 新增：解锁条件模块的计算属性
+const unlockTypeLabel = computed(() => {
+  switch (unlockType.value) {
+    case 'time':
+      return '解锁时间 (UTC)'
+    case 'location':
+      return '解锁半径 (米)'
+    case 'event':
+      return '事件名称/ID'
+    default:
+      return '值'
+  }
+})
+
+const unlockHintText = computed(() => {
+  switch (unlockType.value) {
+    case 'time':
+      return '胶囊将在指定时间后可解锁'
+    case 'location':
+      return '用户需在胶囊埋藏位置的指定半径内才可解锁'
+    case 'event':
+      return '胶囊需在指定事件结束后才可解锁'
+    default:
+      return ''
+  }
+})
+
 // 滚动锁定函数
 const lockBodyScroll = () => {
   document.body.style.overflow = 'hidden'
@@ -526,12 +626,32 @@ watch(() => props.isShow, (show) => {
     locationPermission.value = ''
     locationMessage.value = '正在获取位置...'
     isLocating.value = false
+    // 🔓 新增：重置解锁条件状态
+    unlockType.value = 'time'
+    unlockValue.value = ''
+    unlockRadius.value = 50
+    unlockEventId.value = ''
+
     // 自动获取位置
     nextTick(() => {
       getCurrentLocation()
     })
   } else {
     unlockBodyScroll()
+  }
+})
+
+// 🔓 新增：监听解锁类型，进行数据重置 (确保只有选中类型有值)
+watch(unlockType, (newType) => {
+  // 当类型改变时，重置其他两个不相关的字段
+  if (newType !== 'time') {
+    unlockValue.value = ''
+  }
+  if (newType !== 'location') {
+    unlockRadius.value = 50
+  }
+  if (newType !== 'event') {
+    unlockEventId.value = ''
   }
 })
 
@@ -554,6 +674,15 @@ watch(() => props.editData, (newData) => {
       imageUrl: newData.imageUrl || newData.img || '',
       imageFileId: newData.imageFileId || ''
     })
+
+    // 🔓 新增：加载编辑模式下的解锁条件
+    if (newData.unlock_conditions) {
+      const { type, value, radius, event_id } = newData.unlock_conditions
+      unlockType.value = type || 'time'
+      unlockValue.value = type === 'time' ? value || '' : ''
+      unlockRadius.value = type === 'location' ? radius || 50 : 50
+      unlockEventId.value = type === 'event' ? event_id || '' : ''
+    }
 
     // 同步到 locationInfo 用于界面展示 (这是关键)
     Object.assign(locationInfo, {
@@ -593,7 +722,14 @@ const resetForm = () => {
     imageUrl: '',
     imageFileId: ''
   })
+// 🔓 新增：重置解锁条件
+  unlockType.value = 'time'
+  unlockValue.value = ''
+  unlockRadius.value = 50
+  unlockEventId.value = ''
+
   selectedTags.value = []
+  
   tagInput.value = ''
   previewImage.value = ''
   uploadProgress.value = 0
@@ -862,6 +998,12 @@ const handleSubmit = async() => {
     return
   }
 
+  // 🔓 额外验证：解锁条件
+  if (unlockType.value === 'time' && !unlockValue.value) {
+    showAlertMessage('请选择解锁时间', 'error')
+    return
+  }
+
   isSubmitting.value = true
 
   try {
@@ -880,6 +1022,33 @@ const handleSubmit = async() => {
       lng = 116.302
     }
 
+    // 🔓 新增：构造 unlock_conditions 对象
+    const unlockConditionsPayload = {
+      type: unlockType.value,
+      value: null,
+      radius: 50, // 默认值
+      event_id: null, // 默认值
+      is_unlocked: false // 始终设为未解锁
+    }
+
+    switch (unlockType.value) {
+      case 'time':
+        // 将 datetime-local 格式 'YYYY-MM-DDTHH:mm' 转换为 ISO 8601 (UTC)
+        // 简单处理：如果输入框有值，附加 ':00Z' 假设它是 UTC 时间，实际应用中最好用库进行时区转换
+        if (unlockValue.value) {
+          unlockConditionsPayload.value = `${unlockValue.value}:00Z`
+        }
+        break
+      case 'location':
+        unlockConditionsPayload.radius = parseInt(unlockRadius.value) || 50
+        // value 字段可以留空或设置为一个默认位置坐标
+        unlockConditionsPayload.value = `${lat},${lng}`
+        break
+      case 'event':
+        unlockConditionsPayload.event_id = unlockEventId.value.trim()
+        break
+    }
+
     // 构造完整的提交数据 (匹配后端期望的格式)
     const submitData = {
       title: formData.title.trim(),
@@ -893,6 +1062,9 @@ const handleSubmit = async() => {
         longitude: lng,
         address: location
       },
+
+      // 🔓 关键点：添加解锁条件
+      unlock_conditions: unlockConditionsPayload,
 
       // 图片信息 (使用 imageUrl 或 image，取决于后端接收方式)
       // 注意：如果后端只接受 URL，你需要在上传成功后将 formData.imageUrl 设置为最终 URL。
@@ -1662,4 +1834,65 @@ const handleSubmit = async() => {
 .modal-content::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+.unlock-conditions-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #334155;
+}
+
+.form-select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 14px;
+  background: white url("data:image/svg+xml,%3csvg xmlns='[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23334155' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") no-repeat right 16px center;
+  background-size: 12px 12px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: #6c8cff;
+  box-shadow: 0 0 0 3px rgba(108, 140, 255, 0.1);
+}
+
+.dynamic-input {
+  /* 确保动态输入部分有足够的空间 */
+  min-height: 80px;
+}
+
+.input-with-unit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.input-with-unit .form-input {
+  flex: 1;
+}
+
+.input-unit {
+  white-space: nowrap;
+  font-size: 14px;
+  color: #6b7280;
+  padding-right: 8px;
+}
+
 </style>

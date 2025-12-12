@@ -61,7 +61,8 @@
       v-if="showCollect"
       class="action-btn collect-btn"
       :class="{ collected: capsule.collected }"
-      :disabled="isProcessing.collect"
+      :disabled="isProcessing.collect || !isUnlocked"
+      :title="!isUnlocked ? '您还未解锁此胶囊，无法收藏' : ''"
       @click.stop="$emit('collect', capsule.id)">
       <span v-if="isProcessing.collect" class="loading-spinner small" />
       <span class="icon">{{ capsule.collected ? '⭐' : '☆' }}</span>
@@ -104,7 +105,13 @@ const props = defineProps({
   capsule: {
     type: Object,
     required: true,
+    // 优化：修改 validator 以包含 collected 字段
     validator: (val) => val.id && typeof val.like_count === 'number',
+  },
+  // 🌟 新增 prop
+  isUnlocked: {
+    type: Boolean,
+    default: true, // 默认解锁，以防数据缺失
   },
   isOwner: {
     type: Boolean,

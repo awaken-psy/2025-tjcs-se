@@ -85,7 +85,7 @@
             type="email"
             :class="{ 'input-error': formErrors.login.email }"
             placeholder="user@example.com"
-            required />
+            required >
           <p v-if="formErrors.login.email" class="error-tip">
             {{ formErrors.login.email }}
           </p>
@@ -99,7 +99,7 @@
             type="password"
             :class="{ 'input-error': formErrors.login.password }"
             placeholder="请输入密码"
-            required />
+            required >
           <p v-if="formErrors.login.password" class="error-tip">
             {{ formErrors.login.password }}
           </p>
@@ -127,7 +127,7 @@
 
         <div class="example">
           <div>演示账号：</div>
-          <div class="demo-account">邮箱：demo@univ.edu<br />密码：123456</div>
+          <div class="demo-account">邮箱：demo@univ.edu<br >密码：123456</div>
         </div>
       </form>
 
@@ -146,7 +146,7 @@
             type="email"
             :class="{ 'input-error': formErrors.reg.email }"
             placeholder="your@univ.edu"
-            required />
+            required >
           <p v-if="formErrors.reg.email" class="error-tip">
             {{ formErrors.reg.email }}
           </p>
@@ -160,7 +160,7 @@
             type="password"
             :class="{ 'input-error': formErrors.reg.password }"
             placeholder="至少6位"
-            required />
+            required >
           <p v-if="formErrors.reg.password" class="error-tip">
             {{ formErrors.reg.password }}
           </p>
@@ -174,7 +174,7 @@
             type="password"
             :class="{ 'input-error': formErrors.reg.password2 }"
             placeholder="再次输入密码"
-            required />
+            required >
           <p v-if="formErrors.reg.password2" class="error-tip">
             {{ formErrors.reg.password2 }}
           </p>
@@ -188,7 +188,7 @@
             type="text"
             :class="{ 'input-error': formErrors.reg.nickname }"
             placeholder="你的昵称（1-20个字符）"
-            required />
+            required >
           <p v-if="formErrors.reg.nickname" class="error-tip">
             {{ formErrors.reg.nickname }}
           </p>
@@ -200,7 +200,7 @@
             id="reg-student-id"
             v-model="regForm.student_id"
             type="text"
-            placeholder="2024123456" />
+            placeholder="2024123456" >
         </div>
 
         <div class="field">
@@ -213,7 +213,7 @@
               :class="{ 'input-error': formErrors.reg.verify_code }"
               placeholder="请输入6位验证码"
               maxlength="6"
-              required />
+              required >
             <button
               type="button"
               class="btn verify-btn"
@@ -236,12 +236,8 @@
             id="agree"
             v-model="regForm.agree"
             type="checkbox"
-            :class="{ 'input-error': formErrors.reg.agree }" />
-          <label for="agree" class="small">
-            我已阅读并同意<a href="#" @click.prevent="openModal('privacy')"
-              >隐私政策</a
-            >
-          </label>
+            :class="{ 'input-error': formErrors.reg.agree }" >
+          <label for="agree" class="small">我已阅读并同意<a href="#" @click.prevent="openModal('privacy')">隐私政策</a></label>
           <p v-if="formErrors.reg.agree" class="error-tip">
             {{ formErrors.reg.agree }}
           </p>
@@ -322,7 +318,7 @@
           id="forgot-email"
           v-model="forgotForm.email"
           type="email"
-          placeholder="your@univ.edu" />
+          placeholder="your@univ.edu">
       </div>
       <div class="modal-btn-group">
         <button
@@ -632,7 +628,7 @@ const validateRegForm = () => {
 
 // ===== 事件处理 =====
 // 登录处理 - 适配新的响应结构
-const handleLogin = async () => {
+const handleLogin = async() => {
   if (!validateLoginForm()) return
   try {
     isLoading.value = true
@@ -681,7 +677,7 @@ const handleLogin = async () => {
 }
 
 // 注册处理 - 适配新的响应结构
-const handleRegister = async () => {
+const handleRegister = async() => {
   if (!validateRegForm()) return
   try {
     isLoading.value = true
@@ -740,7 +736,7 @@ const handleRegister = async () => {
 }
 
 // 游客登录
-const handleGuestLogin = () => {
+const handleGuestLogin =() => {
   // TODO: 游客模式逻辑
   alert('游客模式功能开发中...')
 }
@@ -751,7 +747,7 @@ const handlePermissionAccept = () => {
 }
 
 // 发送验证码
-const handleSendVerifyCode = async () => {
+const handleSendVerifyCode = async() => {
   if (!regForm.email.trim()) {
     formErrors.reg.email = '请先输入邮箱'
     return
@@ -786,7 +782,7 @@ const handleSendVerifyCode = async () => {
 }
 
 // 忘记密码发送邮件
-const handleForgotSend = async () => {
+const handleForgotSend = async() => {
   try {
     // TODO: 对接忘记密码API
     alert('密码重置功能开发中...')

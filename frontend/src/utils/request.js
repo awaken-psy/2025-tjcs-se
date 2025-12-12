@@ -15,44 +15,17 @@ const request = axios.create({
 // 请求拦截器
 request.interceptors.request.use(config => {
   const token = localStorage.getItem('access_token')
-  console.log('🔍 [REQUEST DEBUG] URL:', config.url)
-  console.log('🔍 [REQUEST DEBUG] Method:', config.method)
-  console.log('🔍 [REQUEST DEBUG] Token from localStorage:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN')
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
-    console.log('✅ [REQUEST DEBUG] Authorization header added')
+    //console.log('✅ [REQUEST DEBUG] Authorization header added')
   } else {
     console.log('❌ [REQUEST DEBUG] No token found in localStorage')
   }
 
-  // 检查并打印请求体/参数
-  console.log('发出请求配置')
-  console.log('URL:', config.url)
-  console.log('Method:', config.method)
-
-  // 打印请求体 (适用于 POST/PUT/PATCH 等)
-  if (config.data) {
-    // 检查是否是 FormData 对象
-    if (config.data instanceof FormData) {
-      console.log(
-        'Request Body:',
-        'FormData object (contents not directly printable)'
-      )
-      // 如果需要查看 FormData 的内容，你需要手动迭代它：
-      // for (let [key, value] of config.data.entries()) {
-      //   console.log(`${key}: ${value}`);
-      // }
-    } else {
-      console.log('Request Body:', config.data)
-    }
+  if (config.method !== 'get' && config.data) {
+    console.log(`📡 [REQUEST BODY] ${config.url}`, config.data)
   }
-
-  // 打印 URL 查询参数 (适用于 GET 等)
-  if (config.params) {
-    console.log('URL Parameters:', config.params)
-  }
-
 
   // 如果是 FormData，让浏览器自动设置 Content-Type
   if (config.data instanceof FormData) {
@@ -67,8 +40,8 @@ request.interceptors.request.use(config => {
 // 响应拦截器（适配统一响应模型）
 request.interceptors.response.use(response => {
   const result = response.data
-  console.log('🔍 [RESPONSE DEBUG] Status:', response.status)
-  console.log('🔍 [RESPONSE DEBUG] Response data:', result)
+  // console.log('🔍 [RESPONSE DEBUG] Status:', response.status)
+  // console.log('🔍 [RESPONSE DEBUG] Response data:', result)
 
   // 检查是否为统一响应格式
   if (result && typeof result === 'object' && 'code' in result) {
