@@ -9,7 +9,7 @@
       { key: 'filter', text: '筛选', icon: '🔍', type: 'ghost' },
       { key: 'help', text: '帮助', icon: '❓', type: 'ghost' },
     ]"
-    @go-hub-user="handleGoHub"
+    @go-hub="handleGoHub"
     @search="handleSearch"
     @action-click="handleHeaderAction" />
 
@@ -133,6 +133,7 @@ import { ref, onMounted } from 'vue'
 import AppHeader from '@/components/AppHeader.vue'
 import CapsuleForm from '@/components/CapsuleForm.vue'
 import MapContainer from '@/components/MapContainer.vue'
+import { routeJump } from '@/utils/routeUtils'
 
 // 引入用户提供的 API 函数
 // 仅使用创建、获取列表、获取详情、更新、删除这几个api函数
@@ -454,7 +455,9 @@ const handleUnlockCapsule = async (capsuleId) => {
 }
 
 // --- 10. 其他处理函数 ---
-const handleGoHub = () => {}
+const handleGoHub = () => {
+  routeJump('/hubviews')
+}
 const handleSearch = (keyword) => {}
 
 const handleHeaderAction = (actionKey) => {

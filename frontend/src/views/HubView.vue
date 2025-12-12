@@ -611,10 +611,7 @@ const handleLogout = async () => {
 
     // 手动清空 Pinia 用户状态（不调用 userStore.logout() 避免重复导航）
     const userStore = useUserStore()
-    userStore.token = null
-    userStore.userInfo = null
-    userStore.refreshToken = null
-
+    userStore.logout()
     // 重置加载状态
     isLogoutLoading.value = false
 
