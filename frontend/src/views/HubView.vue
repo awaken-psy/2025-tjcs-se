@@ -543,13 +543,11 @@ const handleLogout = async () => {
   
   // 标记注销加载状态
   isLogoutLoading.value = true
-      alert("1")
 
   try {
     // 调用logout API通知后端清除会话
     await logout()
     console.log('注销API调用成功')
-        alert("2")
 
   } catch (error) {
     console.error('注销API调用失败:', error)
@@ -570,10 +568,8 @@ const handleLogout = async () => {
     // 彻底清空 Pinia 用户状态
     const userStore = useUserStore()
     userStore.logout()
-    alert("3")
     // 重置加载状态
     isLogoutLoading.value = false
-        alert("4")
 
     // 立即跳转到登录页
     router.replace({ 
