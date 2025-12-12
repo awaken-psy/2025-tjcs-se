@@ -17,5 +17,5 @@ def test_get_verifycode():
         response = requests.get(base_url + f"/test/verification-code/{email}", headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200
 
-    time.sleep(2)
+    time.sleep(2) #防止请求发送过于频繁被拦截
         
