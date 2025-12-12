@@ -67,7 +67,7 @@ class CapsuleMedia(Base):
     __tablename__ = "capsule_media"
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="媒体文件ID")
-    capsule_id = Column(Integer, ForeignKey("capsules.id"), nullable=False, index=True, comment="胶囊ID")
+    capsule_id = Column(Integer, ForeignKey("capsules.id", ondelete="CASCADE"), nullable=False, index=True, comment="胶囊ID")
     file_type = Column(String(50), nullable=False, comment="文件类型")
     file_name = Column(String(255), nullable=False, comment="文件名")
     file_path = Column(String(500), nullable=False, comment="文件存储路径")

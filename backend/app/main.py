@@ -4,7 +4,8 @@
 这个文件是整个后端服务的启动文件，负责所有的初始化工作，包括加载配置、
 配置中间件、注册路由、初始化数据库连接和启动 uvicorn 服务器。
 """
-
+import os
+import sys
 from fastapi import FastAPI, HTTPException, Query, Path, UploadFile, File, Request
 from fastapi.staticfiles import StaticFiles # 用于挂载静态文件目录 (如上传的图片)
 from fastapi.middleware.cors import CORSMiddleware # 导入 CORS 中间件，解决跨域问题
@@ -21,9 +22,8 @@ import uvicorn # ASGI 服务器，用于运行 FastAPI 应用
 from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel # 用于类型提示和可能未使用的导入
-import os
-import sys
 from dotenv import load_dotenv # 用于加载 .env 文件中的环境变量
+from app.services import create_admin
 
 # 加载环境变量
 load_dotenv()
@@ -171,7 +171,7 @@ app_logger.info("开始初始化数据库表")
 from app.database.orm import * 
 create_tables() # 调用数据库模块中的函数，创建所有 ORM 定义的数据库表
 app_logger.info("数据库表初始化完成")
-
+create_admin() # 创建管理员用户
 
 
 #=============================================================#

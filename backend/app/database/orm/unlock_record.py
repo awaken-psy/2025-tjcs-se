@@ -12,7 +12,7 @@ class UnlockRecord(Base):
     __tablename__ = "unlock_records"
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="解锁记录ID")
-    capsule_id = Column(Integer, ForeignKey("capsules.id"), nullable=False, index=True, comment="胶囊ID")
+    capsule_id = Column(Integer, ForeignKey("capsules.id", ondelete="CASCADE"), nullable=False, index=True, comment="胶囊ID")
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="用户ID")
 
     # 解锁相关信息
@@ -85,7 +85,7 @@ class UnlockAttempt(Base):
     __tablename__ = "unlock_attempts"
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="尝试记录ID")
-    capsule_id = Column(Integer, ForeignKey("capsules.id"), nullable=False, index=True, comment="胶囊ID")
+    capsule_id = Column(Integer, ForeignKey("capsules.id", ondelete="CASCADE"), nullable=False, index=True, comment="胶囊ID")
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="用户ID")
 
     # 尝试信息
