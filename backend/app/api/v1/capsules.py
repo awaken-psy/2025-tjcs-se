@@ -40,7 +40,7 @@ async def create_capsule(
         manager = CapsuleManager(db)
 
         # 添加调试信息
-        logger.info(f"接收到的原始数据: {raw_data}")
+        # logger.info(f"接收到的原始数据: {raw_data}")
 
         location_data = raw_data.get('location')
         location_obj = None

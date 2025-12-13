@@ -50,7 +50,7 @@ class CapsuleService:
             description=request.content[:100] if request.content else None,
             content=request.content,
             visibility=self._convert_visibility(request.visibility),
-            status=CapsuleStatus.DRAFT,
+            status=CapsuleStatus.PUBLISHED,
             content_type=content_type,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),

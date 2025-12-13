@@ -57,7 +57,7 @@ class TestCapsuleCRUD:
         capsule_response = data["data"]
         assert "capsule_id" in capsule_response
         assert capsule_response["title"] == capsule_data["title"]
-        assert capsule_response["status"] == "draft"
+        assert capsule_response["status"] == "published"
         assert "created_at" in capsule_response
 
         # 保存ID用于后续测试和清理
