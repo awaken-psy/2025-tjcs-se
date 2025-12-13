@@ -117,7 +117,7 @@ async def get_my_capsules(
     """获取我的胶囊列表"""
     manager = CapsuleManager(db) # 🔥 修复：传递数据库会话
     # 调用 Service 层获取用户胶囊列表、总数和分页信息
-    result = manager.get_user_capsules(user.user_id, page, size, status)
+    result = manager.get_user_capsules(user.user_id, page, size, status, user)
 
     # 构造标准分页信息响应
     pagination = Pagination(

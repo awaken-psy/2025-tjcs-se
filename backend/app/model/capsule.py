@@ -17,11 +17,11 @@ class Location(BaseModel):
 
 class UnlockConditions(BaseModel):
     """解锁条件模型"""
-    type: str  # "time", "location", "event"
-    value: str | None = None  # datetime for time type
-    radius: float | None = None  # meters for location type
-    event_id: str | None = None
-    is_unlocked: bool | None = None
+    type: str = Field(default="private", description="解锁条件类型: private, password, public")
+    password: str | None = Field(default=None, description="解锁密码")
+    radius: float | None = Field(default=None, description="地点触发半径(米)")
+    is_unlocked: bool | None = Field(default=None, description="当前用户是否已解锁")
+    unlockable_time: datetime | None = Field(default=None, description="可解锁的最早时间")
 
 
 class MediaFile(BaseModel):
@@ -72,7 +72,7 @@ class CapsuleDetail(BaseModel):
     title: str
     content: str
     visibility: str
-    status: str
+    status: str  # "draft", "published", "all"
     created_at: datetime
     tags: List[str] | None = None
     location: Location | None = None
@@ -80,7 +80,6 @@ class CapsuleDetail(BaseModel):
     media_files: List[MediaFile] | None = None
     creator: Creator | None = None
     stats: CapsuleStats | None = None
-    updated_at: datetime | None = None
 
 
 class CapsuleCreateRequest(BaseModel):
@@ -91,7 +90,7 @@ class CapsuleCreateRequest(BaseModel):
     tags: List[str] | None = None
     location: Location | None = None
     unlock_conditions: UnlockConditions | None = None
-    media_files: List[int] | None = None  # file IDs 修改为整数类型
+    media_files: List[str] | None = None  # file IDs 改回字符串类型以兼容前端
 
 
 
@@ -133,7 +132,7 @@ class CapsuleDraftResponse(BaseModel):
 
 class CapsuleListResponse(BaseModel):
     """胶囊列表响应模型"""
-    capsules: List[CapsuleBasic]
+    capsules: List[CapsuleDetail]
     pagination: Pagination
 
 
@@ -147,5 +146,5 @@ class MyCapsulesQuery(BaseModel):
 class MultiModeBrowseResponse(BaseModel):
     """多模式浏览响应模型"""
     mode: str  # "map", "timeline", "tags"
-    capsules: List[CapsuleBasic] | None = None
+    capsules: List[CapsuleDetail] | None = None
     timeline_groups: dict | None = None  # timeline模式使用 {"2024年1月": [...], "2023年12月": [...]}

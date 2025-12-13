@@ -3,8 +3,7 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 from app.domain.capsule import (
-    Capsule as CapsuleDomain, CapsuleStatus, Visibility, ContentType,
-    convert_capsule_list_for_api, convert_capsule_basic_for_api
+    Capsule as CapsuleDomain, CapsuleStatus, Visibility, ContentType
 )
 from app.database.repositories.capsule_repository import CapsuleRepository
 from app.model.capsule import (
@@ -51,7 +50,7 @@ class CapsuleService:
             description=request.content[:100] if request.content else None,
             content=request.content,
             visibility=self._convert_visibility(request.visibility),
-            status=CapsuleStatus.LOCKED,
+            status=CapsuleStatus.DRAFT,
             content_type=content_type,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
@@ -59,11 +58,15 @@ class CapsuleService:
         )
         
         saved_domain = self.repository.save(capsule_domain)
-        
+
         # 确保数据完整性并返回
         capsule_id = saved_domain.capsule_id
         if capsule_id is None:
             raise ValueError("胶囊创建失败：未获取到胶囊ID")
+
+        # 保存解锁条件
+        if request.unlock_conditions:
+            self._save_unlock_conditions(capsule_id, request.unlock_conditions)
 
         return CapsuleCreateResponse(
             capsule_id=str(capsule_id),  # int转换为string，匹配新的模型定义
@@ -79,17 +82,27 @@ class CapsuleService:
             return capsule_domain.to_api_detail(user)
         return None
 
-    def get_user_capsules(self, user_id: int, page: int = 1, limit: int = 20, status: str = "all"):
+    def get_user_capsules(self, user_id: int, page: int = 1, limit: int = 20, status: str = "all", user=None):
         """获取用户胶囊列表"""
         result = self.repository.find_by_user_id(user_id, page, limit, status)
 
-        # 先转换为domain的API格式，再应用类型转换
-        basic_list = [domain.to_api_basic() for domain in result['capsules']]
-        # 使用类型转换函数处理ID、状态等字段
-        converted_list = convert_capsule_list_for_api(basic_list)
+        # 由于CapsuleListResponse现在要求CapsuleDetail格式，需要使用to_api_detail()方法
+        # 如果没有传入user对象，创建一个简单的对象用于基本信息展示
+        if user is None:
+            # 创建一个简单的对象来模拟用户，用于to_api_detail方法
+            class SimpleUser:
+                def __init__(self, user_id):
+                    self.user_id = user_id
+                    self.username = None
+                    self.nickname = None
+                    self.avatar_url = None
+            user = SimpleUser(user_id)
+
+        # 转换为CapsuleDetail格式
+        detail_list = [domain.to_api_detail(user) for domain in result['capsules']]
 
         return {
-            'capsules': converted_list,
+            'capsules': detail_list,
             'total': result['total'],
             'page': result['page'],
             'limit': result['limit'],
@@ -139,7 +152,7 @@ class CapsuleService:
             description=request.content[:100] if request.content else None,
             content=request.content or "",
             visibility=self._convert_visibility(request.visibility or "private"),
-            status=CapsuleStatus.LOCKED,
+            status=CapsuleStatus.DRAFT,
             content_type=ContentType.TEXT,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
@@ -195,6 +208,46 @@ class CapsuleService:
             "expired": "published"    # 过期状态也算已发布
         }
         return status_mapping.get(status, "published")
+
+    def _save_unlock_conditions(self, capsule_id: int, unlock_conditions):
+        """保存解锁条件到数据库"""
+        from app.database.orm.unlock_condition import UnlockCondition
+
+        # unlock_conditions 可能是字典或 Pydantic UnlockConditions 对象
+        if hasattr(unlock_conditions, 'type'):
+            # Pydantic 对象
+            condition_type = getattr(unlock_conditions, 'type', 'private')
+            password = getattr(unlock_conditions, 'password', None)
+            radius = getattr(unlock_conditions, 'radius', None)
+            unlockable_time = getattr(unlock_conditions, 'unlockable_time', None)
+        else:
+            # 字典对象
+            condition_type = unlock_conditions.get('type', 'private')
+            password = unlock_conditions.get('password')
+            radius = unlock_conditions.get('radius')
+            unlockable_time = unlock_conditions.get('unlockable_time')
+
+        # 处理时间字符串转换
+        if unlockable_time and isinstance(unlockable_time, str):
+            from datetime import datetime
+            try:
+                unlockable_time = datetime.strptime(unlockable_time, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                unlockable_time = None
+
+        # 创建解锁条件对象
+        condition = UnlockCondition(
+            capsule_id=capsule_id,
+            condition_type=condition_type,
+            password=password,
+            trigger_latitude=None,  # 从胶囊的location信息中获取
+            trigger_longitude=None,  # 从胶囊的location信息中获取
+            radius_meters=int(radius) if radius else None,
+            unlockable_time=unlockable_time
+        )
+
+        self.repository.db.add(condition)
+        self.repository.db.commit()
 
 
 # 向后兼容别名

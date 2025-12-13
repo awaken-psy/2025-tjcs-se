@@ -13,26 +13,20 @@ class UnlockCondition(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="解锁条件ID")
     capsule_id = Column(Integer, ForeignKey("capsules.id", ondelete="CASCADE"), nullable=False, unique=True, comment="胶囊ID")
-    condition_type = Column(String(20), nullable=False, comment="条件类型: time, location, combined")
 
-    # 时间条件
-    unlock_time = Column(DateTime, nullable=True, comment="解锁时间")
-    end_time = Column(DateTime, nullable=True, comment="结束时间")
+    # 解锁条件类型: private, password, public
+    condition_type = Column(String(20), nullable=False, default="private", comment="解锁条件类型: private, password, public")
 
-    # 周期解锁条件
-    period_type = Column(String(20), nullable=True, comment="周期类型: daily, weekly, monthly, yearly")
-    base_time = Column(DateTime, nullable=True, comment="周期基准时间")
-    time_of_duration = Column(Integer, nullable=True, comment="每次持续时间（分钟）")
-    period_count = Column(Integer, nullable=True, comment="循环次数")
+    # 密码解锁
+    password = Column(String(255), nullable=True, comment="解锁密码")
 
     # 位置条件
     trigger_latitude = Column(Float, nullable=True, comment="触发纬度")
     trigger_longitude = Column(Float, nullable=True, comment="触发经度")
     radius_meters = Column(Integer, nullable=True, default=100, comment="触发半径（米）")
 
-    # 其他条件
-    # require_all_conditions = Column(Boolean, default=True, nullable=False, comment="是否需要满足所有条件")
-    # max_unlock_count = Column(Integer, nullable=True, comment="最大解锁次数")
+    # 时间条件
+    unlockable_time = Column(DateTime, nullable=True, comment="可解锁的最早时间")
 
     created_at = Column(DateTime, default=func.now(), nullable=False, comment="创建时间")
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False, comment="更新时间")
@@ -42,24 +36,21 @@ class UnlockCondition(Base):
 
     def __repr__(self):
         return f"<UnlockCondition(id={self.id}, capsule_id={self.capsule_id}, condition_type='{self.condition_type}')>"
-    
-    # def to_dict(self):
-    #     return {
-    #         "id": self.id,
-    #         "capsule_id": self.capsule_id,
-    #         "condition_type": self.condition_type,
-    #         "unlock_time": self.unlock_time,
-    #         "end_time": self.end_time,
-    #         "period_type": self.period_type,
-    #         "base_time": self.base_time,
-    #         "time_of_duration": self.time_of_duration,
-    #         "period_count": self.period_count,
-    #         "trigger_latitude": self.trigger_latitude,
-    #         "trigger_longitude": self.trigger_longitude,
-    #         "radius_meters": self.radius_meters,
-    #         "created_at": self.created_at,
-    #         "updated_at": self.updated_at,
-    #     }
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "type": self.condition_type,
+            "password": self.password,
+            "radius": self.radius_meters,
+            "unlockable_time": self.unlockable_time.isoformat() if self.unlockable_time is not None else None,
+            "location": {
+                "latitude": self.trigger_latitude,
+                "longitude": self.trigger_longitude,
+                "address": None
+            } if self.trigger_latitude is not None and self.trigger_longitude is not None else None,
+            "is_unlocked": False  # 需要从解锁记录中查询
+        }
 
 
 # class LocationHistory(Base):

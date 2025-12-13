@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Set, Optional, List
+from typing import Set, Optional, List, Any
 from dataclasses import dataclass, field
 from datetime import datetime
 import json
@@ -7,9 +7,9 @@ from app.model.capsule import CapsuleBasic, CapsuleDetail, Location, Creator, Ca
 
 class CapsuleStatus(str, Enum):
     """胶囊状态枚举"""
-    LOCKED = "locked"
-    UNLOCKED = "unlocked"
-    EXPIRED = "expired"
+    DRAFT = "draft"
+    PUBLISHED = "published"
+    ALL = "all"
 
 
 class Visibility(str, Enum):
@@ -36,7 +36,7 @@ class Capsule:
     title: str = ""  # 标题
     description: Optional[str] = None  # 描述
     content: Optional[str] = None  # 内容
-    status: CapsuleStatus = CapsuleStatus.LOCKED  # 状态
+    status: CapsuleStatus = CapsuleStatus.DRAFT  # 状态
     visibility: Visibility = Visibility.PRIVATE  # 可见性
     content_type: ContentType = ContentType.TEXT  # 内容类型
     created_at: datetime = field(default_factory=datetime.now)  # 创建时间
@@ -47,6 +47,8 @@ class Capsule:
     like_count: int = 0  # 点赞数
     comment_count: int = 0  # 评论数
     unlocked_by: Set[str] = field(default_factory=set)  # 已解锁的用户ID集合
+    # 新增字段：存储解锁条件数据（从数据库加载）
+    unlock_condition_data: Optional[Any] = None  # 存储ORM的解锁条件对象
     
     def is_owner(self, user_id: str) -> bool:
         """检查用户是否为所有者"""
@@ -125,7 +127,7 @@ class Capsule:
     def mark_unlocked_by(self, user_id: str):
         """标记用户已解锁该胶囊"""
         self.unlocked_by.add(user_id)
-        self.status = CapsuleStatus.UNLOCKED
+        self.status = CapsuleStatus.PUBLISHED
 
     def to_api_basic(self) -> 'CapsuleBasic':
        """Domain对象转CapsuleBasic响应模型"""
@@ -206,15 +208,27 @@ class Capsule:
         # 转换ID为字符串，确保不为None
         capsule_id_str = convert_capsule_id_to_string(self.capsule_id) or ""
 
-        # 创建默认的解锁条件对象
+        # 创建解锁条件对象 - 优先使用数据库中的真实数据
         from app.model.capsule import UnlockConditions
-        unlock_conditions = UnlockConditions(
-            type="time",
-            value=self.unlock_time.isoformat() if self.unlock_time else None,
-            radius=self.unlock_radius,
-            event_id=None,
-            is_unlocked=False  # 默认未解锁状态
-        )
+        if self.unlock_condition_data:
+            # 使用数据库中的真实解锁条件数据
+            uc = self.unlock_condition_data
+            unlock_conditions = UnlockConditions(
+                type=uc.condition_type,
+                password=uc.password,
+                radius=float(uc.radius_meters) if uc.radius_meters else None,
+                is_unlocked=False,  # 需要从解锁记录中查询
+                unlockable_time=uc.unlockable_time
+            )
+        else:
+            # 使用默认数据（兼容旧数据）
+            unlock_conditions = UnlockConditions(
+                type="private",
+                password=None,
+                radius=float(self.unlock_radius),
+                is_unlocked=False,  # 默认未解锁状态
+                unlockable_time=self.unlock_time
+            )
 
         return CapsuleDetail(
             id=capsule_id_str,  # 转换为字符串ID
@@ -228,8 +242,7 @@ class Capsule:
             unlock_conditions=unlock_conditions,  # 使用真实的解锁条件
             media_files=[],  # TODO: 从媒体文件表获取
             creator=creator,
-            stats=stats,
-            updated_at=self.updated_at
+            stats=stats
         )
 
 
@@ -253,17 +266,15 @@ def convert_status_for_frontend(status: str) -> str:
     将胶囊状态转换为前端期望的枚举值
 
     Args:
-        status: 数据库状态值 (locked, unlocked, draft, expired)
+        status: 数据库状态值 (draft, published, all)
 
     Returns:
-        str: 前端期望的状态值 (draft, pending, published)
+        str: 前端期望的状态值 (draft, published, all)
     """
     status_mapping = {
-        "locked": "published",      # 已锁定状态对应前端已发布
-        "unlocked": "published",    # 已解锁状态对应前端已发布
         "draft": "draft",           # 草稿状态保持不变
-        "expired": "published",     # 已过期状态对应前端已发布
-        "pending": "pending"        # 待审核状态保持不变
+        "published": "published",   # 已发布状态保持不变
+        "all": "all"               # 所有状态
     }
     return status_mapping.get(status, "published")
 
@@ -272,17 +283,17 @@ def convert_status_from_frontend(status: str) -> str:
     将前端状态值转换为数据库期望的状态值
 
     Args:
-        status: 前端状态值 (draft, pending, published)
+        status: 前端状态值 (draft, published, all)
 
     Returns:
-        str: 数据库期望的状态值 (locked, draft, expired, pending)
+        str: 数据库期望的状态值 (draft, published, all)
     """
     status_mapping = {
-        "published": "locked",      # 前端已发布对应数据库锁定状态
+        "published": "published",   # 已发布状态保持不变
         "draft": "draft",           # 草稿状态保持不变
-        "pending": "pending"        # 待审核状态保持不变
+        "all": "all"               # 所有状态
     }
-    return status_mapping.get(status, "locked")
+    return status_mapping.get(status, "draft")
 
 def convert_visibility_for_frontend(visibility: str) -> str:
     """

@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
@@ -22,20 +22,20 @@ class CapsuleRepository:
     
     def find_by_id(self, capsule_id: int) -> Optional[CapsuleDomain]:
         """根据ID查找胶囊"""
-        orm = self.db.query(Capsule).filter(Capsule.id == capsule_id).first()
+        orm = self.db.query(Capsule).options(joinedload(Capsule.unlock_conditions)).filter(Capsule.id == capsule_id).first()
         return self._orm_to_domain(orm) if orm else None
     
     def find_by_user_id(self, user_id: int, page: int = 1, limit: int = 20, status: str = "all") -> Dict[str, Any]:
         """分页查找用户的胶囊"""
         offset = (page - 1) * limit
-        query = self.db.query(Capsule).filter(Capsule.user_id == user_id)
+        query = self.db.query(Capsule).options(joinedload(Capsule.unlock_conditions)).filter(Capsule.user_id == user_id)
 
         # "我的胶囊"应该显示用户的所有胶囊，不进行状态过滤
         # status参数在这里不使用，因为用户应该看到自己创建的所有胶囊
 
         total = query.count()
         orms = query.order_by(Capsule.created_at.desc()).offset(offset).limit(limit).all()
-        
+
         domains = [self._orm_to_domain(orm) for orm in orms]
         
         return {
@@ -179,7 +179,7 @@ class CapsuleRepository:
                 tags = json.loads(orm.tag_json)
             except:
                 tags = []
-        
+
         # 确定内容类型
         content_type = ContentType.TEXT
         if tags:
@@ -189,7 +189,7 @@ class CapsuleRepository:
                 content_type = ContentType.AUDIO
             elif len(tags) > 1:
                 content_type = ContentType.MIXED
-        
+
         # 解析解锁位置 - 标准3字段格式
         unlock_location = None
         if orm.latitude is not None and orm.longitude is not None:
@@ -199,7 +199,8 @@ class CapsuleRepository:
                 orm.address or ""  # 地址字段，空值时使用空字符串
             )
 
-        return CapsuleDomain(
+        # 创建Domain对象，并传递解锁条件数据
+        domain = CapsuleDomain(
             capsule_id=orm.id,
             owner_id=str(orm.user_id),
             title=orm.title,
@@ -210,8 +211,11 @@ class CapsuleRepository:
             content_type=content_type,
             created_at=orm.created_at,
             updated_at=orm.updated_at,
-            unlock_location=unlock_location
+            unlock_location=unlock_location,
+            unlock_condition_data=orm.unlock_conditions  # 传递解锁条件数据
         )
+
+        return domain
     
     
         """Domain对象转ORM对象"""
@@ -280,9 +284,11 @@ class CapsuleRepository:
     @staticmethod
     def _convert_status(status: str) -> CapsuleStatus:
         """转换状态枚举"""
-        if status == "published":
-            return CapsuleStatus.LOCKED
-        elif status == "unlocked":
-            return CapsuleStatus.UNLOCKED
+        if status == "draft":
+            return CapsuleStatus.DRAFT
+        elif status == "published":
+            return CapsuleStatus.PUBLISHED
+        elif status == "all":
+            return CapsuleStatus.ALL
         else:
-            return CapsuleStatus.LOCKED
+            return CapsuleStatus.DRAFT

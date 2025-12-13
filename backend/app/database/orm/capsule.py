@@ -25,8 +25,8 @@ class Capsule(Base):
     address = Column(String(500), nullable=True, comment="详细地址")
 
     # 状态和可见性
-    status = Column(String(20), nullable=False, default="locked", comment="状态: locked, unlocked, expired")
-    visibility = Column(String(20), nullable=False, default="private", comment="可见性: private, friends, campus")
+    status = Column(String(20), nullable=False, default="draft", comment="状态: draft, published, all")
+    visibility = Column(String(20), nullable=False, default="private", comment="可见性: private, friends, public")
     content_type = Column(String(20), nullable=False, default="text", comment="内容类型: text, image, audio, mixed")
 
     # 标签 (JSON格式存储)
@@ -44,22 +44,22 @@ class Capsule(Base):
 
     def __repr__(self):
         return f"<Capsule(id={self.id}, title='{self.title}', status='{self.status}')>"
-    
-    # def to_dict(self):
-    #     return {
-    #         "id": self.id,
-    #         "title": self.title,
-    #         "text_content": self.text_content,
-    #         "user_id": self.user_id,
-    #         "latitude": self.latitude,
-    #         "longitude": self.longitude,
-    #         "address": self.address,
-    #         "status": self.status,
-    #         "visibility": self.visibility,
-    #         "content_type": self.content_type,
-    #         "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-    #         "updated_at": self.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
-    #     }
+
+    def to_dict(self):
+        return {
+            "id": str(self.id),
+            "title": self.title,
+            "content": self.text_content or "",
+            "user_id": self.user_id,
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+            "address": self.address,
+            "status": self.status,
+            "visibility": self.visibility,
+            "content_type": self.content_type,
+            "tags": self.tag_json if isinstance(self.tag_json, list) else (self.tag_json or []),
+            "created_at": self.created_at.isoformat() if self.created_at is not None else None,
+        }
 
 
 class CapsuleMedia(Base):

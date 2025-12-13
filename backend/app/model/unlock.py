@@ -3,7 +3,7 @@ Capsule unlocking related Pydantic models
 """
 from datetime import datetime
 from typing import List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CurrentLocation(BaseModel):
@@ -15,6 +15,7 @@ class CurrentLocation(BaseModel):
 class UnlockCapsuleRequest(BaseModel):
     """解锁胶囊请求模型"""
     current_location: CurrentLocation
+    password: str | None = Field(default=None, description="解锁密码（如果需要）")
 
 
 class UnlockCapsuleResponse(BaseModel):

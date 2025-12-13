@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 from datetime import datetime
 import math
 
@@ -89,6 +89,7 @@ class UnlockManager:
                             capsule_dict['longitude'] = getattr(capsule, 'longitude', 0.0)
 
                         nearby_capsules.append({
+                            'domain': domain,  # 直接返回Domain对象
                             'capsule': capsule_dict,
                             'distance': round(distance, 2),
                             'unlockable': self._can_user_unlock_capsule(user_id, domain, (latitude, longitude)) if user_id is not None else False
@@ -126,7 +127,8 @@ class UnlockManager:
         user_id: int,
         capsule_id: str,
         user_latitude: Optional[float] = None,
-        user_longitude: Optional[float] = None
+        user_longitude: Optional[float] = None,
+        password: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         解锁胶囊
@@ -140,6 +142,11 @@ class UnlockManager:
                     'message': f"胶囊 {capsule_id} 不存在"
                 }
 
+            # 获取解锁条件
+            unlock_condition = self.db.query(UnlockCondition).filter(
+                UnlockCondition.capsule_id == int(capsule_id)
+            ).first()
+
             # 检查用户是否已解锁
             if self.has_user_unlocked_capsule(user_id, capsule_id):
                 return {
@@ -151,7 +158,7 @@ class UnlockManager:
 
             # 检查解锁条件
             unlock_result = self.check_unlock_conditions(
-                domain, user_id, (user_latitude, user_longitude)
+                domain, user_id, (user_latitude, user_longitude), password
             )
 
             if not unlock_result['can_unlock']:
@@ -196,7 +203,8 @@ class UnlockManager:
         self,
         domain: CapsuleDomain,
         user_id: int,
-        user_location: Optional[tuple] = None
+        user_location: Optional[tuple] = None,
+        password: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         检查解锁条件（使用Domain对象）
@@ -204,6 +212,18 @@ class UnlockManager:
         failed_conditions = []
         conditions_met = []
         unlock_method = 'manual'
+
+        # 获取解锁条件
+        unlock_condition = self.db.query(UnlockCondition).filter(
+            UnlockCondition.capsule_id == domain.capsule_id
+        ).first()
+
+        # 如果没有解锁条件，默认为private类型
+        if not unlock_condition:
+            unlock_condition = UnlockCondition(
+                capsule_id=domain.capsule_id,
+                condition_type='private'
+            )
 
         # 初始化条件检查结果
         time_condition_met = False
@@ -237,39 +257,73 @@ class UnlockManager:
                 'already_unlocked': True
             }
 
-        # 3. 检查位置条件
-        if domain.unlock_location and user_location:
-            distance = self.calculate_distance(
-                user_location[0], user_location[1],
-                domain.unlock_location[0], domain.unlock_location[1]
-            )
-            distance_to_trigger = distance
-            if distance <= domain.unlock_radius:
-                conditions_met.append(f'位置条件满足 (距离: {round(distance, 2)}m)')
+        # 3. 根据解锁条件类型进行检查
+        condition_type = getattr(unlock_condition, 'condition_type', 'private')
+
+        if condition_type == 'private':
+            # Private类型：只有创建者可以解锁
+            if str(domain.owner_id) == str(user_id):
+                conditions_met.append('私有胶囊 - 创建者权限满足')
+                time_condition_met = True
                 location_condition_met = True
-                unlock_method = 'location'
+                unlock_method = 'private'
             else:
-                failed_conditions.append(f'距离过远 ({round(distance, 2)}m > {domain.unlock_radius}m)')
-                failure_reason = f'距离过远 ({round(distance, 2)}m)'
-        elif domain.unlock_location:
-            failed_conditions.append('需要位置信息但未提供')
-            failure_reason = '需要位置信息但未提供'
+                failed_conditions.append('私有胶囊 - 非创建者无权解锁')
+                failure_reason = '您不是此胶囊的创建者'
 
-        # 4. 检查时间条件
-        if domain.unlock_time and datetime.now() >= domain.unlock_time:
-            conditions_met.append('时间条件满足')
-            time_condition_met = True
-            unlock_method = 'time'
-        elif domain.unlock_time:
-            failed_conditions.append(f'时间未到 (解锁时间: {domain.unlock_time})')
-            if not failure_reason:
-                failure_reason = f'时间未到 (解锁时间: {domain.unlock_time})'
-
-        # 5. 如果没有特殊条件，允许手动解锁
-        if not domain.unlock_location and not domain.unlock_time:
-            conditions_met.append('无条件限制')
+        elif condition_type == 'public':
+            # Public类型：所有人都可以解锁
+            conditions_met.append('公开胶囊 - 所有人可解锁')
             time_condition_met = True
             location_condition_met = True
+            unlock_method = 'public'
+
+        elif condition_type == 'password':
+            # Password类型：需要密码验证
+            stored_password = getattr(unlock_condition, 'password', None)
+            if password and stored_password and password == stored_password:
+                conditions_met.append('密码胶囊 - 密码验证通过')
+                time_condition_met = True
+                location_condition_met = True
+                unlock_method = 'password'
+            else:
+                failed_conditions.append('密码胶囊 - 密码错误或未提供密码')
+                failure_reason = '密码错误或未提供密码'
+                # 如果没有密码或密码错误，不允许解锁
+
+        # 4. 检查时间条件（如果有）
+        unlockable_time = getattr(unlock_condition, 'unlockable_time', None)
+        if unlockable_time is not None:
+            if datetime.now() >= unlockable_time:
+                conditions_met.append(f'时间条件满足 (解锁时间: {unlockable_time})')
+                time_condition_met = True
+            else:
+                failed_conditions.append(f'时间未到 (解锁时间: {unlockable_time})')
+                time_condition_met = False
+                if not failure_reason:
+                    failure_reason = f'时间未到 (解锁时间: {unlockable_time})'
+
+        # 5. 检查位置条件（如果有）
+        trigger_lat = getattr(unlock_condition, 'trigger_latitude', None)
+        trigger_lng = getattr(unlock_condition, 'trigger_longitude', None)
+
+        if trigger_lat is not None and trigger_lng is not None and user_location:
+            distance = self.calculate_distance(
+                user_location[0], user_location[1],
+                float(trigger_lat), float(trigger_lng)
+            )
+            distance_to_trigger = distance
+            radius_meters = getattr(unlock_condition, 'radius_meters', 100) or 100
+            if distance <= radius_meters:
+                conditions_met.append(f'位置条件满足 (距离: {round(distance, 2)}m)')
+                location_condition_met = True
+                if unlock_method == 'manual':
+                    unlock_method = 'location'
+            else:
+                failed_conditions.append(f'距离过远 ({round(distance, 2)}m > {radius_meters}m)')
+                location_condition_met = False
+                if not failure_reason:
+                    failure_reason = f'距离过远 ({round(distance, 2)}m)'
             unlock_method = 'manual'
 
         can_unlock = len(failed_conditions) == 0
@@ -410,19 +464,19 @@ class UnlockManager:
 
             if unlock_condition:
                 # 更新现有记录
-                unlock_condition.updated_at = datetime.now()
-                # 如果是时间解锁，记录解锁时间
-                if unlock_result.get('unlock_method') == 'time':
-                    unlock_condition.unlock_time = datetime.now()
+                # 注意：updated_at 是一个 Column 对象，不能直接赋值
+                # 可以使用 SQL 更新语句或者让数据库自动更新（如果有 onupdate）
+                # 如果是时间解锁，记录解锁时间（如果存在 unlock_time 字段）
+                if unlock_result.get('unlock_method') == 'time' and hasattr(unlock_condition, 'unlock_time'):
+                    # unlock_condition.unlock_time = datetime.now()
+                    pass  # 暂时跳过，因为字段可能不存在
                 # 可以根据需要添加其他更新逻辑
             else:
                 # 创建新的解锁条件记录（理论上不应该发生，因为创建胶囊时应该已有记录）
                 unlock_condition = UnlockCondition(
                     capsule_id=int(capsule_id),
                     condition_type=unlock_result.get('unlock_method', 'manual'),
-                    unlock_time=datetime.now() if unlock_result.get('unlock_method') == 'time' else None,
-                    created_at=datetime.now(),
-                    updated_at=datetime.now()
+                    created_at=datetime.now()
                 )
                 self.db.add(unlock_condition)
 
