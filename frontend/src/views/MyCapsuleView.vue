@@ -27,7 +27,12 @@
           { key: 'map', label: '地图', icon: '🗺️' },
           { key: 'create', label: '创建胶囊', icon: '✚' },
           { key: 'events', label: '校园活动', icon: '🎪' },
-          { key: 'logout', label: isLogoutLoading ? '注销中...' : '注销', icon: '🔐', disabled: isLogoutLoading },
+          {
+            key: 'logout',
+            label: isLogoutLoading ? '注销中...' : '注销',
+            icon: '🔐',
+            disabled: isLogoutLoading,
+          },
         ]"
         current-active="myCapsule"
         tip-text="提示：点击胶囊卡片可查看详情，支持网格/列表视图切换"
@@ -309,80 +314,6 @@
         </button>
       </template>
     </GenericModal>
-
-    <GenericModal
-      :is-show="showMediaViewerModal"
-      :title="`媒体文件查看 (${currentMediaIndex + 1} / ${
-        currentMediaFiles.length
-      })`"
-      width="90vw"
-      @close="handleCloseMediaViewer">
-      <template #default>
-        <div class="media-viewer-content">
-          <div v-if="!currentMedia" class="media-loading-state">
-            <i class="fas fa-exclamation-triangle"></i>
-            暂无媒体文件或文件加载失败。
-          </div>
-
-          <div v-else class="media-display-area">
-            <img
-              v-if="
-                currentMedia.fileMimeType &&
-                currentMedia.fileMimeType.startsWith('image/')
-              "
-              :src="currentMedia.url"
-              alt="胶囊图片"
-              class="media-content image-viewer" />
-            <video
-              v-else-if="
-                currentMedia.fileMimeType &&
-                currentMedia.fileMimeType.startsWith('video/')
-              "
-              :src="currentMedia.url"
-              controls
-              class="media-content video-viewer">
-              您的浏览器不支持视频播放。
-            </video>
-            <div v-else class="media-content file-viewer">
-              <i class="fas fa-file-alt file-icon"></i>
-              <p>不支持在线预览的文件类型：{{ currentMedia.fileMimeType }}</p>
-              <a
-                :href="currentMedia.url"
-                target="_blank"
-                class="btn primary btn-sm"
-                >下载文件</a
-              >
-            </div>
-
-            <div v-if="hasMultipleMedia" class="media-navigation">
-              <button
-                class="nav-btn prev-btn"
-                @click="handlePrevMedia"
-                aria-label="上一个媒体">
-                <i class="fas fa-chevron-left"></i>
-              </button>
-              <button
-                class="nav-btn next-btn"
-                @click="handleNextMedia"
-                aria-label="下一个媒体">
-                <i class="fas fa-chevron-right"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-      </template>
-      <template #actions>
-        <div class="media-file-info">
-          <span v-if="currentMedia && currentMedia.fileName"
-            >文件名：{{ currentMedia.fileName }}</span
-          >
-          <span v-else>文件信息：未知</span>
-        </div>
-        <button class="btn primary" @click="handleCloseMediaViewer">
-          确定
-        </button>
-      </template>
-    </GenericModal>
   </div>
 </template>
 
@@ -463,14 +394,9 @@ const privacySettings = ref({
   autoDeleteMediaAfterDays: 0, // 媒体文件自动删除天数 (0 代表永不删除)
 })
 
-// 媒体文件查看器状态 (已在第一轮修改中添加，这里是确认和增强)
-const showMediaViewerModal = ref(false) // 新增：媒体查看器弹窗
-const currentMediaFiles = ref([]) // 媒体文件列表
-const currentMediaIndex = ref(0) // 当前正在查看的媒体索引
 
-/**
- * 计算属性：筛选后的胶囊列表 (逻辑不变)
- */
+// #region 筛选胶囊列表reviewed
+// 筛选胶囊列表
 const filteredCapsules = computed(() => {
   const list = Array.isArray(capsuleList.value) ? capsuleList.value : []
   if (list.length === 0) return []
@@ -479,14 +405,14 @@ const filteredCapsules = computed(() => {
 
   // 1. 可见性筛选
   if (filter.value.vis !== 'public') {
-    result = result.filter((c) => c.vis === filter.value.vis)
+    result = result.filter((c) => c.visibility === filter.value.vis)
   }
 
   // 2. 搜索筛选（顶部导航搜索）
   if (filter.value.search) {
     const keyword = filter.value.search.toLowerCase()
     result = result.filter((c) => {
-      const searchStr = `${c.title}${c.desc}${(c.tags || []).join(
+      const searchStr = `${c.title}${c.content}${(c.tags || []).join(
         ''
       )}`.toLowerCase()
       return searchStr.includes(keyword)
@@ -496,28 +422,28 @@ const filteredCapsules = computed(() => {
   // 3. 排序
   switch (filter.value.sort) {
     case 'oldest':
-      result.sort((a, b) => new Date(a.time) - new Date(b.time))
+      result.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
       break
     case 'popular':
-      result.sort((a, b) => (b.likes || 0) - (a.likes || 0))
+      result.sort((a, b) => (b.like_count || 0) - (a.like_count || 0))
       break
     case 'newest':
     default:
-      result.sort((a, b) => new Date(b.time) - new Date(a.time))
+      result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
       break
   }
 
   return result
 })
+// #endregion
 
-/**
- * 页面初始化：加载我的胶囊列表
- */
+// #region 核心方法 
+// 页面初始化：加载我的胶囊列表
 onMounted(async () => {
   await fetchCapsuleList()
 })
 
-// 核心方法：加载我的胶囊列表（调用API）
+// 核心方法：加载我的胶囊列表
 const fetchCapsuleList = async () => {
   //console.log('加载我的胶囊列表，当前筛选条件：', filter.value)
   isLoading.value = true
@@ -530,12 +456,37 @@ const fetchCapsuleList = async () => {
     })
 
     if (res && Array.isArray(res.capsules)) {
-      // 数据映射：假设 API 返回了 is_liked 和 is_collected 字段
+      // 返回的都是自己的胶囊
       capsuleList.value = res.capsules.map((capsule) => ({
-        ...capsule,
-        is_mine: true, // 假设 getMyCapsules 返回的都是自己的
-        liked: capsule.is_liked ?? false, // 使用 API 返回值，否则初始化为 false
-        collected: capsule.is_collected ?? false, // 使用 API 返回值，否则初始化为 false
+        id: capsule.id,
+        title: capsule.title,
+        visibility: capsule.visibility,
+        content: capsule.content,
+        created_at: capsule.created_at,
+        status: capsule.status,//"all","draft","published"
+        tags: capsule.tags || [],
+        //location 信息
+        latitude: capsule.location.latitude,
+        longitude: capsule.location.longitude,
+        address: capsule.location.address,
+        // unlock_conditions 信息
+        unlock_conditions_type: capsule.unlock_conditions.type,
+        unlock_conditions_password: capsule.unlock_conditions.password || '',
+        unlock_conditions_radius: capsule.unlock_conditions.radius || 50,
+        unlock_conditions_is_unlocked: capsule.unlock_conditions.is_unlocked || false,
+        unlock_conditions_unlockable_time: capsule.unlock_conditions.unlockable_time || null,
+        // stats 信息
+        view_count: capsule.stats.view_count || 0,
+        like_count: capsule.stats.like_count || 0,
+        comment_count: capsule.stats.comment_count || 0,
+        unlock_count: capsule.stats.unlock_count || 0,
+        is_liked: capsule.stats.is_liked ?? false, // 使用 API 返回值，否则初始化为 false
+        is_collected: capsule.stats.is_collected ?? false, 
+        // media_files 信息 TODO
+        // creator 信息(不需要，因为都是自己的胶囊)
+        // 其他信息
+        is_mine: true, // getMyCapsules 返回的都是自己的,这个值后端没有
+        
       }))
       capsuleTotal.value = res.pagination?.total ?? res.capsules.length
     } else {
@@ -550,7 +501,9 @@ const fetchCapsuleList = async () => {
     isLoading.value = false
   }
 }
+// #endregion
 
+// #region 辅助函数
 // 辅助函数：获取可见性文本
 const getVisText = (vis) => {
   switch (vis) {
@@ -601,8 +554,9 @@ const getUnlockIcon = (type) => {
       return 'fas fa-unlock'
   }
 }
+// #endregion
 
-// —— 顶部导航相关方法 ——
+// #region 顶部导航相关方法reviewed
 const handleGoHub = () => {
   router.push('/hubviews')
 }
@@ -611,7 +565,6 @@ const handleHeaderSearch = (keyword) => {
   filter.value.search = keyword
 }
 
-// 变更：控制新增的导出和设置弹窗
 const handleHeaderAction = (key) => {
   switch (key) {
     case 'create':
@@ -625,8 +578,9 @@ const handleHeaderAction = (key) => {
       break // 控制设置弹窗
   }
 }
+// #endregion
 
-// —— 侧边导航相关方法 ——
+// #region 侧边导航相关方法reviewed
 const handleNavChange = async (key) => {
   const routeMap = {
     myCapsule: '/my-capsule',
@@ -654,8 +608,9 @@ const handleNavChange = async (key) => {
 
   router.push(routeMap[key] || '/my-capsule')
 }
+// #endregion
 
-// —— 共用组件 CapsuleFilterBar 事件处理 ——
+// #region 组件CapsuleFilterBar事件处理reviewed
 const handleFilterChange = async (params) => {
   if (params.type === 'vis') {
     filter.value.vis = params.value
@@ -677,66 +632,67 @@ const handleResetFilter = async () => {
   currentPage.value = 1
   await fetchCapsuleList()
 }
+// #endregion
 
-// —— 分页相关方法 ——
+// #region 分页相关方法 reviewed
 const handlePageChange = async (page) => {
   currentPage.value = page
   await fetchCapsuleList()
 }
+// #endregion
 
-// —— 胶囊操作相关方法 ——
-
+// #region 胶囊操作相关方法 
 const handleViewCapsule = async (capsuleId) => {
-  const loadingKey = `view_${capsuleId}`;
-  isProcessing.value[loadingKey] = true;
-  
+  const loadingKey = `view_${capsuleId}`
+  isProcessing.value[loadingKey] = true
+
   try {
     // 调用 API 获取详情数据
-    const detail = await getCapsuleDetail(capsuleId); 
-    
+    const detail = await getCapsuleDetail(capsuleId)
+
     if (detail) {
       // 🌟 关键：根据 API 响应结构进行精确映射
       currentDetailData.value = {
         // 展开基础数据，直接继承 API 的 id, title, content, visibility, tags 等
         ...detail,
-        
+
         // --- 归属权判断 (is_mine) ---
         // 💡 必须从外部逻辑判断（例如当前用户ID与 detail.creator.user_id 比较）
         // ⚠️ 这里保持您之前的假设，但实际应用中需替换为真正的比较逻辑
         is_mine: detail.creator?.user_id === userStore.user_id, // 假设存在全局的 currentUser
 
         // --- 元信息映射/增强 ---
-        time: detail.created_at,      // 详情页显示投递时间
-        vis: detail.visibility,       // 详情页显示可见性
-        desc: detail.content,         // 详情页内容描述
+        time: detail.created_at, // 详情页显示投递时间
+        vis: detail.visibility, // 详情页显示可见性
+        desc: detail.content, // 详情页内容描述
 
         // --- 解锁/位置映射 (直接从嵌套对象中取值) ---
         unlockType: detail.unlock_conditions?.type,
         unlockValue: detail.unlock_conditions?.value,
         location: detail.location?.address, // 投递位置地址
-        
+
         // --- 媒体映射 (API 已经是数组，直接赋值) ---
-        media_files: detail.media_files || [], 
-        
+        media_files: detail.media_files || [],
+
         // --- 统计/状态映射 (从 stats 字段中提取) ---
         likes: detail.stats?.like_count || 0,
         views: detail.stats?.view_count || 0,
-        
+
         // 🔥 关键：将 API 嵌套的 is_liked 和 is_collected 提取到顶层
-        liked: detail.stats?.is_liked ?? false, 
-        collected: detail.stats?.is_collected ?? false, 
-      };
-      
-      showDetailModal.value = true;
+        liked: detail.stats?.is_liked ?? false,
+        collected: detail.stats?.is_collected ?? false,
+      }
+
+      showDetailModal.value = true
     } else {
-      console.error(`未找到胶囊 ${capsuleId}`);
-      alert('未找到胶囊信息');
+      console.error(`未找到胶囊 ${capsuleId}`)
+      alert('未找到胶囊信息')
     }
   } catch (error) {
-    console.error(`查看胶囊详情(${capsuleId})失败：`, error);
-    alert('查看详情失败，请稍后重试');
+    console.error(`查看胶囊详情(${capsuleId})失败：`, error)
+    alert('查看详情失败，请稍后重试')
   } finally {
-    isProcessing.value[loadingKey] = false;
+    isProcessing.value[loadingKey] = false
   }
 }
 
@@ -780,13 +736,13 @@ const handleLikeCapsule = async (capsuleId) => {
     isProcessing.value[`like_${capsuleId}`] = false
   }
 }
+// #endregion
 
 // 注销加载状态
 const isLogoutLoading = ref(false)
 
-/**
- * 注销处理函数
- */
+
+// 注销处理函数
 const handleLogout = async () => {
   // 防止重复点击
   if (isLogoutLoading.value) return
@@ -808,9 +764,9 @@ const handleLogout = async () => {
       'user_info',
       'access_token',
       'refresh_token',
-      'saved_login_email'
+      'saved_login_email',
     ]
-    keysToRemove.forEach(key => {
+    keysToRemove.forEach((key) => {
       localStorage.removeItem(key)
     })
     localStorage.removeItem('user-store')
@@ -823,7 +779,7 @@ const handleLogout = async () => {
     // 立即跳转到登录页
     router.replace({
       path: '/login',
-      query: { from: 'logout' }
+      query: { from: 'logout' },
     })
   }
 }
@@ -831,7 +787,7 @@ const handleLogout = async () => {
 // 优化：移除打开编辑表单时的 fetchCapsuleList 调用
 const handleEditCapsule = (capsuleId) => {
   // 💡 优化：从当前列表数据中查找，避免重复 API 调用
-  const capsule = capsuleList.value.find((c) => c.id === capsuleId); 
+  const capsule = capsuleList.value.find((c) => c.id === capsuleId)
 
   if (capsule) {
     // 1. 设置编辑数据，并进行字段映射
@@ -839,7 +795,7 @@ const handleEditCapsule = (capsuleId) => {
     currentEditData.value = {
       ...capsule,
       content: capsule.desc, // 🔥 核心：将列表的 desc 映射为表单的 content
-      
+
       // 💡 补充：确保将复杂的对象结构也映射给表单，表单可能需要这些来初始化控件
       location: capsule.location,
       unlock_conditions: capsule.unlock_conditions,
@@ -852,11 +808,12 @@ const handleEditCapsule = (capsuleId) => {
     showFormModal.value = true
 
     // 3. 关闭详情弹窗（解耦调用，使用单独的函数）
-    handleCloseDetail() 
+    handleCloseDetail()
   } else {
-    alert('编辑失败：未能找到该胶囊的列表数据。');
+    alert('编辑失败：未能找到该胶囊的列表数据。')
   }
 }
+
 
 const handleDeleteCapsule = async (capsuleId) => {
   if (!confirm('确定要删除该胶囊吗？此操作不可恢复！')) return
@@ -885,8 +842,8 @@ const handleDeleteCapsule = async (capsuleId) => {
 const handleShareCapsule = (capsule) => {
   // 💡 最佳实践：此处应调用一个专用的分享服务函数
   // 例如：shareService.openShareModal(capsule)
-  console.log(`准备分享胶囊：${capsule.title}`);
-  alert(`分享胶囊：${capsule.title}（后续对接分享接口，支持复制链接/微信分享）`);
+  console.log(`准备分享胶囊：${capsule.title}`)
+  alert(`分享胶囊：${capsule.title}（后续对接分享接口，支持复制链接/微信分享）`)
 }
 
 const handleCollectCapsule = async (capsuleId) => {
@@ -1024,7 +981,7 @@ const onCapsuleCreated = async (result) => {
 const handleCloseDetail = () => {
   showDetailModal.value = false
   // 清空数据，释放内存
-  currentDetailData.value = {} 
+  currentDetailData.value = {}
 }
 
 const handleExportData = async () => {
@@ -1126,46 +1083,9 @@ const handleSavePrivacySettings = async () => {
   }
 }
 
-// 计算属性：当前正在展示的媒体文件
-const currentMedia = computed(() => {
-  return currentMediaFiles.value[currentMediaIndex.value] || null
-})
 
-// 计算属性：判断是否有多个媒体文件
-const hasMultipleMedia = computed(() => {
-  return currentMediaFiles.value.length > 1
-})
 
-// —— 媒体文件查看器逻辑 ——
 
-// 媒体文件查看器：打开媒体查看器
-const handleOpenMediaViewer = (mediaFiles) => {
-  currentMediaFiles.value = mediaFiles.filter((f) => f.url) // 过滤掉没有 URL 的文件
-  currentMediaIndex.value = 0 // 重置到第一个文件
-  showMediaViewerModal.value = true
-}
-
-// 媒体文件查看器：关闭媒体查看器
-const handleCloseMediaViewer = () => {
-  showMediaViewerModal.value = false
-  currentMediaFiles.value = []
-  currentMediaIndex.value = 0
-}
-
-// 媒体文件查看器：切换媒体（下一个）
-const handleNextMedia = () => {
-  if (currentMediaFiles.value.length === 0) return
-  currentMediaIndex.value =
-    (currentMediaIndex.value + 1) % currentMediaFiles.value.length
-}
-
-// 媒体文件查看器：切换媒体（上一个）
-const handlePrevMedia = () => {
-  if (currentMediaFiles.value.length === 0) return
-  currentMediaIndex.value =
-    (currentMediaIndex.value - 1 + currentMediaFiles.value.length) %
-    currentMediaFiles.value.length
-}
 </script>
 
 <style scoped>

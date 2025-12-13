@@ -82,7 +82,7 @@ async def get_user_info(
 async def get_nearby_capsules(
     lat: float = Query(..., description="当前纬度"),
     lng: float = Query(..., description="当前经度"),
-    range: int = Query(500, ge=10, le=10000, description="搜索半径（米）"),
+    range: int = Query(500, ge=10, le=1000000, description="搜索半径（米）"),
     page: int = Query(1, ge=1, description="页码"),
     limit: int = Query(20, ge=1, le=100, description="每页数量"),
     user: AuthorizedUser = Depends(login_required),

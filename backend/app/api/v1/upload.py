@@ -43,6 +43,7 @@ class Format(str, Enum):
     Png = "png"
     Wav = "wav"
 
+
 # 响应模型 - 匹配TypeScript接口规范
 class UploadResponseData(BaseModel):
     """文件上传响应数据模型"""

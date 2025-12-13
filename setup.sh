@@ -19,7 +19,7 @@ mkdir -p ./backend/uploads
 
 echo "🛑 停止并清理旧的容器和服务..."
 cd ./backend
-$DOCKER_COMPOSE_CMD down -v
+$DOCKER_COMPOSE_CMD down
 
 echo "🔨 使用 Docker Compose 构建并启动服务..."
 $DOCKER_COMPOSE_CMD up -d --build

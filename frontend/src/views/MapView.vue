@@ -202,7 +202,7 @@ const fetchCapsules = async () => {
       const requestParams = {
         lat: userLocation.value.latitude || 31.026362,  // 同济大学默认坐标
         lng: userLocation.value.longitude || 120.529881,
-        range: 5000, // 5公里范围
+        range: 500000, // 5公里范围
         page: 1,
         size: 100
       }
