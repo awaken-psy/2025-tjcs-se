@@ -26,11 +26,10 @@ class UnlockConditions(BaseModel):
 
 class MediaFile(BaseModel):
     """媒体文件模型"""
-    id: int  # 修改为整数类型，与数据库ID一致
-    type: str  # "image", "audio"
-    url: str
-    thumbnail: str | None = None
-    duration: float | None = None  # seconds for audio
+    id: str  # 字符串类型，符合APIFox规范
+    type: str  # 媒体文件类型
+    url: str  # 媒体文件URL
+    thumbnail: str | None = None  # 缩略图URL
 
 
 class Creator(BaseModel):

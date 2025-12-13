@@ -49,6 +49,7 @@ class Capsule:
     unlocked_by: Set[str] = field(default_factory=set)  # 已解锁的用户ID集合
     # 新增字段：存储解锁条件数据（从数据库加载）
     unlock_condition_data: Optional[Any] = None  # 存储ORM的解锁条件对象
+    media_files_data: Optional[Any] = None  # 存储ORM的媒体文件对象列表
     
     def is_owner(self, user_id: str) -> bool:
         """检查用户是否为所有者"""
@@ -230,6 +231,23 @@ class Capsule:
                 unlockable_time=self.unlock_time
             )
 
+        # 转换媒体文件数据
+        media_files = []
+        if self.media_files_data:
+            from app.model.capsule import MediaFile
+            for media_orm in self.media_files_data:
+                # 构建媒体文件URL（这里需要根据实际的文件服务配置）
+                file_url = f"/api/files/{media_orm.file_path}"  # 简化的URL构建
+                thumbnail_url = None  # TODO: 实现缩略图逻辑
+
+                media_file = MediaFile(
+                    id=str(media_orm.id),  # 转换为字符串ID
+                    type=media_orm.file_type,  # 使用file_type作为type
+                    url=file_url,
+                    thumbnail=thumbnail_url
+                )
+                media_files.append(media_file)
+
         return CapsuleDetail(
             id=capsule_id_str,  # 转换为字符串ID
             title=self.title,
@@ -240,7 +258,7 @@ class Capsule:
             tags=tags,
             location=location,
             unlock_conditions=unlock_conditions,  # 使用真实的解锁条件
-            media_files=[],  # TODO: 从媒体文件表获取
+            media_files=media_files,  # 使用转换后的媒体文件数据
             creator=creator,
             stats=stats
         )

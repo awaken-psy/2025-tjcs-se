@@ -68,6 +68,10 @@ class CapsuleService:
         if request.unlock_conditions:
             self._save_unlock_conditions(capsule_id, request.unlock_conditions)
 
+        # 保存媒体文件
+        if request.media_files:
+            self._save_media_files(capsule_id, request.media_files)
+
         return CapsuleCreateResponse(
             capsule_id=str(capsule_id),  # int转换为string，匹配新的模型定义
             title=saved_domain.title,
@@ -247,6 +251,28 @@ class CapsuleService:
         )
 
         self.repository.db.add(condition)
+        self.repository.db.commit()
+
+    def _save_media_files(self, capsule_id: int, media_files: List[str]):
+        """保存媒体文件到数据库"""
+        from app.database.orm.capsule import CapsuleMedia
+
+        for index, file_id in enumerate(media_files):
+            # 创建媒体文件记录
+            # 注意：这里假设file_id实际上是文件路径或标识符
+            # 根据实际需求，可能需要从文件系统或文件服务获取更多信息
+            media_record = CapsuleMedia(
+                capsule_id=capsule_id,
+                file_type="unknown",  # 可能需要根据文件扩展名判断
+                file_name=f"file_{index + 1}",  # 可能需要从实际文件获取
+                file_path=file_id,  # 使用file_id作为文件路径
+                file_size=0,  # 可能需要从实际文件获取
+                mime_type=None,  # 可能需要从实际文件获取
+                upload_order=index
+            )
+
+            self.repository.db.add(media_record)
+
         self.repository.db.commit()
 
 
