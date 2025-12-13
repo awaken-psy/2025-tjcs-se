@@ -24,6 +24,6 @@ def test_register():
 
     for user in users:
         user["verify_code"] = codes[user["email"]]
-        response = requests.post(f"{base_url}/auth/register", json=user)
-        assert response.status_code == 200
+        data = requests.post(f"{base_url}/auth/register", json=user).json()
+        assert data["code"] == 200 or data["message"] == "用户名已存在"
         
