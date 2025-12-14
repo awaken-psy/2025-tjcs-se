@@ -253,19 +253,37 @@ class CapsuleService:
         self.repository.db.add(condition)
         self.repository.db.commit()
 
-    def _save_media_files(self, capsule_id: int, media_files: List[str]):
+    def _save_media_files(self, capsule_id: int, media_files: List[str | int]):
         """保存媒体文件到数据库"""
         from app.database.orm.capsule import CapsuleMedia
 
         for index, file_id in enumerate(media_files):
             # 创建媒体文件记录
-            # 注意：这里假设file_id实际上是文件路径或标识符
-            # 根据实际需求，可能需要从文件系统或文件服务获取更多信息
+            # FastAPI会自动将 media_files.0, media_files.1 格式转换为列表
+            if not file_id:  # 跳过空值
+                continue
+
+            # 将file_id转换为字符串
+            file_id_str = str(file_id)
+
+            # 根据文件扩展名判断文件类型
+            file_type = "unknown"
+            if "." in file_id_str:
+                extension = file_id_str.split(".")[-1].lower()
+                if extension in ["jpg", "jpeg", "png", "gif", "webp"]:
+                    file_type = "image"
+                elif extension in ["mp4", "avi", "mov", "wmv", "flv"]:
+                    file_type = "video"
+                elif extension in ["mp3", "wav", "flac", "aac"]:
+                    file_type = "audio"
+                else:
+                    file_type = "file"
+
             media_record = CapsuleMedia(
                 capsule_id=capsule_id,
-                file_type="unknown",  # 可能需要根据文件扩展名判断
-                file_name=f"file_{index + 1}",  # 可能需要从实际文件获取
-                file_path=file_id,  # 使用file_id作为文件路径
+                file_type=file_type,
+                file_name=f"media_file_{index + 1}",  # 使用更有意义的文件名
+                file_path=file_id_str,  # 使用字符串形式的文件ID作为文件路径
                 file_size=0,  # 可能需要从实际文件获取
                 mime_type=None,  # 可能需要从实际文件获取
                 upload_order=index
