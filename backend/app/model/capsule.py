@@ -89,7 +89,7 @@ class CapsuleCreateRequest(BaseModel):
     tags: List[str] | None = None
     location: Location | None = None
     unlock_conditions: UnlockConditions | None = None
-    media_files: List[str | int] | None = None  # 支持数字或字符串，会自动转换为字符串
+    media_files: List[MediaFile] | None = None  # 媒体文件对象数组
 
 
 
