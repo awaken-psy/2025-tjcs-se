@@ -2,6 +2,8 @@
 // 4. 请求适配层（全局axios实例，所有API都通过此发起）
 // ===============================
 import axios from 'axios'
+import { useUserStore } from '@/store/user'
+import router from '@/router/index' // 引入 router 实例
 
 const request = axios.create({
   baseURL: '/api', // 统一前缀，所有API都走/api
@@ -73,6 +75,23 @@ request.interceptors.response.use(response => {
   let errorData = null
 
   if (error.response) {
+    const status = error.response.status
+
+    // ⭐️ 核心新增：处理 401 未认证/Token 过期
+    if (status === 401) {
+      console.error('⚠️ [401 ERROR] 认证失败或 Token 过期，执行退出登录。')
+
+      // 注意：这里不能直接使用 import 的 useUserStore()，因为守卫在外面
+      // 必须在函数内部实例化 Pinia Store
+      const userStore = useUserStore()
+
+      // 执行退出登录操作 (清空状态和 LocalStorage)
+      userStore.logout()
+
+      // 阻止后续的 Promise.reject，因为它会跳转到登录页
+      return Promise.reject(error)
+    }
+
     // 服务器返回了错误状态码
     console.error('❌ [ERROR DEBUG] 服务器返回错误状态码:', error.response.status)
     const responseData = error.response.data

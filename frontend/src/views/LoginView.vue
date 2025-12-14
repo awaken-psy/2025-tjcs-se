@@ -643,7 +643,7 @@ const handleLogin = async() => {
     })
 
     // 🚨 检查点：打印整个响应数据，确认 Token 的键名
-    console.log('登录 API 响应数据:', responseData)
+    //console.log('登录 API 响应数据:', responseData)
 
     const { token, refresh_token, user_id, email, nickname, avatar } =
       responseData

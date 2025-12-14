@@ -61,17 +61,13 @@
             :capsule="capsule"
             :view-mode="viewMode"
             @view="handleViewCapsule(capsule.id)"
-            @like="handleLikeCapsule(capsule.id)"
             @click="handleCardClick(capsule.id)">
             <template #actions>
               <CapsuleActionButtons
                 :capsule="capsule"
                 :is-owner="capsule.is_mine"
                 :view-mode="viewMode"
-                :is-unlocked="
-                  capsule.unlock_conditions &&
-                  capsule.unlock_conditions.is_unlocked
-                "
+                :is-unlocked="capsule.unlock_conditions_is_unlocked"
                 :is-processing="{
                   view: isProcessing[`view_${capsule.id}`],
                   edit: isProcessing[`edit_${capsule.id}`],
@@ -82,7 +78,7 @@
                 @like="handleLikeCapsule(capsule.id)"
                 @edit="handleEditCapsule(capsule.id)"
                 @delete="handleDeleteCapsule(capsule.id)"
-                @share="handleShareCapsule(capsule)"
+                @unlock="handleUnlockCapsule(capsule)"
                 @collect="handleCollectCapsule(capsule.id)" />
             </template>
           </CapsuleCard>
@@ -130,11 +126,8 @@
 
     <CapsuleDetail
       :show-modal="showDetailModal"
-      :detail-data="currentDetailData"
-      @close="handleCloseDetail"
-      @edit="handleEditCapsule"
-      @share="handleShareCapsule"
-      @openMedia="handleOpenMediaViewer" />
+      :detail-data="currentCapsuleDetail"
+      @close="showDetailModal = false" />
 
     <GenericModal
       :is-show="showExportModal"
@@ -314,10 +307,83 @@
         </button>
       </template>
     </GenericModal>
+
+    <GenericModal
+      :is-show="showUnlockModal"
+      title="解锁时光胶囊"
+      width="450px"
+      @close="showUnlockModal = false">
+      <template #default>
+        <div v-if="currentUnlockCapsule" class="unlock-form-content">
+          <p class="unlock-tip">
+            您正尝试解锁胶囊 **{{ currentUnlockCapsule.title }}**。
+          </p>
+
+          <div
+            v-if="currentUnlockCapsule.unlock_conditions_type === 'password'"
+            class="form-group password-group">
+            <label for="unlock-password">🔑 请输入解锁密码：</label>
+            <input
+              id="unlock-password"
+              type="password"
+              v-model="unlockPasswordInput"
+              placeholder="输入密码"
+              @keyup.enter="handleConfirmUnlock"
+              :disabled="isProcessing[`unlock_${currentUnlockCapsule.id}`]" />
+          </div>
+
+          <div
+            v-else-if="
+              currentUnlockCapsule.unlock_conditions_type === 'location'
+            "
+            class="location-tip">
+            <p>🗺️ 这是一个**地点触发**的胶囊。</p>
+            <p class="note">
+              点击“开始解锁”后，系统将获取您的位置信息并进行半径校验。
+            </p>
+          </div>
+
+          <div v-else class="location-tip">
+            <p>🔓 正在尝试解锁。</p>
+            <p class="note">
+              点击“开始解锁”后，系统将获取您的位置（如需）并进行 API 解锁请求。
+            </p>
+          </div>
+        </div>
+      </template>
+      <template #actions>
+        <button
+          class="btn ghost"
+          @click="showUnlockModal = false"
+          :disabled="isProcessing[`unlock_${currentUnlockCapsule.id}`]">
+          取消
+        </button>
+        <button
+          class="btn primary"
+          @click="handleConfirmUnlock"
+          :disabled="
+            (currentUnlockCapsule.unlock_conditions_type === 'password' &&
+              !unlockPasswordInput) ||
+            isProcessing[`unlock_${currentUnlockCapsule.id}`]
+          ">
+          <i
+            v-if="isProcessing[`unlock_${currentUnlockCapsule.id}`]"
+            class="fas fa-spinner fa-spin"></i>
+          <span v-else>
+            {{
+              currentUnlockCapsule.unlock_conditions_type === 'password'
+                ? '提交密码并解锁'
+                : '开始解锁'
+            }}
+          </span>
+        </button>
+      </template>
+    </GenericModal>
   </div>
 </template>
 
 <script setup>
+// #region 引入模块
 import { formatStandard } from '@/utils/formatTime.js'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -342,7 +408,11 @@ import {
   createCapsule,
 } from '@/api/new/capsulesApi.js'
 import { likeCapsule, collectCapsule } from '@/api/new/interactionsApi.js'
+import { unlockItem,unlockCapsule } from '@/api/new/unlockApi.js'
+// #endregion
 
+// #region 状态变量
+// 路由和用户状态
 const router = useRouter()
 const userStore = useUserStore()
 
@@ -363,15 +433,20 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 
 // 弹窗状态 (新增导出、设置、媒体查看)
-const showFormModal = ref(false)
-const isEditMode = ref(false)
-const currentEditData = ref({})
-const showDetailModal = ref(false)
-const currentDetailData = ref({})
+const showFormModal = ref(false) // 展示表单
+const showDetailModal = ref(false) // 展示胶囊详情页面
+const isEditMode = ref(false) // false表示创建，true表示编辑
+const currentEditData = ref({}) // 暂存表单数据
+const currentDetailData = ref({}) // 暂存详情数据
 
 // 加载状态
 const isLoading = ref(false)
 const isProcessing = ref({})
+
+// 解锁相关状态
+const showUnlockModal = ref(false)
+const currentUnlockCapsule = ref(null) // 暂存待解锁的胶囊对象
+const unlockPasswordInput = ref('') // 暂存用户输入的密码
 
 // 新增：导出数据状态
 const showExportModal = ref(false)
@@ -388,14 +463,15 @@ const exportData = ref({
 const showSettingModal = ref(false)
 const isSavingSettings = ref(false)
 const privacySettings = ref({
-  defaultVisibility: 'friend', // 新创建胶囊的默认可见性: public, friend, private
+  defaultVisibility: 'friends', // 新创建胶囊的默认可见性: public, friends, private
   allowLocationTracking: true, // 是否允许记录投递时的地理位置
   enableAnonMode: false, // 是否在评论和互动时默认匿名
   autoDeleteMediaAfterDays: 0, // 媒体文件自动删除天数 (0 代表永不删除)
 })
 
+// #endregion
 
-// #region 筛选胶囊列表reviewed
+// #region 筛选胶囊列表 reviewed
 // 筛选胶囊列表
 const filteredCapsules = computed(() => {
   const list = Array.isArray(capsuleList.value) ? capsuleList.value : []
@@ -437,7 +513,7 @@ const filteredCapsules = computed(() => {
 })
 // #endregion
 
-// #region 核心方法 
+// #region 核心方法 reviewed
 // 页面初始化：加载我的胶囊列表
 onMounted(async () => {
   await fetchCapsuleList()
@@ -463,7 +539,7 @@ const fetchCapsuleList = async () => {
         visibility: capsule.visibility,
         content: capsule.content,
         created_at: capsule.created_at,
-        status: capsule.status,//"all","draft","published"
+        status: capsule.status, //"all","draft","published"
         tags: capsule.tags || [],
         //location 信息
         latitude: capsule.location.latitude,
@@ -473,20 +549,28 @@ const fetchCapsuleList = async () => {
         unlock_conditions_type: capsule.unlock_conditions.type,
         unlock_conditions_password: capsule.unlock_conditions.password || '',
         unlock_conditions_radius: capsule.unlock_conditions.radius || 50,
-        unlock_conditions_is_unlocked: capsule.unlock_conditions.is_unlocked || false,
-        unlock_conditions_unlockable_time: capsule.unlock_conditions.unlockable_time || null,
+        unlock_conditions_is_unlocked:
+          capsule.unlock_conditions.is_unlocked || false,
+        unlock_conditions_unlockable_time:
+          capsule.unlock_conditions.unlockable_time || null,
         // stats 信息
         view_count: capsule.stats.view_count || 0,
         like_count: capsule.stats.like_count || 0,
         comment_count: capsule.stats.comment_count || 0,
         unlock_count: capsule.stats.unlock_count || 0,
         is_liked: capsule.stats.is_liked ?? false, // 使用 API 返回值，否则初始化为 false
-        is_collected: capsule.stats.is_collected ?? false, 
-        // media_files 信息 TODO
+        is_collected: capsule.stats.is_collected ?? false,
+        // media_files 信息
+        //{
+        //  id: string, // 媒体文件ID
+        //  type: string, // 媒体类型（image, audio）
+        //  url: string, // 媒体文件URL
+        //  thumbnail_url: string, // 缩略图URL（如果适用）
+        //}
+        media_files: capsule.media_files || [],
         // creator 信息(不需要，因为都是自己的胶囊)
         // 其他信息
         is_mine: true, // getMyCapsules 返回的都是自己的,这个值后端没有
-        
       }))
       capsuleTotal.value = res.pagination?.total ?? res.capsules.length
     } else {
@@ -556,7 +640,7 @@ const getUnlockIcon = (type) => {
 }
 // #endregion
 
-// #region 顶部导航相关方法reviewed
+// #region 顶部导航相关方法 reviewed
 const handleGoHub = () => {
   router.push('/hubviews')
 }
@@ -580,7 +664,7 @@ const handleHeaderAction = (key) => {
 }
 // #endregion
 
-// #region 侧边导航相关方法reviewed
+// #region 侧边导航相关方法 reviewed
 const handleNavChange = async (key) => {
   const routeMap = {
     myCapsule: '/my-capsule',
@@ -610,7 +694,7 @@ const handleNavChange = async (key) => {
 }
 // #endregion
 
-// #region 组件CapsuleFilterBar事件处理reviewed
+// #region CapsuleFilterBar事件处理 reviewed
 const handleFilterChange = async (params) => {
   if (params.type === 'vis') {
     filter.value.vis = params.value
@@ -641,106 +725,16 @@ const handlePageChange = async (page) => {
 }
 // #endregion
 
-// #region 胶囊操作相关方法 
-const handleViewCapsule = async (capsuleId) => {
-  const loadingKey = `view_${capsuleId}`
-  isProcessing.value[loadingKey] = true
-
-  try {
-    // 调用 API 获取详情数据
-    const detail = await getCapsuleDetail(capsuleId)
-
-    if (detail) {
-      // 🌟 关键：根据 API 响应结构进行精确映射
-      currentDetailData.value = {
-        // 展开基础数据，直接继承 API 的 id, title, content, visibility, tags 等
-        ...detail,
-
-        // --- 归属权判断 (is_mine) ---
-        // 💡 必须从外部逻辑判断（例如当前用户ID与 detail.creator.user_id 比较）
-        // ⚠️ 这里保持您之前的假设，但实际应用中需替换为真正的比较逻辑
-        is_mine: detail.creator?.user_id === userStore.user_id, // 假设存在全局的 currentUser
-
-        // --- 元信息映射/增强 ---
-        time: detail.created_at, // 详情页显示投递时间
-        vis: detail.visibility, // 详情页显示可见性
-        desc: detail.content, // 详情页内容描述
-
-        // --- 解锁/位置映射 (直接从嵌套对象中取值) ---
-        unlockType: detail.unlock_conditions?.type,
-        unlockValue: detail.unlock_conditions?.value,
-        location: detail.location?.address, // 投递位置地址
-
-        // --- 媒体映射 (API 已经是数组，直接赋值) ---
-        media_files: detail.media_files || [],
-
-        // --- 统计/状态映射 (从 stats 字段中提取) ---
-        likes: detail.stats?.like_count || 0,
-        views: detail.stats?.view_count || 0,
-
-        // 🔥 关键：将 API 嵌套的 is_liked 和 is_collected 提取到顶层
-        liked: detail.stats?.is_liked ?? false,
-        collected: detail.stats?.is_collected ?? false,
-      }
-
-      showDetailModal.value = true
-    } else {
-      console.error(`未找到胶囊 ${capsuleId}`)
-      alert('未找到胶囊信息')
-    }
-  } catch (error) {
-    console.error(`查看胶囊详情(${capsuleId})失败：`, error)
-    alert('查看详情失败，请稍后重试')
-  } finally {
-    isProcessing.value[loadingKey] = false
-  }
-}
-
+// #region CapsuleCard事件处理 reviewed
 const handleCardClick = (capsuleId) => {
   handleViewCapsule(capsuleId)
 }
 
-const handleLikeCapsule = async (capsuleId) => {
-  const capsule = capsuleList.value.find((c) => c.id === capsuleId)
-  if (!capsule) return
-
-  isProcessing.value[`like_${capsuleId}`] = true
-  try {
-    const result = await likeCapsule(capsuleId)
-
-    // request.js响应拦截器返回的是data部分，所以直接检查result是否存在
-    if (
-      result &&
-      (result.is_liked !== undefined || result.like_count !== undefined)
-    ) {
-      const isLiked =
-        result.is_liked !== undefined ? result.is_liked : !capsule.liked
-      const newCount =
-        result.like_count !== undefined
-          ? result.like_count
-          : (capsule.like_count || 0) + (isLiked ? 1 : -1)
-
-      // 乐观更新
-      capsule.liked = isLiked
-      capsule.like_count = newCount
-
-      // 刷新列表
-      await fetchCapsuleList()
-    } else {
-      alert(`点赞操作失败：${result.message || '未知错误'}`)
-    }
-  } catch (error) {
-    console.error(`点赞胶囊(${capsuleId})失败：`, error)
-    alert('点赞失败，请稍后重试')
-  } finally {
-    isProcessing.value[`like_${capsuleId}`] = false
-  }
-}
 // #endregion
 
+// #region 登出相关方法 reviewed
 // 注销加载状态
 const isLogoutLoading = ref(false)
-
 
 // 注销处理函数
 const handleLogout = async () => {
@@ -783,37 +777,148 @@ const handleLogout = async () => {
     })
   }
 }
+// #endregion
 
-// 优化：移除打开编辑表单时的 fetchCapsuleList 调用
+// #region CapsuleActionButtons事件处理 reviewed
+const handleViewCapsule = async (capsuleId) => {
+  const loadingKey = `view_${capsuleId}`
+  isProcessing.value[loadingKey] = true
+
+  try {
+    // 调用 API 获取详情数据
+    const detail = await getCapsuleDetail(capsuleId)
+
+    if (detail) {
+      // 🌟 关键：根据 API 响应结构进行精确映射
+      currentDetailData.value = {
+        id: detail.id,
+        title: detail.title,
+        visibility: detail.visibility,
+        content: detail.content,
+        created_at: detail.created_at,
+        status: detail.status, //"all","draft","published"
+        tags: detail.tags || [],
+        //location 信息
+        latitude: detail.location.latitude,
+        longitude: detail.location.longitude,
+        address: detail.location.address,
+        // unlock_conditions 信息
+        unlock_conditions_type: detail.unlock_conditions.type,
+        unlock_conditions_password: detail.unlock_conditions.password || '',
+        unlock_conditions_radius: detail.unlock_conditions.radius || 50,
+        unlock_conditions_is_unlocked:
+          detail.unlock_conditions.is_unlocked || false,
+        unlock_conditions_unlockable_time:
+          detail.unlock_conditions.unlockable_time || null,
+        // stats 信息
+        view_count: detail.stats.view_count || 0,
+        like_count: detail.stats.like_count || 0,
+        comment_count: detail.stats.comment_count || 0,
+        unlock_count: detail.stats.unlock_count || 0,
+        is_liked: detail.stats.is_liked ?? false, // 使用 API 返回值，否则初始化为 false
+        is_collected: detail.stats.is_collected ?? false,
+        // media_files 信息
+        //{
+        //  id: string, // 媒体文件ID
+        //  type: string, // 媒体类型（image, audio）
+        //  url: string, // 媒体文件URL
+        //  thumbnail_url: string, // 缩略图URL（如果适用）
+        //}
+        media_files: detail.media_files || [],
+        // creator 信息
+
+        // 其他信息
+        is_mine: detail.creator?.user_id === userStore.user_id,
+      }
+
+      showDetailModal.value = true
+    } else {
+      console.error(`未找到胶囊 ${capsuleId}`)
+      alert('未找到胶囊信息')
+    }
+  } catch (error) {
+    console.error(`查看胶囊详情(${capsuleId})失败：`, error)
+    alert('查看详情失败，请稍后重试')
+  } finally {
+    isProcessing.value[loadingKey] = false
+  }
+}
+
+const handleLikeCapsule = async (capsuleId) => {
+  const capsule = capsuleList.value.find((c) => c.id === capsuleId)
+  if (!capsule) {
+    console.error('未找到胶囊:', capsuleId)
+    return
+  }
+
+  isProcessing.value[`like_${capsuleId}`] = true
+  try {
+    const result = await likeCapsule(capsuleId)
+
+    await fetchCapsuleList()
+  } catch (error) {
+    const errorMessage = error.message || '点赞失败，请稍后重试'
+    console.error(`点赞胶囊(${capsuleId})失败：`, error)
+    alert(errorMessage)
+  } finally {
+    isProcessing.value[`like_${capsuleId}`] = false
+  }
+}
+
 const handleEditCapsule = (capsuleId) => {
   // 💡 优化：从当前列表数据中查找，避免重复 API 调用
   const capsule = capsuleList.value.find((c) => c.id === capsuleId)
-
+  console.log('准备编辑胶囊:', capsule)
+  //前端映射前端
   if (capsule) {
-    // 1. 设置编辑数据，并进行字段映射
-    // 假设 CapsuleForm 期望 content 字段来显示内容
     currentEditData.value = {
-      ...capsule,
-      content: capsule.desc, // 🔥 核心：将列表的 desc 映射为表单的 content
-
-      // 💡 补充：确保将复杂的对象结构也映射给表单，表单可能需要这些来初始化控件
-      location: capsule.location,
-      unlock_conditions: capsule.unlock_conditions,
-      media_files: capsule.media_files,
-      tags: capsule.tags,
+      id: capsule.id,
+      title: capsule.title,
+      visibility: capsule.visibility,
+      content: capsule.content,
+      created_at: capsule.created_at,
+      status: capsule.status, //"all","draft","published"
+      tags: capsule.tags || [],
+      //location 信息
+      latitude: capsule.latitude,
+      longitude: capsule.longitude,
+      address: capsule.address,
+      // unlock_conditions 信息
+      unlock_conditions_type: capsule.unlock_conditions_type,
+      unlock_conditions_password: capsule.unlock_conditions_password,
+      unlock_conditions_radius: capsule.unlock_conditions_radius,
+      unlock_conditions_is_unlocked: capsule.unlock_conditions_is_unlocked,
+      unlock_conditions_unlockable_time:
+        capsule.unlock_conditions_unlockable_time,
+      // stats 信息
+      view_count: capsule.view_count || 0,
+      like_count: capsule.like_count || 0,
+      comment_count: capsule.comment_count || 0,
+      unlock_count: capsule.unlock_count || 0,
+      is_liked: capsule.is_liked ?? false, // 使用 API 返回值，否则初始化为 false
+      is_collected: capsule.is_collected ?? false,
+      // media_files 信息
+      //{
+      //  id: string, // 媒体文件ID
+      //  type: string, // 媒体类型（image, audio）
+      //  url: string, // 媒体文件URL
+      //  thumbnail_url: string, // 缩略图URL（如果适用）
+      //}
+      media_files: capsule.media_files || [],
+      // creator 信息(不需要，因为都是自己的胶囊)
+      // 其他信息
+      is_mine: true, //
     }
 
-    // 2. 切换到编辑模式并打开表单
     isEditMode.value = true
     showFormModal.value = true
 
-    // 3. 关闭详情弹窗（解耦调用，使用单独的函数）
+    // 关闭详情弹窗
     handleCloseDetail()
   } else {
     alert('编辑失败：未能找到该胶囊的列表数据。')
   }
 }
-
 
 const handleDeleteCapsule = async (capsuleId) => {
   if (!confirm('确定要删除该胶囊吗？此操作不可恢复！')) return
@@ -822,14 +927,6 @@ const handleDeleteCapsule = async (capsuleId) => {
   try {
     await deleteCapsule(capsuleId)
 
-    alert('删除成功！')
-
-    handleCloseDetail()
-
-    // 本地移除被删除的胶囊 (乐观更新)
-    capsuleList.value = capsuleList.value.filter((c) => c.id !== capsuleId)
-
-    // 重新加载列表
     await fetchCapsuleList()
   } catch (error) {
     console.error(`删除胶囊(${capsuleId})失败：`, error)
@@ -839,12 +936,6 @@ const handleDeleteCapsule = async (capsuleId) => {
   }
 }
 
-const handleShareCapsule = (capsule) => {
-  // 💡 最佳实践：此处应调用一个专用的分享服务函数
-  // 例如：shareService.openShareModal(capsule)
-  console.log(`准备分享胶囊：${capsule.title}`)
-  alert(`分享胶囊：${capsule.title}（后续对接分享接口，支持复制链接/微信分享）`)
-}
 
 const handleCollectCapsule = async (capsuleId) => {
   const capsule = capsuleList.value.find((c) => c.id === capsuleId)
@@ -852,38 +943,175 @@ const handleCollectCapsule = async (capsuleId) => {
     console.error('未找到胶囊:', capsuleId)
     return
   }
-
-  // 🌟 建议：可以设置一个局部的 loading 状态
-  const loadingKey = `collect_${capsuleId}`
-  isProcessing.value[loadingKey] = true // 假设 isProcessing 是一个响应式对象
-
+  isProcessing.value[`collect_${capsuleId}`] = true
   try {
-    // 假设 collectCapsule(capsuleId) 返回成功或失败
-    await collectCapsule(capsuleId)
+    const result = await collectCapsule(capsuleId)
 
-    // 只有 API 成功后，才更新前端状态
-    capsule.collected = !capsule.collected
-
-    // 成功提示
-    alert(capsule.collected ? '收藏成功' : '取消收藏成功')
-
-    // 刷新列表以获取最新数据（推荐但非必须，如果 API 返回了新状态，可以直接更新列表项）
-    // await fetchCapsuleList()
+    await fetchCapsuleList()
   } catch (error) {
-    console.error(`收藏操作失败 (${capsuleId}):`, error)
-
-    // 📢 重点：捕获后端错误信息并提示用户
-    // 假设您的 request.js 已经处理了错误，并将后端消息放在 error.message 中
-    const errorMessage = error.message || '操作失败，请检查网络或解锁状态。'
-    alert(`收藏/取消收藏失败: ${errorMessage}`)
-
-    // 错误发生时，前端状态不应改变 (保持原状)
+    const errorMessage = error.message || '收藏失败，请稍后重试'
+    console.error(`收藏胶囊(${capsuleId})失败：`, error)
+    alert(errorMessage)
   } finally {
-    isProcessing.value[loadingKey] = false // 结束 loading 状态
+    isProcessing.value[`collect_${capsuleId}`] = false
   }
 }
 
-// —— 胶囊表单相关方法 ——
+// 请确保您已正确导入 API 函数，例如：
+// import { unlockCapsule, getCapsuleDetail } from '@/api/unlockApi'; 
+// 假设 getCapsuleDetail 是一个存在的函数。
+
+// #region unlock 相关方法
+const handleUnlockCapsule = (capsule) => {
+  currentUnlockCapsule.value = capsule
+  showUnlockModal.value = true // 统一通过一个弹窗处理所有解锁前置逻辑
+}
+
+/**
+ * 核心解锁流程：
+ * 1. 获取胶囊详情（确保最新解锁条件）
+ * 2. 根据条件类型进入不同的前置流程（密码/公开/私有）
+ * 3. 统一调用 doUnlockRequest 发起请求
+ */
+const startUnlockProcess = async (capsuleId, password = null) => {
+  const loadingKey = `unlock_${capsuleId}`
+  isProcessing.value[loadingKey] = true
+
+  try {
+    // 1. 获取胶囊详情（确保我们有最新的 creator_id 和 unlock_conditions）
+    // 【注意】这里假设 getCapsuleDetail 返回的对象包含 id 字段，否则应使用 capsuleId
+    const detail = await getCapsuleDetail(capsuleId)
+    
+    // 检查是否已经解锁（如果是私有胶囊，CreatorID 会有）
+    const isMine = detail.creator?.user_id === userStore.user_id;
+
+    // 2. 根据解锁类型执行前置检查
+
+    // a. 私有胶囊检查：必须是自己的胶囊
+    if (detail.visibility === 'private' && !isMine) {
+      throw new Error('该胶囊为私有，您无权解锁')
+    }
+    
+    // b. 密码检查
+    if (detail.unlock_conditions.type === 'password') {
+      // 密码逻辑：如果需要密码但没传，则要求用户输入
+      if (!password) {
+        showUnlockModal.value = true;
+        currentUnlockCapsule.value = detail;
+        return; // 等待用户输入后，由 handleConfirmUnlock 再次调用
+      }
+      // 【注意】前端校验密码不是最佳实践，通常只需将用户输入的 password 传给后端
+      // 让后端去校验。但如果产品要求前端先校验，则保留下面的逻辑。
+      // if (password !== detail.unlock_conditions.password) {
+      //     throw new Error('密码错误，无法解锁')
+      // }
+    }
+    
+    // c. 公开胶囊/时间触发（已到时间）/其他：直接进入下一步
+    // 3. 获取用户位置并请求解锁
+    await doUnlockRequest(
+      capsuleId,
+      detail.unlock_conditions.radius,
+      password,
+    );
+    
+    // 解锁成功后刷新列表
+    await fetchCapsuleList();
+    alert('🎉 胶囊解锁成功！');
+
+  } catch (error) {
+    const errorMessage = error.message || '解锁失败，请稍后重试';
+    console.error(`解锁胶囊(${capsuleId})失败：`, error);
+    alert(`解锁失败：${errorMessage}`);
+  } finally {
+    isProcessing.value[loadingKey] = false;
+    // 只有在成功或最终失败时才关闭弹窗/清空状态，如果是等待密码输入则不关闭
+    if (!currentUnlockCapsule.value || currentUnlockCapsule.value.id !== capsuleId) {
+        showUnlockModal.value = false;
+        currentUnlockCapsule.value = null;
+        unlockPasswordInput.value = '';
+    }
+  }
+};
+
+/**
+ * 辅助函数：获取地理位置并执行解锁请求
+ */
+const doUnlockRequest = (capsuleId, requiredRadius, password) => {
+    return new Promise((resolve, reject) => {
+        // 尝试获取位置
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    // **【关键修改点 1: 构造 API 所需参数】**
+                    const apiParams = {
+                        capsule_id: capsuleId, // API 需要的 ID
+                        password: password || undefined, // 传递密码
+                        // 封装 current_location 字段
+                        current_location: { 
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            // 可选：当前位置精度
+                            accuracy: position.coords.accuracy,
+                            // 注意：requiredRadius 应该由后端根据 capsule_id 查找，
+                            // 但如果前端需要传递，可以将其放在 payload 中或作为额外的查询参数（这里不传给 unlockCapsule）
+                        } 
+                    };
+
+                    try {
+                        // **【关键修改点 2: 调用 API 方式】**
+                        await unlockCapsule(apiParams);
+                        resolve();
+                    } catch (apiError) {
+                        reject(apiError);
+                    }
+                },
+                (posError) => {
+                    // 如果获取位置失败，检查是否是位置条件触发的胶囊
+                    const errorMsg = posError.message || '无法获取您的地理位置信息。';
+                    
+                    if (requiredRadius > 0) {
+                          reject(new Error(`地点解锁失败: ${errorMsg}。请检查定位权限。`));
+                    } else {
+                          // 非地点解锁，继续尝试请求（但不带位置信息）
+                          const apiParams = {
+                              capsule_id: capsuleId,
+                              password: password || undefined,
+                              // current_location 为空，后端应忽略位置校验
+                          };
+                          
+                          unlockCapsule(apiParams)
+                            .then(resolve)
+                            .catch(reject);
+                    }
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0,
+                }
+            );
+        } else {
+            // 浏览器不支持地理位置
+            reject(new Error('您的浏览器不支持地理位置服务。'));
+        }
+    });
+};
+
+
+// —— 新增：处理解锁弹窗确认按钮 ——
+const handleConfirmUnlock = () => {
+  const capsule = currentUnlockCapsule.value
+  if (!capsule) return
+  // 此时用户已经输入了密码（如果需要的话），直接发起解锁流程
+  // 传入用户输入的密码
+  startUnlockProcess(capsule.id, unlockPasswordInput.value)
+}
+// #endregion
+
+// #endregion
+
+// #region CapsuleForm事件处理
 const handleOpenCreateForm = () => {
   isEditMode.value = false
   currentEditData.value = {}
@@ -897,9 +1125,6 @@ const handleCloseForm = () => {
 }
 
 const onCapsuleCreated = async (result) => {
-  // ℹ️ result 期望的格式就是完整的 API 请求体格式，例如：
-  // { title: '...', content: '...', visibility: '...', location: { ... }, unlock_conditions: { ... }, tags: [...] }
-
   if (!result) {
     handleCloseForm()
     return
@@ -911,12 +1136,9 @@ const onCapsuleCreated = async (result) => {
     content: result.content,
     visibility: result.visibility,
     tags: result.tags,
-    // 🌟 关键：从表单结果中直接获取格式化好的对象
     location: result.location,
     unlock_conditions: result.unlock_conditions,
-    // media_files 字段如果由表单组件处理并返回，也应包含进来
     media_files: result.media_files || [],
-    // 假设您在 CapsuleForm.vue 中处理了 media_files 并将其包含在 result 中
   }
 
   if (isEditMode.value) {
@@ -976,14 +1198,18 @@ const onCapsuleCreated = async (result) => {
 
   handleCloseForm() // 关闭表单
 }
+// #endregion
 
+// #region CapsuleDetail事件处理 reviewed
 // 详情弹窗相关方法
 const handleCloseDetail = () => {
   showDetailModal.value = false
   // 清空数据，释放内存
   currentDetailData.value = {}
 }
+// #endregion
 
+// #region 导出数据逻辑
 const handleExportData = async () => {
   if (isExporting.value) return
 
@@ -1028,7 +1254,9 @@ const handleExportData = async () => {
     isExporting.value = false
   }
 }
+// #endregion
 
+// #region 隐私设置逻辑
 // 模拟从后端加载设置的函数（实际应调用 API）
 const fetchPrivacySettings = async () => {
   // TODO: 调用 getPrivacySettings API
@@ -1082,10 +1310,7 @@ const handleSavePrivacySettings = async () => {
     isSavingSettings.value = false
   }
 }
-
-
-
-
+// #endregion
 </script>
 
 <style scoped>
@@ -1803,5 +2028,44 @@ input:checked + .slider:before {
   padding: 4px 10px;
   border-radius: 4px;
   font-size: 12px;
+}
+/* 新增：解锁表单样式 */
+.unlock-form-content {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.unlock-tip {
+  font-size: 15px;
+  color: #1f2937;
+  font-weight: 500;
+  padding-bottom: 5px;
+}
+
+.password-group input[type='password'] {
+  padding: 10px 12px;
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-sm);
+  flex-grow: 1;
+  font-size: 16px;
+  max-width: 100%;
+}
+
+.location-tip {
+  border: 1px dashed var(--accent);
+  padding: 15px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-light);
+}
+
+.location-tip p {
+  margin: 0;
+  color: #333;
+}
+.location-tip .note {
+  font-size: 13px;
+  color: #666;
+  margin-top: 5px;
 }
 </style>

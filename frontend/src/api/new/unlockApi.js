@@ -12,6 +12,7 @@ import request from '@/utils/request'
  * @param {string} params.user_location.address - 地址（可选）
  * @param {number} params.max_distance_meters - 最大查询距离
  * @param {string} params.current_time - 当前时间（可选）
+ * @param {string} params.password - 解锁密码（可选）
  * @returns {Promise}
  */
 export const checkUnlockableCapsules = async (params = {}) => {
@@ -22,11 +23,12 @@ export const checkUnlockableCapsules = async (params = {}) => {
       user_location: {
         latitude: params.user_location?.latitude || params.lat || 0,
         longitude: params.user_location?.longitude || params.lng || 0,
-        address: params.user_location?.address || ''
+        address: params.user_location?.address || '',
       },
       max_distance_meters: params.max_distance_meters || 1000,
-      current_time: params.current_time
-    }
+      current_time: params.current_time,
+      password: params.password, // 新增 password 字段
+    },
   })
 }
 
@@ -40,6 +42,7 @@ export const checkUnlockableCapsules = async (params = {}) => {
  * @param {number} params.user_location?.latitude - 纬度
  * @param {number} params.user_location?.longitude - 经度
  * @param {string} params.current_time - 当前时间（可选）
+ * @param {string} params.password - 解锁密码（可选）
  * @returns {Promise}
  */
 export const unlockCapsule = async (params = {}) => {
@@ -50,9 +53,10 @@ export const unlockCapsule = async (params = {}) => {
     url: `/unlock/${params.capsule_id}`,
     method: 'post',
     data: {
-      current_location: locationData,  // 确保字段名正确
-      current_time: params.current_time
-    }
+      current_location: locationData, // 确保字段名正确
+      current_time: params.current_time,
+      password: params.password, // 新增 password 字段
+    },
   })
 }
 
@@ -64,6 +68,7 @@ export const unlockCapsule = async (params = {}) => {
  * @param {number} params.radius - 搜索半径
  * @param {number} params.page - 页码
  * @param {number} params.page_size - 每页数量
+ * @param {string} params.password - 解锁密码（可选）
  * @returns {Promise}
  */
 export const getNearbyUnlocks = (params = {}) => {
@@ -72,9 +77,10 @@ export const getNearbyUnlocks = (params = {}) => {
     user_location: {
       latitude: params.lat || 0,
       longitude: params.lng || 0,
-      address: ''
+      address: '',
     },
-    max_distance_meters: params.radius || 1000
+    max_distance_meters: params.radius || 1000,
+    password: params.password, // 传递 password
   })
 }
 
@@ -84,19 +90,26 @@ export const getNearbyUnlocks = (params = {}) => {
  * @param {number} currentLocation.latitude - 纬度
  * @param {number} currentLocation.longitude - 经度
  * @param {string} capsuleId - 胶囊ID（可选）
+ * @param {string} password - 解锁密码（可选）
  * @returns {Promise}
  */
-export const unlockItem = async (currentLocation, capsuleId = null) => {
+export const unlockItem = async (
+  currentLocation,
+  capsuleId = null,
+  password = null
+) => {
   if (capsuleId) {
     return await unlockCapsule({
       capsule_id: capsuleId,
-      user_location: currentLocation
+      user_location: currentLocation,
+      password: password, // 传递 password
     })
   } else {
     // 如果没有提供胶囊ID，先检查可解锁的胶囊
     const checkResult = await checkUnlockableCapsules({
       user_location: currentLocation,
-      max_distance_meters: 100
+      max_distance_meters: 100,
+      password: password, // 传递 password
     })
 
     if (checkResult.success && checkResult.unlockable_count > 0) {
@@ -104,13 +117,14 @@ export const unlockItem = async (currentLocation, capsuleId = null) => {
       const firstCapsule = checkResult.unlockable_capsules[0]
       return await unlockCapsule({
         capsule_id: firstCapsule.capsule_id,
-        user_location: currentLocation
+        user_location: currentLocation,
+        password: password, // 传递 password
       })
     }
 
     return {
       success: false,
-      message: '附近没有可解锁的胶囊'
+      message: '附近没有可解锁的胶囊',
     }
   }
 }

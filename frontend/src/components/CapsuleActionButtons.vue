@@ -16,11 +16,11 @@
     <!-- 点赞（所有页面通用） -->
     <button
       class="action-btn like-btn"
-      :class="{ liked: capsule.liked }"
+      :class="{ liked: capsule.is_liked }"
       :disabled="isProcessing.like"
       @click.stop="$emit('like', capsule.id)">
       <span v-if="isProcessing.like" class="loading-spinner small" />
-      <span class="icon">{{ capsule.liked ? '❤️' : '🤍' }}</span>
+      <span class="icon">{{ capsule.is_liked ? '❤️' : '🤍' }}</span>
       {{ capsule.like_count || 0 }}
     </button>
 
@@ -46,26 +46,25 @@
       删除
     </button>
 
-    <!-- 分享（所有页面通用） -->
     <button
-      class="action-btn share-btn"
-      :disabled="isProcessing.share"
-      @click.stop="$emit('share', capsule)">
-      <span v-if="isProcessing.share" class="loading-spinner small" />
-      <span class="icon">📤</span>
-      分享
+      class="action-btn unlock-btn"
+      :disabled="isProcessing.unlock"
+      @click.stop="$emit('unlock', capsule.id)">
+      <span v-if="isProcessing.unlock" class="loading-spinner small" />
+      <span class="icon">🔑</span>
+      解锁
     </button>
 
     <!-- 收藏（所有页面通用，可选显示） -->
     <button
       v-if="showCollect"
       class="action-btn collect-btn"
-      :class="{ collected: capsule.collected }"
-      :disabled="isProcessing.collect || !isUnlocked"
+      :class="{ collected: capsule.is_collected }"
+      :disabled="isProcessing.collect"
       :title="!isUnlocked ? '您还未解锁此胶囊，无法收藏' : ''"
       @click.stop="$emit('collect', capsule.id)">
       <span v-if="isProcessing.collect" class="loading-spinner small" />
-      <span class="icon">{{ capsule.collected ? '⭐' : '☆' }}</span>
+      <span class="icon">{{ capsule.is_collected ? '⭐' : '☆' }}</span>
       收藏
     </button>
   </div>
@@ -98,7 +97,7 @@
  * @emit like - 点击点赞时触发，参数为胶囊ID（String）
  * @emit edit - 点击编辑时触发，参数为胶囊ID（String）
  * @emit delete - 点击删除时触发，参数为胶囊ID（String）
- * @emit share - 点击分享时触发，参数为胶囊完整数据（Object）
+ * @emit unlock - 点击解锁时触发，参数为胶囊ID（String）
  * @emit collect - 点击收藏时触发，参数为胶囊ID（String）
  */
 const props = defineProps({
@@ -132,7 +131,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['view', 'like', 'edit', 'delete', 'share', 'collect'])
+const emit = defineEmits(['view', 'like', 'edit', 'delete', 'unlock', 'collect'])
 </script>
 
 <style scoped>
@@ -234,14 +233,14 @@ const emit = defineEmits(['view', 'like', 'edit', 'delete', 'share', 'collect'])
   border-color: var(--danger);
 }
 
-.share-btn {
-  color: var(--success);
-  border-color: rgba(16, 185, 129, 0.3);
+.unlock-btn {
+  color: var(--warning);
+  border-color: rgba(245, 158, 11, 0.3);
 }
 
-.share-btn:hover {
-  background: rgba(16, 185, 129, 0.05);
-  border-color: var(--success);
+.unlock-btn:hover {
+  background: rgba(245, 158, 11, 0.05);
+  border-color: var(--warning);
 }
 
 .collect-btn {

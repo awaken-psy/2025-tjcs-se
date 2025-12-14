@@ -11,24 +11,37 @@
       <div class="modal-body">
         
         <div class="detail-meta">
-          <span v-if="detailData.time" class="meta-item">
+          <span v-if="detailData.created_at" class="meta-item">
             <i class="fas fa-clock" /> **投递时间：**
-            {{ formatStandard(detailData.time) }}
+            {{ formatStandard(detailData.created_at) }}
           </span>
-          <span v-if="detailData.vis" class="meta-item">
+          <span v-if="detailData.visibility" class="meta-item">
             <i class="fas fa-eye" /> **可见性：**
-            {{ getVisText(detailData.vis) }}
-          </span>
-          <span class="meta-item">
-            <i :class="getUnlockIcon(detailData.unlockType)" />
-            **解锁条件：**
-            {{ getUnlockText(detailData.unlockType, detailData.unlockValue) }}
+            {{ getVisText(detailData.visibility) }}
           </span>
           <span class="meta-item">
             <i class="fas fa-map-marker-alt" /> **投递位置：**
-            {{ detailData.location || '未知位置' }}
+            {{ detailData.address || '未知位置' }} 
+            </span>
+          <span class="meta-item">
+            <i :class="getStatusIcon(detailData.status)" /> **状态：**
+            {{ getStatusText(detailData.status) }}
           </span>
         </div>
+
+        <div class="detail-unlock-condition">
+          <i :class="getUnlockIcon(detailData.unlock_conditions_type)" />
+          **解锁条件：**
+          {{ getUnlockText(detailData.unlock_conditions_type, detailData.unlock_conditions) }}
+          <span v-if="detailData.unlock_conditions_is_unlocked" class="unlocked-status">
+            (已解锁)
+          </span>
+          <span v-else class="locked-status">
+            (待解锁)
+          </span>
+        </div>
+        
+        <hr class="divider"/>
 
         <div
           v-if="
@@ -48,9 +61,9 @@
           <div class="media-tip">**点击图片查看所有媒体文件**</div>
         </div>
 
-        <div class="detail-desc">
-          **内容描述：**
-          {{ detailData.desc || '无内容描述' }}
+        <div class="detail-content">
+          **胶囊内容：**
+          {{ detailData.content || '无内容描述' }}
         </div>
 
         <div
@@ -64,22 +77,32 @@
           </span>
         </div>
 
+        <hr class="divider"/>
+
         <div class="detail-stats">
+          <span class="stat-item">
+            <i class="fas fa-eye" />
+            {{ detailData.view_count || 0 }} 浏览
+          </span>
           <span class="stat-item">
             <i
               class="fas fa-heart"
-              :class="{ liked: detailData.liked }" />
-            {{ detailData.likes || 0 }} 点赞
+              :class="{ liked: detailData.is_liked }" />
+            {{ detailData.like_count || 0 }} 点赞
           </span>
           <span class="stat-item">
-            <i class="fas fa-eye" />
-            {{ detailData.views || 0 }} 浏览
+            <i class="fas fa-comment-dots" />
+            {{ detailData.comment_count || 0 }} 评论
+          </span>
+          <span class="stat-item">
+            <i class="fas fa-unlock" />
+            {{ detailData.unlock_count || 0 }} 解锁
           </span>
           <span class="stat-item">
             <i
               class="fas fa-bookmark"
-              :class="{ collected: detailData.collected }" />
-            {{ detailData.collected ? '已收藏' : '未收藏' }}
+              :class="{ collected: detailData.is_collected }" />
+            {{ detailData.is_collected ? '已收藏' : '未收藏' }}
           </span>
         </div>
       </div>
@@ -105,37 +128,74 @@
 <script setup>
 import { defineProps, defineEmits } from 'vue';
 
-// 假设这些辅助函数从外部导入或在组件内定义
-// 实际项目中，如果这些函数是通用的，应放在 utilities 文件中。
+// --- 辅助函数 ---
 
-// ❗️ 示例：请用您项目中的实际辅助函数替换这些占位符
+/** 格式化 ISO 时间字符串为本地标准时间 */
 const formatStandard = (isoStr) => isoStr ? new Date(isoStr).toLocaleString() : 'N/A';
+
+/** 获取可见性文本 */
 const getVisText = (vis) => {
   switch (vis) {
     case 'private': return '仅自己可见';
     case 'friends': return '好友可见';
-    default: return '校园公开';
+    case 'school': return '校园公开';
+    default: return '未知可见性';
   }
 };
+
+/** 获取胶囊状态文本 */
+const getStatusText = (status) => {
+  switch (status) {
+    case 'draft': return '草稿';
+    case 'published': return '已发布';
+    case 'all': return '全部'; // 通常不会在详情页显示'all'
+    default: return '未知状态';
+  }
+};
+
+/** 获取胶囊状态图标 */
+const getStatusIcon = (status) => {
+  switch (status) {
+    case 'draft': return 'fas fa-pencil-alt';
+    case 'published': return 'fas fa-check-circle';
+    default: return 'fas fa-question-circle';
+  }
+};
+
+/** 获取解锁条件图标 */
 const getUnlockIcon = (type) => {
   switch (type) {
     case 'time': return 'fas fa-hourglass-half';
     case 'location': return 'fas fa-map-pin';
-    case 'event': return 'fas fa-calendar-alt';
+    case 'password': return 'fas fa-key';
     default: return 'fas fa-lock-open';
   }
 };
-const getUnlockText = (type, value) => {
-  if (!type) return '无限制';
-  // 复杂的逻辑可能需要完整的辅助函数
-  return `类型: ${type}，值: ${value || 'N/A'}`;
+
+/** 获取解锁条件描述文本 */
+const getUnlockText = (type, conditions) => {
+  if (!type || type === 'none') return '无限制';
+
+  switch (type) {
+    case 'time':
+      const unlockTime = conditions.unlockable_time ? formatStandard(conditions.unlockable_time) : '未知时间';
+      return `需在 ${unlockTime} 之后`;
+    case 'location':
+      const radius = conditions.radius || 50;
+      return `需到达投递位置 ${radius} 米范围内`;
+    case 'password':
+      return conditions.is_unlocked ? '密码已通过' : '需要输入密码';
+    default:
+      return `类型: ${type}，值: ${JSON.stringify(conditions)}`;
+  }
 };
-// ❗️ 示例辅助函数结束
+
+// --- Props & Emits 定义 ---
 
 /**
  * 属性定义
- * @param {Boolean} isShow - 是否显示模态框
- * @param {Object} detailData - 胶囊详情数据
+ * @param {Boolean} showModal - 是否显示模态框
+ * @param {Object} detailData - 胶囊详情数据 (新结构)
  */
 const props = defineProps({
   showModal: {
@@ -145,15 +205,35 @@ const props = defineProps({
   detailData: {
     type: Object,
     required: true,
-    // 基础校验，确保传入的对象包含必要字段
     default: () => ({ 
+      id: null,
       title: '', 
-      is_mine: false,
-      media_files: [],
+      visibility: 'school',
+      content: '',
+      created_at: null,
+      status: 'draft',
       tags: [],
-      // 必须包含用于映射的字段
-      unlockType: 'none', 
-      unlockValue: ''
+      // location
+      latitude: null,
+      longitude: null,
+      address: '未知位置',
+      // unlock_conditions
+      unlock_conditions_type: 'none', 
+      unlock_conditions_password: '',
+      unlock_conditions_radius: 50,
+      unlock_conditions_is_unlocked: false,
+      unlock_conditions_unlockable_time: null,
+      // stats
+      view_count: 0,
+      like_count: 0,
+      comment_count: 0,
+      unlock_count: 0,
+      is_liked: false, 
+      is_collected: false,
+      // media_files
+      media_files: [],
+      // other
+      is_mine: false,
     })
   }
 });
@@ -264,6 +344,13 @@ const handleOpenMediaViewer = (mediaFiles) => {
   flex-grow: 1;
 }
 
+.divider {
+    border: 0;
+    height: 1px;
+    background: #eee;
+    margin: 15px 0;
+}
+
 .detail-meta {
   display: flex;
   flex-wrap: wrap;
@@ -276,6 +363,30 @@ const handleOpenMediaViewer = (mediaFiles) => {
 .meta-item i {
   margin-right: 5px;
   color: #6c8cff;
+}
+
+.detail-unlock-condition {
+    font-size: 15px;
+    color: #333;
+    display: flex;
+    align-items: center;
+}
+
+.detail-unlock-condition i {
+    margin-right: 5px;
+    color: #ff9800; /* 解锁条件用不同的颜色区分 */
+}
+
+.unlocked-status {
+    color: #4caf50; /* 绿色 */
+    margin-left: 10px;
+    font-weight: bold;
+}
+
+.locked-status {
+    color: #f44336; /* 红色 */
+    margin-left: 10px;
+    font-weight: bold;
 }
 
 .detail-media-preview {
@@ -315,7 +426,7 @@ const handleOpenMediaViewer = (mediaFiles) => {
   color: #333;
 }
 
-.detail-desc {
+.detail-content {
   line-height: 1.6;
   color: #333;
   margin-bottom: 20px;
@@ -338,10 +449,11 @@ const handleOpenMediaViewer = (mediaFiles) => {
 }
 
 .detail-stats {
-  border-top: 1px solid #eee;
-  padding-top: 15px;
+  /* border-top: 1px solid #eee; */
+  padding-top: 5px; /* 调整为更紧凑 */
   display: flex;
-  gap: 20px;
+  flex-wrap: wrap; /* 允许换行 */
+  gap: 10px 20px;
   font-size: 14px;
   color: #555;
 }

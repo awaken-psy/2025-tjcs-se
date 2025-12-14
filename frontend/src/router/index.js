@@ -49,7 +49,7 @@ const routes = [
   {
     path: '/timeline',
     name: 'TimeLine',
-    component: () => import('@/views/TimeLineView.vue'), 
+    component: () => import('@/views/TimeLineView.vue'),
   },
 ]
 
@@ -58,78 +58,54 @@ const router = createRouter({
   routes: routes,
 })
 
-// ⭐️ 全局前置导航守卫
+// src/router/index.js (只展示 beforeEach 部分)
+
 router.beforeEach((to, from, next) => {
-  // 实例化 Store 并获取登录状态
-  const userStore = useUserStore()
-  const isLogin = userStore.isLogin // 使用 store/user.js 中的 isLogin getter
+    // 实例化 Store
+    const userStore = useUserStore()
+    
+    // ⭐️ 核心修改 1: 仅从 Store 获取持久化的 isLogin 状态
+    //    由于 Pinia 持久化（在 user.js 中已配置）会在应用启动时恢复 token，
+    //    userStore.isLogin 此时会正确反映用户的真实登录状态（即 !!state.token）。
+    const isLogin = userStore.isLogin 
+    
+    // ⭐️ 核心修改 2: 仅依赖 isLogin 判断是否未登录
+    const isUserNotLoggedIn = !isLogin 
 
-  // 1. 如果用户未登录
-  if (!isLogin) {
-    // 如果目标不是登录页，则重定向到登录页
-    if (to.name !== 'Login') {
-      next({ name: 'Login' })
-    } else {
-      // 目标已经是登录页，放行
-      next()
-    }
-  }
-  // 2. 如果用户已登录
-  else {
-    // 如果用户尝试访问根路径 '/'
-    if (to.path === '/') {
-      // 直接导航到 HubView
-      next({ name: 'HubViews' })
-    }
-    // 如果用户尝试访问登录页 '/login'
-    else if (to.name === 'Login') {
-      // 避免重复登录，重定向到 HubView
-      next({ name: 'HubViews' })
-    }
-    // 访问其他页面，放行
-    else {
-      next()
-    }
-  }
-})
+    // 定义白名单，不需要登录即可访问
+    const publicPages = ['Login'] 
 
-// 全局前置守卫：确保用户必须登录后才能访问受保护的页面
-router.beforeEach((to, from, next) => {
-  // 定义不需要登录就能访问的页面（白名单）
-  const publicPages = ['/login']
+    // 检查目标路由是否需要认证
+    const requiresAuth = !publicPages.includes(to.name)
 
-  // 检查目标路由是否需要认证
-  const requiresAuth = !publicPages.includes(to.path)
-
-  if (requiresAuth) {
-    // 检查用户是否已登录
-    const token = localStorage.getItem('access_token')
-
-    if (!token) {
-      // 未登录，重定向到登录页，并保存原来要访问的页面
-      console.log(`🔒 [路由守卫] 用户未登录，从 ${to.path} 重定向到登录页`)
-      next({
-        path: '/login',
-        query: {
-          redirect: to.fullPath // 保存原始访问路径，登录后可以跳转回来
+    // --- 1. 未登录处理 ---
+    if (isUserNotLoggedIn) {
+        // 如果需要认证，则重定向到登录页
+        if (requiresAuth) {
+            console.log(`🔒 [路由守卫] 用户未登录，从 ${to.fullPath} 重定向到登录页`)
+            next({
+                name: 'Login',
+                query: {
+                    redirect: to.fullPath // 保存原始访问路径
+                }
+            })
+        } else {
+            // 目标是白名单页面（Login），放行
+            next()
         }
-      })
-      return
     }
-  }
-
-  // 如果是登录页面但用户已经登录，重定向到hub页面
-  if (to.path === '/login') {
-    const token = localStorage.getItem('access_token')
-    if (token) {
-      console.log('🔓 [路由守卫] 用户已登录，从登录页重定向到hub页')
-      next('/hubviews')
-      return
+    // --- 2. 已登录处理 ---
+    else {
+        // 如果用户尝试访问登录页或根路径，重定向到 HubViews
+        if (to.name === 'Login' || to.path === '/') {
+            console.log('🔓 [路由守卫] 用户已登录，从登录页/根路径重定向到hub页')
+            next({ name: 'HubViews' })
+        }
+        // 访问其他页面，放行
+        else {
+            next()
+        }
     }
-  }
-
-  // 允许正常导航
-  next()
 })
 
 export default router

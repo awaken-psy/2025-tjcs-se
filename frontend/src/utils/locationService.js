@@ -21,7 +21,7 @@ export const getCurrentLocation = () => {
       console.log('📍 尝试浏览器原生高精度定位...')
       const nativeOptions = {
         enableHighAccuracy: true,
-        timeout: 10000,
+        timeout: 15000,
         maximumAge: 0
       }
       navigator.geolocation.getCurrentPosition(
@@ -151,7 +151,7 @@ const executeEnhancedAMapGeolocation = (resolve) => {
       convert: true,                      // 自动转换坐标系
       
       // 定位源优化
-      noIpLocate: 1,                      // 禁用低精度IP定位
+      noIpLocate: 0,                      // 禁用低精度IP定位
       noGeoLocation: 0,
       GeoLocationFirst: true,             // 优先使用浏览器原生定位结果
       useNative: true,                    // 启用设备原生定位模块
