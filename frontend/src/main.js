@@ -3,6 +3,7 @@ import App from './App.vue'
 import router from './router'
 import { createPinia } from 'pinia'
 import './registerServiceWorker'
+import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 
 // 高德地图插件
 import VueAMap, { initAMapApiLoader } from '@vuemap/vue-amap'
@@ -25,7 +26,11 @@ initAMapApiLoader({
 })
 
 const app = createApp(App)
-app.use(createPinia()) // 注册 pinia
+
+const pinia = createPinia()
+pinia.use(piniaPluginPersistedstate)
+
+app.use(pinia) // 注册 pinia
 app.use(router)
 app.use(VueAMap)
 app.mount('#app')

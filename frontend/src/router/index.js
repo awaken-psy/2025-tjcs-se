@@ -49,7 +49,7 @@ const routes = [
   {
     path: '/timeline',
     name: 'TimeLine',
-    component: () => import('@/views/TimeLineView.vue'), 
+    component: () => import('@/views/TimeLineView.vue'),
   },
 ]
 
@@ -58,18 +58,22 @@ const router = createRouter({
   routes: routes,
 })
 
-// ⭐️ 统一后的全局前置导航守卫 (推荐保留这一个)
-router.beforeEach((to, from, next) => {
-    // 实例化 Store 并获取登录状态
-    const userStore = useUserStore()
-    const isLogin = userStore.isLogin // 使用 store/user.js 中的 isLogin getter
-    const token = localStorage.getItem('access_token') // 也可以直接使用 token 来判断
+// src/router/index.js (只展示 beforeEach 部分)
 
-    // 假设：只要 isLogin 为 false 或 token 不存在，就视为未登录
-    const isUserNotLoggedIn = !isLogin || !token
+router.beforeEach((to, from, next) => {
+    // 实例化 Store
+    const userStore = useUserStore()
+    
+    // ⭐️ 核心修改 1: 仅从 Store 获取持久化的 isLogin 状态
+    //    由于 Pinia 持久化（在 user.js 中已配置）会在应用启动时恢复 token，
+    //    userStore.isLogin 此时会正确反映用户的真实登录状态（即 !!state.token）。
+    const isLogin = userStore.isLogin 
+    
+    // ⭐️ 核心修改 2: 仅依赖 isLogin 判断是否未登录
+    const isUserNotLoggedIn = !isLogin 
 
     // 定义白名单，不需要登录即可访问
-    const publicPages = ['Login'] // 使用路由的 name 更安全
+    const publicPages = ['Login'] 
 
     // 检查目标路由是否需要认证
     const requiresAuth = !publicPages.includes(to.name)
@@ -92,13 +96,9 @@ router.beforeEach((to, from, next) => {
     }
     // --- 2. 已登录处理 ---
     else {
-        // 如果用户尝试访问登录页，重定向到 HubViews
-        if (to.name === 'Login') {
-            console.log('🔓 [路由守卫] 用户已登录，从登录页重定向到hub页')
-            next({ name: 'HubViews' })
-        }
-        // 如果用户尝试访问根路径 '/'，重定向到 HubViews
-        else if (to.path === '/') {
+        // 如果用户尝试访问登录页或根路径，重定向到 HubViews
+        if (to.name === 'Login' || to.path === '/') {
+            console.log('🔓 [路由守卫] 用户已登录，从登录页/根路径重定向到hub页')
             next({ name: 'HubViews' })
         }
         // 访问其他页面，放行
@@ -108,7 +108,4 @@ router.beforeEach((to, from, next) => {
     }
 })
 
-
 export default router
-
-
