@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from typing import Optional, Dict, Any, List
+from typing import Optional, List, Dict
 from datetime import datetime
 
 from app.domain.capsule import (
@@ -253,21 +253,61 @@ class CapsuleService:
         self.repository.db.add(condition)
         self.repository.db.commit()
 
-    def _save_media_files(self, capsule_id: int, media_files: List[str]):
+    def _save_media_files(self, capsule_id: int, media_files: List):
         """保存媒体文件到数据库"""
         from app.database.orm.capsule import CapsuleMedia
+        from app.model.capsule import MediaFile
 
-        for index, file_id in enumerate(media_files):
-            # 创建媒体文件记录
-            # 注意：这里假设file_id实际上是文件路径或标识符
-            # 根据实际需求，可能需要从文件系统或文件服务获取更多信息
+        for index, media_file in enumerate(media_files):
+            # 处理MediaFile对象
+            if isinstance(media_file, MediaFile):
+                # MediaFile对象格式
+                file_id = media_file.id
+                file_type = media_file.type or "unknown"
+                file_name = f"media_file_{index + 1}"  # 从URL或ID生成文件名
+                if media_file.url:
+                    file_name = media_file.url.split("/")[-1] if "/" in media_file.url else file_name
+                file_size = 0  # MediaFile模型没有size字段
+                mime_type = None  # MediaFile模型没有mime_type字段
+            elif isinstance(media_file, dict):
+                # 字典格式（向后兼容）
+                file_id = media_file.get('id') or media_file.get('file_id') or media_file.get('url')
+                file_type = media_file.get('type', 'unknown')
+                file_name = media_file.get('name', f"media_file_{index + 1}")
+                file_size = media_file.get('size', 0)
+                mime_type = media_file.get('mime_type')
+            else:
+                # 简单格式（向后兼容）
+                file_id = str(media_file)
+                file_type = "unknown"
+                file_name = f"media_file_{index + 1}"
+                file_size = 0
+                mime_type = None
+
+            if not file_id:  # 跳过空值
+                continue
+
+            file_id_str = str(file_id)
+
+            # 如果文件类型未知，尝试从文件扩展名推断
+            if file_type == "unknown" and "." in file_id_str:
+                extension = file_id_str.split(".")[-1].lower()
+                if extension in ["jpg", "jpeg", "png", "gif", "webp"]:
+                    file_type = "image"
+                elif extension in ["mp4", "avi", "mov", "wmv", "flv"]:
+                    file_type = "video"
+                elif extension in ["mp3", "wav", "flac", "aac"]:
+                    file_type = "audio"
+                else:
+                    file_type = "file"
+
             media_record = CapsuleMedia(
                 capsule_id=capsule_id,
-                file_type="unknown",  # 可能需要根据文件扩展名判断
-                file_name=f"file_{index + 1}",  # 可能需要从实际文件获取
-                file_path=file_id,  # 使用file_id作为文件路径
-                file_size=0,  # 可能需要从实际文件获取
-                mime_type=None,  # 可能需要从实际文件获取
+                file_type=file_type,
+                file_name=file_name,
+                file_path=file_id_str,  # 使用字符串形式的文件ID作为文件路径
+                file_size=file_size,
+                mime_type=mime_type,
                 upload_order=index
             )
 
