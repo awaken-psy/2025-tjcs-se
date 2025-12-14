@@ -19,8 +19,9 @@ initAMapApiLoader({
     'AMap.OverView',
     'AMap.ToolBar',
     'AMap.MapType',
-    'AMap.Geolocation'
-  ]
+    'AMap.Geocoder',      // 用于逆地理编码
+    'AMap.Geolocation',
+  ],
 })
 
 const app = createApp(App)

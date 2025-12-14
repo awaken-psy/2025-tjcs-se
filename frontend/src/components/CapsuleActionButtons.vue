@@ -16,11 +16,11 @@
     <!-- 点赞（所有页面通用） -->
     <button
       class="action-btn like-btn"
-      :class="{ liked: capsule.liked }"
+      :class="{ liked: capsule.is_liked }"
       :disabled="isProcessing.like"
       @click.stop="$emit('like', capsule.id)">
       <span v-if="isProcessing.like" class="loading-spinner small" />
-      <span class="icon">{{ capsule.liked ? '❤️' : '🤍' }}</span>
+      <span class="icon">{{ capsule.is_liked ? '❤️' : '🤍' }}</span>
       {{ capsule.like_count || 0 }}
     </button>
 
@@ -60,12 +60,12 @@
     <button
       v-if="showCollect"
       class="action-btn collect-btn"
-      :class="{ collected: capsule.collected }"
+      :class="{ collected: capsule.is_collected }"
       :disabled="isProcessing.collect || !isUnlocked"
       :title="!isUnlocked ? '您还未解锁此胶囊，无法收藏' : ''"
       @click.stop="$emit('collect', capsule.id)">
       <span v-if="isProcessing.collect" class="loading-spinner small" />
-      <span class="icon">{{ capsule.collected ? '⭐' : '☆' }}</span>
+      <span class="icon">{{ capsule.is_collected ? '⭐' : '☆' }}</span>
       收藏
     </button>
   </div>

@@ -11,8 +11,8 @@
       class="capsule-thumb"
     >
       <img 
-        v-if="capsule.cover_image" 
-        :src="capsule.cover_image" 
+        v-if="capsule.media_files.length > 0 && capsule.media_files[0].type === 'image'" 
+        :src="capsule.media_files[0].thumbnail_url || capsule.media_files[0].url" 
         :alt="capsule.title"
         class="thumb-img"
       >
@@ -50,7 +50,7 @@
 
       <!-- 描述（超出省略） -->
       <p class="capsule-desc">
-        {{ capsule.content_preview }}
+        {{ capsule.content }}
       </p>
 
       <!-- 统计信息（点赞、解锁、评论） -->
@@ -109,18 +109,16 @@ import { formatRelative } from '@/utils/formatTime.js'
  *     created_at: String, // ISO时间字符串
  *     visibility: String, // 可见性（"public"/"friends"/"private"）
  *     status: String, // 状态（"draft"/"pending"/"published"）
- *     content_preview: String, // 内容预览
+ *     content: String, // 内容预览
  *     like_count: Number, // 点赞数
  *     unlock_count: Number, // 解锁次数
  *     comment_count: Number, // 评论数
  *     cover_image: String // 封面图URL（可选）
- *     liked: Boolean // 是否已点赞（前端状态）
+ *     is_liked: Boolean // 是否已点赞（前端状态）
  *   }
  * @param {String} viewMode - 视图模式（"grid"网格 / "list"列表）
  * 
  * 组件事件（Emits）：
- * @emit view - 点击"查看详情"时触发，参数为胶囊ID（String）
- * @emit like - 点击"点赞"时触发，参数为胶囊ID（String）
  * @emit click - 点击卡片非按钮区域时触发，参数为胶囊ID（String）
  */
 const props = defineProps({
@@ -139,7 +137,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['view', 'like', 'click'])
+const emit = defineEmits(['click'])
 
 /**
  * 辅助函数：获取可见性图标
@@ -206,19 +204,19 @@ const handleCardClick = () => {
   emit('click', props.capsule.id)
 }
 
-/**
- * 事件处理：点击"查看详情"按钮
- */
-const handleViewClick = () => {
-  emit('view', props.capsule.id)
-}
+// /**
+//  * 事件处理：点击"查看详情"按钮
+//  */
+// const handleViewClick = () => {
+//   emit('view', props.capsule.id)
+// }
 
 /**
  * 事件处理：点击"点赞"按钮
  */
-const handleLikeClick = () => {
-  emit('like', props.capsule.id)
-}
+// const handleLikeClick = () => {
+//   emit('like', props.capsule.id)
+// }
 </script>
 
 <style scoped>
