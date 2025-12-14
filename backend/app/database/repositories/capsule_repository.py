@@ -1,9 +1,12 @@
 from sqlalchemy.orm import Session, joinedload
-from typing import Optional, Dict, Any, List
+from sqlalchemy import and_, or_
+from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime
 
 from app.domain.capsule import Capsule as CapsuleDomain, CapsuleStatus, Visibility, ContentType
 from app.database.orm.capsule import Capsule
+from app.database.orm.unlock_record import UnlockRecord
+from app.database.orm.user import User
 from app.database.database import get_db
 from app.core.exceptions import RecordNotFoundException
 
@@ -311,3 +314,116 @@ class CapsuleRepository:
             return CapsuleStatus.ALL
         else:
             return CapsuleStatus.DRAFT
+
+    # ==================== 新增的数据库操作方法 ====================
+
+    def check_capsule_exists(self, capsule_id: int) -> bool:
+        """检查胶囊是否存在"""
+        return self.db.query(Capsule).filter(Capsule.id == capsule_id).first() is not None
+
+    def find_unlock_record(self, capsule_id: int, user_id: int) -> Optional[UnlockRecord]:
+        """查找用户的解锁记录"""
+        return self.db.query(UnlockRecord).filter(
+            and_(
+                UnlockRecord.capsule_id == capsule_id,
+                UnlockRecord.user_id == user_id
+            )
+        ).first()
+
+    def has_user_unlocked_capsule(self, capsule_id: int, user_id: int) -> bool:
+        """检查用户是否已解锁胶囊"""
+        return self.find_unlock_record(capsule_id, user_id) is not None
+
+    def update_unlock_record_view_count(self, unlock_record: UnlockRecord) -> None:
+        """更新解锁记录的查看次数"""
+        unlock_record.view_count += 1
+        unlock_record.last_viewed_at = datetime.utcnow()
+        self.db.commit()
+
+    def get_capsule_with_full_details(self, capsule_id: int) -> Optional[Tuple[Capsule, Optional[UnlockRecord]]]:
+        """获取胶囊及其解锁记录（用于详情查看）"""
+        capsule = self.db.query(Capsule).options(
+            joinedload(Capsule.unlock_conditions),
+            joinedload(Capsule.media_files),
+            joinedload(Capsule.unlock_records)
+        ).filter(Capsule.id == capsule_id).first()
+
+        if not capsule:
+            return None
+
+        # 这里需要传入user_id，但这个方法不应该依赖用户信息
+        # 解锁记录的查找应该在Service层进行
+        return capsule
+
+    def get_capsule_basic_info(self, capsule_id: int) -> Optional[Dict[str, Any]]:
+        """获取胶囊基本信息（用于权限检查）"""
+        result = self.db.query(
+            Capsule.id,
+            Capsule.user_id,
+            Capsule.visibility,
+            Capsule.status,
+            Capsule.title
+        ).filter(Capsule.id == capsule_id).first()
+
+        if not result:
+            return None
+
+        return {
+            'id': result.id,
+            'user_id': result.user_id,
+            'visibility': result.visibility,
+            'status': result.status,
+            'title': result.title
+        }
+
+    def count_user_capsules(self, user_id: int, status_filter: Optional[str] = None) -> int:
+        """统计用户胶囊数量"""
+        query = self.db.query(Capsule).filter(Capsule.user_id == user_id)
+
+        if status_filter and status_filter != "all":
+            query = query.filter(Capsule.status == status_filter)
+
+        return query.count()
+
+    def find_nearby_capsules(self, latitude: float, longitude: float,
+                           radius_meters: int, limit: int = 20) -> List[Dict[str, Any]]:
+        """查找附近的胶囊（简化版本，使用边界框查询）"""
+        # 计算边界框
+        lat_delta = radius_meters / 111000  # 1度纬度约111km
+        lon_delta = radius_meters / (111000 * abs(latitude))  # 经度随纬度变化
+
+        min_lat = latitude - lat_delta
+        max_lat = latitude + lat_delta
+        min_lon = longitude - lon_delta
+        max_lon = longitude + lon_delta
+
+        # 查询附近的胶囊
+        capsules = self.db.query(Capsule).options(
+            joinedload(Capsule.unlock_conditions),
+            joinedload(Capsule.media_files)
+        ).filter(
+            and_(
+                Capsule.latitude >= min_lat,
+                Capsule.latitude <= max_lat,
+                Capsule.longitude >= min_lon,
+                Capsule.longitude <= max_lon,
+                Capsule.visibility.in_(['public', 'campus'])
+            )
+        ).limit(limit).all()
+
+        return [
+            {
+                'capsule': self._orm_to_domain(capsule),
+                'orm': capsule
+            }
+            for capsule in capsules
+        ]
+
+    def delete_capsule_by_id(self, capsule_id: int) -> bool:
+        """根据ID删除胶囊"""
+        capsule = self.db.query(Capsule).filter(Capsule.id == capsule_id).first()
+        if capsule:
+            self.db.delete(capsule)
+            self.db.commit()
+            return True
+        return False

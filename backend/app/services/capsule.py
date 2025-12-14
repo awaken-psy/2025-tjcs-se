@@ -66,7 +66,7 @@ class CapsuleService:
 
         # 保存解锁条件
         if request.unlock_conditions:
-            self._save_unlock_conditions(capsule_id, request.unlock_conditions)
+            self._save_unlock_conditions(capsule_id, request.unlock_conditions, unlock_location)
 
         # 保存媒体文件
         if request.media_files:
@@ -79,12 +79,110 @@ class CapsuleService:
             created_at=saved_domain.created_at
         )
 
-    def get_capsule_detail(self, capsule_id: int, user_id: int, user) -> Optional['CapsuleDetail']:
-        """获取胶囊详情"""
+    def get_capsule_detail(self, capsule_id: int, user_id: int, user) -> tuple[bool, str, Optional['CapsuleDetail']]:
+        """
+        获取胶囊详情
+
+        Returns:
+            tuple: (是否成功, 信息, 胶囊详情对象或None)
+        """
+        # 1. 首先查找胶囊是否存在
         capsule_domain = self.repository.find_by_id(capsule_id)
-        if capsule_domain and capsule_domain.can_view_by(str(user_id)):
-            return capsule_domain.to_api_detail(user)
-        return None
+        if not capsule_domain:
+            return False, "胶囊不存在", None
+
+        # 2. 检查用户权限
+        permission_result = self._check_view_permission(capsule_domain, user_id, user)
+        if not permission_result[0]:
+            return *permission_result, None
+
+        # 3. 查询解锁记录
+        unlock_record = self.repository.find_unlock_record(capsule_id, user_id)
+        is_unlocked = unlock_record is not None
+
+        # 4. 构建胶囊详情，包含解锁状态信息
+        capsule_detail = capsule_domain.to_api_detail(user)
+
+        # 5. 添加解锁状态信息到响应中
+        if hasattr(capsule_detail, 'unlock_conditions'):
+            # 如果unlock_conditions是一个对象，设置is_unlocked属性
+            if hasattr(capsule_detail.unlock_conditions, 'is_unlocked'):
+                capsule_detail.unlock_conditions.is_unlocked = is_unlocked
+            else:
+                # 如果是字典格式，直接设置
+                if isinstance(capsule_detail.unlock_conditions, dict):
+                    capsule_detail.unlock_conditions['is_unlocked'] = is_unlocked
+
+        # 6. 如果有解锁记录，更新查看次数
+        if unlock_record:
+            self.repository.update_unlock_record_view_count(unlock_record)
+
+        return True, "获取胶囊详情成功", capsule_detail
+
+    def _check_view_permission(self, capsule_domain, user_id: int, user) -> tuple[bool, str]:
+        """
+        检查用户查看权限
+
+        Returns:
+            tuple: (是否有权限, 拒绝信息或"允许访问")
+        """
+        is_owner = str(capsule_domain.owner_id) == str(user_id)
+        is_admin = hasattr(user, 'role') and user.role.value == "admin"
+
+        if is_owner:
+            return True, "允许访问"
+        elif is_admin:
+            return True, "允许访问"
+
+        # 检查是否已解锁
+        is_unlocked = self.repository.has_user_unlocked_capsule(capsule_domain.capsule_id, user_id)
+
+        if not is_unlocked:
+            return False, "需要解锁后才能查看胶囊详情"
+
+        return True, "允许访问"
+
+    def has_user_unlocked_capsule(self, capsule_id: int, user_id: int) -> bool:
+        """检查用户是否已解锁指定胶囊"""
+        from app.database.orm.unlock_record import UnlockRecord
+
+        unlock_record = self.repository.db.query(UnlockRecord).filter(
+            UnlockRecord.capsule_id == capsule_id,
+            UnlockRecord.user_id == user_id
+        ).first()
+
+        return unlock_record is not None
+
+    def can_user_view_capsule(self, capsule_domain, user_id: int, user) -> bool:
+        """检查用户是否可以查看指定胶囊"""
+        if not capsule_domain:
+            return False
+
+        # 查询解锁记录
+        is_unlocked = self.has_user_unlocked_capsule(capsule_domain.capsule_id, user_id)
+
+        # 获取胶囊基本信息
+        capsule_type = capsule_domain.visibility.value if capsule_domain.visibility else "private"
+        is_owner = str(capsule_domain.owner_id) == str(user_id)
+        is_admin = hasattr(user, 'role') and user.role.value == "admin"
+
+        # 权限判断逻辑
+        if is_owner:
+            return True
+        elif is_admin:
+            return True
+        elif capsule_type == "public":
+            return is_unlocked or is_owner
+        elif capsule_type == "private":
+            return is_unlocked or is_owner
+        elif capsule_type == "friends":
+            # TODO: 添加好友关系检查
+            return is_unlocked or is_owner
+        elif capsule_type == "campus":
+            # TODO: 添加校园验证
+            return is_unlocked or is_owner
+        else:
+            return is_unlocked or is_owner
 
     def get_user_capsules(self, user_id: int, page: int = 1, limit: int = 20, status: str = "all", user=None):
         """获取用户胶囊列表"""
@@ -213,7 +311,7 @@ class CapsuleService:
         }
         return status_mapping.get(status, "published")
 
-    def _save_unlock_conditions(self, capsule_id: int, unlock_conditions):
+    def _save_unlock_conditions(self, capsule_id: int, unlock_conditions, capsule_location=None):
         """保存解锁条件到数据库"""
         from app.database.orm.unlock_condition import UnlockCondition
 
@@ -237,15 +335,26 @@ class CapsuleService:
             try:
                 unlockable_time = datetime.strptime(unlockable_time, "%Y-%m-%d %H:%M:%S")
             except ValueError:
-                unlockable_time = None
+                try:
+                    # 尝试ISO格式
+                    unlockable_time = datetime.fromisoformat(unlockable_time.replace('Z', '+00:00'))
+                except ValueError:
+                    unlockable_time = None
+
+        # 从胶囊位置信息中获取触发位置
+        trigger_latitude = None
+        trigger_longitude = None
+        if capsule_location and len(capsule_location) >= 2:
+            trigger_latitude = float(capsule_location[0])
+            trigger_longitude = float(capsule_location[1])
 
         # 创建解锁条件对象
         condition = UnlockCondition(
             capsule_id=capsule_id,
             condition_type=condition_type,
             password=password,
-            trigger_latitude=None,  # 从胶囊的location信息中获取
-            trigger_longitude=None,  # 从胶囊的location信息中获取
+            trigger_latitude=trigger_latitude,
+            trigger_longitude=trigger_longitude,
             radius_meters=int(radius) if radius else None,
             unlockable_time=unlockable_time
         )

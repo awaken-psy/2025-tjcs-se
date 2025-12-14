@@ -206,7 +206,7 @@ async def browse_capsules(
     "/{capsule_id}",
     response_model=BaseResponse[CapsuleDetail],
     summary="获取胶囊详情",
-    description="获取单个胶囊的详细信息"
+    description="获取单个胶囊的详细信息，支持基于解锁状态的权限控制"
 )
 @api_logging(logger)
 async def get_capsule_detail(
@@ -214,20 +214,46 @@ async def get_capsule_detail(
     user: AuthorizedUser = Depends(login_required),
     db: Session = Depends(get_db), # 依赖注入：获取数据库会话
 ):
-    """获取胶囊详情"""
-    manager = CapsuleManager(db) # 🔥 修复：传递数据库会话
-    # 调用 Service 层获取胶囊详情，Service 层会处理权限检查和解锁状态判断
-    capsule_detail = manager.get_capsule_detail(capsule_id, user.user_id, user)
+    """获取胶囊详情
 
-    if not capsule_detail:
-        # 如果 Service 层返回空，则表示胶囊不存在或用户无权访问
-        raise HTTPException(status_code=404, detail="胶囊不存在或无权访问")
+    权限逻辑：
+    1. 首先检查胶囊是否存在
+    2. 根据胶囊可见性类型和解锁状态判断用户是否有权限查看
+    3. 如果有权限，返回完整的胶囊详情，包含解锁状态信息
+    """
+    try:
+        manager = CapsuleManager(db)
 
-    return BaseResponse[CapsuleDetail].success(
-        code=200,
-        message="获取成功",
-        data=capsule_detail
-    )
+        # 调用 Service 层获取胶囊详情
+        success, message, capsule_detail = manager.get_capsule_detail(capsule_id, user.user_id, user)
+
+        if not success or capsule_detail is None:
+            # 根据具体情况返回不同的错误信息
+            from app.database.orm.capsule import Capsule
+            capsule_exists = db.query(Capsule).filter(Capsule.id == capsule_id).first()
+
+            if not capsule_exists:
+                raise HTTPException(status_code=404, detail="胶囊不存在")
+            else:
+                # 使用service返回的详细信息
+                raise HTTPException(status_code=403, detail=message)
+
+        return BaseResponse[CapsuleDetail].success(
+            code=200,
+            message=message,
+            data=capsule_detail
+        )
+
+    except HTTPException:
+        # 重新抛出已知的HTTPException
+        raise
+    except Exception as e:
+        # 记录详细的错误信息
+        logger.error(f"获取胶囊详情时发生错误: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"获取胶囊详情失败: {str(e)}"
+        )
 
  
 

@@ -16,8 +16,11 @@ from app.services.unlock_manager import UnlockManager # 核心解锁业务逻辑
 from app.database.database import get_db # 数据库 Session 依赖
 from app.auth.jwt_handler import JWTHandler # JWT 处理工具，用于生成 Token
 
+from app.logger import get_logger, api_logging
+
 # 初始化 FastAPI 路由
 router = APIRouter(prefix='/unlock', tags=['Unlock'])
+logger = get_logger(f"route<{__name__}>")
 
 
 ## 🔐 接口: 解锁胶囊 (Unlock Capsule)
@@ -27,6 +30,7 @@ router = APIRouter(prefix='/unlock', tags=['Unlock'])
     summary="解锁胶囊",
     description="根据位置或时间条件解锁时光胶囊"
 )
+@api_logging(logger)
 async def unlock_capsule(
     request: UnlockCapsuleRequest, # 请求体：包含用户当前位置 (latitude, longitude)
     capsule_id: str = Path(..., description="胶囊ID"), # 路径参数：待解锁的胶囊 ID
@@ -100,6 +104,7 @@ async def unlock_capsule(
     summary="获取附近胶囊",
     description="获取用户当前位置附近可解锁的时光胶囊"
 )
+@api_logging(logger)
 async def get_nearby_capsules(
     latitude: float = Query(..., description="用户当前纬度"),
     longitude: float = Query(..., description="用户当前经度"),
@@ -203,6 +208,7 @@ async def get_nearby_capsules(
     summary="获取胶囊解锁状态",
     description="检查指定胶囊的解锁状态和解锁条件"
 )
+@api_logging(logger)
 async def get_unlock_status(
     capsule_id: str = Path(..., description="胶囊ID"),
     user: AuthorizedUser = Depends(login_required),
