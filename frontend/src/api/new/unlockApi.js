@@ -79,6 +79,30 @@ export const getNearbyUnlocks = (params = {}) => {
 }
 
 /**
+ * 获取附近胶囊（直接调用后端/unlock/nearby API）
+ * @param {Object} params - 查询参数
+ * @param {number} params.latitude - 纬度
+ * @param {number} params.longitude - 经度
+ * @param {number} params.radius_meters - 搜索半径（米）
+ * @param {number} params.page - 页码
+ * @param {number} params.limit - 每页数量
+ * @returns {Promise}
+ */
+export const getNearbyCapsulesDirect = (params = {}) => {
+  return request({
+    url: '/unlock/nearby',
+    method: 'get',
+    params: {
+      latitude: params.latitude || params.lat || 39.9005,
+      longitude: params.longitude || params.lng || 116.302,
+      radius_meters: params.radius_meters || params.radius || 10000,
+      page: params.page || 1,
+      limit: params.limit || params.page_size || 10
+    }
+  })
+}
+
+/**
  * 解锁项目（兼容旧版本）
  * @param {Object} currentLocation - 当前位置信息
  * @param {number} currentLocation.latitude - 纬度

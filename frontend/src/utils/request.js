@@ -23,9 +23,21 @@ request.interceptors.request.use(config => {
     console.log('❌ [REQUEST DEBUG] No token found in localStorage')
   }
 
-  if (config.method !== 'get' && config.data) {
-    console.log(`📡 [REQUEST BODY] ${config.url}`, config.data)
+  // 详细记录请求信息
+  console.group(`📡 [REQUEST DETAILS] ${config.method?.toUpperCase()} ${config.url}`)
+  console.log('📋 请求方法:', config.method?.toUpperCase())
+  console.log('🌐 请求URL:', config.url)
+  console.log('🔑 认证头:', config.headers.Authorization ? '已设置' : '未设置')
+  
+  // 记录请求参数
+  if (config.method === 'get' && config.params) {
+    console.log('📊 GET请求参数:', config.params)
+  } else if (config.data) {
+    console.log('📦 请求体数据:', config.data)
   }
+  
+  console.log('📄 请求头:', config.headers)
+  console.groupEnd()
 
   // 如果是 FormData，让浏览器自动设置 Content-Type
   if (config.data instanceof FormData) {
@@ -40,18 +52,28 @@ request.interceptors.request.use(config => {
 // 响应拦截器（适配统一响应模型）
 request.interceptors.response.use(response => {
   const result = response.data
-  // console.log('🔍 [RESPONSE DEBUG] Status:', response.status)
-  // console.log('🔍 [RESPONSE DEBUG] Response data:', result)
-
+  
+  // 详细记录响应信息
+  console.group(`✅ [RESPONSE DETAILS] ${response.config.method?.toUpperCase()} ${response.config.url}`)
+  console.log('📊 响应状态码:', response.status)
+  console.log('📋 响应头:', response.headers)
+  console.log('📦 完整响应数据:', result)
+  
   // 检查是否为统一响应格式
   if (result && typeof result === 'object' && 'code' in result) {
+    console.log('🔢 业务状态码:', result.code)
+    console.log('📝 业务消息:', result.message)
+    
     // 业务成功
     if (result.code === 200) {
-      console.log('✅ [RESPONSE DEBUG] 请求成功:', result)
+      console.log('🎯 返回数据部分:', result.data)
+      console.log('✅ 请求成功')
+      console.groupEnd()
       return result.data // 只返回数据部分
     } else {
       // 业务逻辑错误 - 创建错误对象，包含完整响应信息
-      console.log('❌ [RESPONSE DEBUG] 业务逻辑错误:', result)
+      console.log('❌ 业务逻辑错误')
+      console.groupEnd()
       const error = new Error(result.message || '请求失败')
       error.code = result.code
       error.data = result.data // 保留数据，即使有错误
@@ -60,13 +82,49 @@ request.interceptors.response.use(response => {
     }
   }
 
+  console.log('⚠️ 非统一响应格式，返回原始数据')
+  console.groupEnd()
   // 如果不是统一格式，保持原样返回（兼容性）
   return result
 }, error => {
+  // 详细记录错误信息
+  console.group(`❌ [ERROR DETAILS] ${error.config?.method?.toUpperCase()} ${error.config?.url}`)
+  
   // 网络错误或服务器错误（HTTP状态码非2xx）
-  console.error('❌ [ERROR DEBUG] 网络请求错误:', error)
-  console.error('❌ [ERROR DEBUG] Error status:', error.response?.status)
-  console.error('❌ [ERROR DEBUG] Error data:', error.response?.data)
+  console.error('🚨 错误类型:', error.name || 'Unknown Error')
+  console.error('📝 错误消息:', error.message)
+  
+  if (error.response) {
+    // 服务器返回了错误状态码
+    console.error('🔴 HTTP状态码:', error.response.status)
+    console.error('📋 响应头:', error.response.headers)
+    console.error('📦 错误响应数据:', error.response.data)
+    
+    const responseData = error.response.data
+
+    // 尝试从响应数据中提取错误信息
+    if (responseData && typeof responseData === 'object') {
+      // 如果响应数据已经是统一格式
+      if ('code' in responseData && 'message' in responseData) {
+        console.error('🔢 业务状态码:', responseData.code)
+        console.error('📝 业务消息:', responseData.message)
+        console.error('📊 业务数据:', responseData.data)
+      } else {
+        // 其他格式的错误响应（FastAPI的HTTPException返回detail字段）
+        console.error('📋 错误详情:', responseData.detail || responseData.message || responseData.error)
+      }
+    }
+  } else if (error.request) {
+    // 请求发出但没有收到响应
+    console.error('🌐 网络状态: 请求已发出但未收到响应')
+    console.error('📡 请求对象:', error.request)
+  } else {
+    // 其他错误
+    console.error('⚡ 错误来源: 请求配置错误或其他客户端错误')
+    console.error('🔧 错误堆栈:', error.stack)
+  }
+  
+  console.groupEnd()
 
   let errorMessage = '网络错误'
   let errorCode = 500
@@ -74,7 +132,6 @@ request.interceptors.response.use(response => {
 
   if (error.response) {
     // 服务器返回了错误状态码
-    console.error('❌ [ERROR DEBUG] 服务器返回错误状态码:', error.response.status)
     const responseData = error.response.data
 
     // 尝试从响应数据中提取错误信息
@@ -108,9 +165,7 @@ request.interceptors.response.use(response => {
   customError.data = errorData
   customError.originalError = error
 
-  console.error('请求拦截器捕获错误:', customError)
   return Promise.reject(customError)
 })
 
 export default request
-

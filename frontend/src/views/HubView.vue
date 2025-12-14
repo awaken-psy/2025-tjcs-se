@@ -136,26 +136,13 @@
           </div>
         </div>
 
-        <!-- 4. 附近胶囊列表（复用胶囊卡片组件） -->
+        <!-- 4. 附近胶囊轮播 -->
         <div class="card-module">
-          <div class="module-header">
-            <h3 class="module-title">
-              附近的胶囊
-            </h3>
-            <p class="module-subtitle">
-              显示离你最近的{{ nearbyCapsules.length }}个胶囊
-            </p>
-          </div>
-          <div class="capsule-list">
-            <CapsuleCard
-              v-for="capsule in nearbyCapsules"
-              :key="capsule.id"
-              :capsule="capsule"
-              view-mode="list"
-              @view="handleViewCapsule"
-              @like="handleLikeCapsule"
-            />
-          </div>
+          <EnhancedCapsuleCarousel 
+            :capsules="nearbyCapsules" 
+            @view="handleViewCapsule" 
+            @like="handleLikeCapsule" 
+          />
         </div>
 
         <!-- 5. 校园活动轮播 -->
@@ -272,18 +259,17 @@ import AppHeader from '@/components/AppHeader.vue'
 import Sidebar from '@/components/Sidebar.vue'
 import CapsuleCard from '@/components/CapsuleCard.vue'
 import StatsCard from '@/components/StatsCard.vue'
+import EnhancedCapsuleCarousel from '@/components/EnhancedCapsuleCarousel.vue'
 // 引入页面专属API
 
-import {
-  getUserInfo,
-  getNearbyCapsules,
-  getCampusEvents,
-  getRecentActivities
-} from '@/api/new/hubApi.js'
+import { getUserInfo, getCampusEvents, getRecentActivities } from '@/api/new/hubApi'
+import { getNearbyCapsulesDirect } from '@/api/new/unlockApi'
 // 引入认证API
 import { logout } from '@/api/new/authenticationApi'
 // 引入用户状态
 import { useUserStore } from '@/store/user'
+// 引入定位服务
+import { getCurrentLocation } from '@/utils/locationService'
 
 /**
  * 页面作用：
@@ -353,6 +339,8 @@ const isPageActive = ref(true)
 const isLoading = ref(false)
 // 注销加载状态
 const isLogoutLoading = ref(false)
+// 轮播图状态
+const currentSlide = ref(0)
 
 /**
  * 页面初始化：加载所有依赖数据
@@ -384,9 +372,30 @@ const loadPageData = async () => {
     
     localStorage.setItem('user_info', JSON.stringify(userData))
     
+    // 获取用户当前位置
+    let userLocation = null
+    try {
+      const locationResult = await getCurrentLocation()
+      if (locationResult.success) {
+        userLocation = {
+          latitude: locationResult.latitude,
+          longitude: locationResult.longitude
+        }
+        console.log('📍 获取到用户位置:', userLocation)
+      } else {
+        console.warn('⚠️ 定位失败，使用默认位置:', locationResult.error)
+        // 使用默认位置（北京天安门）
+        userLocation = { latitude: 39.9005, longitude: 116.302 }
+      }
+    } catch (locationError) {
+      console.error('❌ 定位服务异常:', locationError)
+      // 使用默认位置（北京天安门）
+      userLocation = { latitude: 39.9005, longitude: 116.302 }
+    }
+    
     // 使用Promise.allSettled而不是Promise.all，避免一个失败影响全部
     const [nearbyResult, eventsResult, activitiesResult] = await Promise.allSettled([
-      getNearbyCapsules(),
+      getNearbyCapsulesDirect({ latitude: userLocation.latitude, longitude: userLocation.longitude, radius_meters: 10000 }),
       getCampusEvents(),
       getRecentActivities()
     ])
@@ -401,7 +410,8 @@ const loadPageData = async () => {
     }
     
     if (nearbyResult.status === 'fulfilled') {
-      nearbyCapsules.value = nearbyResult.value
+      // 后端返回的是 { capsules: [...] } 结构，需要提取capsules数组
+      nearbyCapsules.value = nearbyResult.value.capsules || []
     } else {
       console.warn('获取附近胶囊失败:', nearbyResult.reason)
       nearbyCapsules.value = getFallbackCapsules()
@@ -651,7 +661,7 @@ const handleLikeCapsule = (capsuleId) => {
  */
 const handleViewEvent = (eventId) => {
   if (!isPageActive.value) return
-  alert(`查看活动详情：${eventId}（后续对接活动详情页）`)
+  router.push('/events')
 }
 
 /**
@@ -665,6 +675,27 @@ const handleViewRelated = (relatedId) => {
     handleViewCapsule(relatedId)
   } else if (relatedId.startsWith('event_')) {
     handleViewEvent(relatedId)
+  }
+}
+
+/**
+ * 轮播图控制函数
+ */
+const nextSlide = () => {
+  if (currentSlide.value < nearbyCapsules.value.length - 1) {
+    currentSlide.value++
+  }
+}
+
+const prevSlide = () => {
+  if (currentSlide.value > 0) {
+    currentSlide.value--
+  }
+}
+
+const goToSlide = (index) => {
+  if (index >= 0 && index < nearbyCapsules.value.length) {
+    currentSlide.value = index
   }
 }
 </script>
@@ -799,6 +830,85 @@ const handleViewRelated = (relatedId) => {
   font-size: 13px;
   color: var(--muted);
   margin: 0;
+}
+
+/* 胶囊轮播图样式 */
+.capsule-carousel {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+
+.carousel-container {
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+
+.carousel-track {
+  display: flex;
+  transition: transform 0.3s ease-in-out;
+}
+
+.carousel-slide {
+  flex: 0 0 100%;
+  min-width: 0;
+}
+
+.carousel-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.carousel-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 18px;
+  color: var(--muted);
+}
+
+.carousel-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.carousel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.carousel-indicators {
+  display: flex;
+  gap: 8px;
+}
+
+.indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.indicator.active {
+  background: var(--accent);
+  transform: scale(1.2);
+}
+
+.indicator:hover {
+  background: var(--accent);
 }
 
 /* 胶囊列表样式（列表视图） */
