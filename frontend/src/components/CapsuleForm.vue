@@ -424,6 +424,7 @@
 
 <script setup>
 // #region import
+import { onMounted } from 'vue'
 import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
 import { createCapsule, updateCapsule } from '../api/new/capsulesApi.js'
 import { uploadFile } from '../api/new/uploadApi.js'
@@ -614,6 +615,7 @@ const unlockTimeLabel = computed(() => {
 })
 // #endregion
 
+// #region 滚动条方法定义
 // 滚动锁定函数
 const lockBodyScroll = () => {
   document.body.style.overflow = 'hidden'
@@ -622,7 +624,9 @@ const lockBodyScroll = () => {
 const unlockBodyScroll = () => {
   document.body.style.overflow = ''
 }
+// #endregion
 
+// #region 监听和生命周期
 // 监听模态框显示状态
 watch(
   () => props.isShow,
@@ -730,7 +734,11 @@ watch(
   { immediate: true }
 )
 
-// 方法定义
+
+
+// #endregion
+
+// #region 表单重制/关闭/提交
 const resetForm = () => {
   Object.assign(formData, {
     title: '',
@@ -765,6 +773,157 @@ const resetForm = () => {
 const handleClose = () => {
   emit('close')
 }
+const handleSubmit = async () => {
+  // 验证表单
+  validateField('title')
+  validateField('content')
+  validateField('visibility')
+
+  // 检查是否有错误
+  const hasErrors = Object.values(formErrors).some((error) => error !== '')
+  if (hasErrors) {
+    showAlertMessage('请检查表单中的错误', 'error')
+    return
+  }
+
+  // 检查必填字段
+  if (
+    !formData.title.trim() ||
+    !formData.content.trim() ||
+    !formData.visibility
+  ) {
+    showAlertMessage('请填写所有必填字段', 'error')
+    return
+  }
+
+  // 🔓 额外验证：解锁条件 (仅验证密码类型)
+  if (
+    unlockConditions.type === 'password' &&
+    !unlockConditions.password.trim()
+  ) {
+    showAlertMessage('密码解锁类型必须输入密码', 'error')
+    return
+  }
+
+  // 🔓 额外验证：解锁时间
+  if (!unlockConditions.unlockable_time) {
+    showAlertMessage('请设置最早可解锁时间', 'error')
+    return
+  }
+
+  isSubmitting.value = true
+
+  try {
+    // ... (位置信息处理逻辑不变)
+    let location = formData.location || locationInfo.address || '未知位置'
+    let lat = formData.lat || locationInfo.lat
+    let lng = formData.lng || locationInfo.lng
+
+    if (!location || location === '正在获取位置...') {
+      location = '默认位置'
+    }
+    if (lat === null || lat === undefined || isNaN(lat)) {
+      lat = 39.9005
+    }
+    if (lng === null || lng === undefined || isNaN(lng)) {
+      lng = 116.302
+    }
+
+    // 🔓 修改：构造 unlock_conditions 对象 (新结构)
+    const unlockConditionsPayload = {
+      type: unlockConditions.type,
+      password:
+        unlockConditions.type === 'password'
+          ? unlockConditions.password.trim()
+          : null, // 仅密码类型携带密码
+      radius: parseInt(unlockConditions.radius) || 50, // 始终携带半径
+      is_unlocked: unlockConditions.is_unlocked, // 始终携带状态
+
+      // 将 datetime-local 格式 'YYYY-MM-DDTHH:mm' 转换为 ISO 8601 (UTC)
+      unlockable_time: unlockConditions.unlockable_time
+        ? `${unlockConditions.unlockable_time}:00Z`
+        : null,
+    }
+
+    // 构造完整的提交数据 (匹配后端期望的格式)
+    const submitData = {
+      title: formData.title.trim(),
+      content: formData.content.trim(),
+      visibility: formData.visibility,
+      tags: selectedTags.value,
+
+      location: {
+        latitude: lat,
+        longitude: lng,
+        address: location,
+      },
+
+      unlock_conditions: unlockConditionsPayload,
+
+      media_files: mediaFiles.map((file) => ({
+        id: file.id,
+        type: file.type,
+        url: file.url,
+        thumbnail: file.thumbnail,
+      })),
+    }
+
+    // 移除调试日志，转换逻辑已完成
+    let result = null
+    let successMessage = ''
+
+    // 🚨 修改点 3：根据 isEdit 状态选择调用创建或更新 API
+    if (props.isEdit) {
+      if (!props.editData.id) {
+        throw new Error('编辑模式下缺少胶囊 ID')
+      }
+      // 添加 ID 到提交数据 (如果 API 要求 ID 在 body 中)
+      const updatePayload = {
+        ...submitData,
+        id: props.editData.id,
+      }
+
+      // 调用更新 API
+      result = await updateCapsule(props.editData.id, updatePayload) // 假设 updateCapsule 接收 ID 和 payload
+      successMessage = '胶囊更新成功！'
+      console.log('更新胶囊结果:', result)
+    } else {
+      // 调用创建 API
+      result = await createCapsule(submitData)
+      successMessage = '胶囊创建成功！'
+      // 性能优化：移除多余的控制台输出
+    }
+
+    // 立即处理结果，提升响应速度
+    if (result && (result.id || Object.keys(result).length > 0)) {
+      setTimeout(() => {
+        // 传递结果数据给父组件
+        emit('submit', result)
+        handleClose()
+      }, 300) // 进一步减少延迟时间，提升响应速度
+    } else {
+      // 如果没有返回有效的数据，这可能是API的问题
+      showAlertMessage('胶囊创建成功但数据异常，请检查列表', 'warning')
+
+      setTimeout(() => {
+        alert('胶囊创建成功，但数据可能不完整。\n\n请检查胶囊列表确认。')
+        emit('submit', { title: submitData.title }) // 至少传递标题用于识别
+        handleClose()
+      }, 300)
+    }
+  } catch (error) {
+    console.error('表单提交错误:', error)
+    console.error('错误详情:', {
+      message: error.message,
+      code: error.code,
+      data: error.data,
+      fullResponse: error.fullResponse,
+    })
+    showAlertMessage(error.message || '提交失败，请稍后重试', 'error')
+  } finally {
+    isSubmitting.value = false
+  }
+}
 
 const validateField = (field) => {
   formErrors[field] = ''
@@ -792,6 +951,8 @@ const validateField = (field) => {
   }
 }
 
+// #endregion
+
 // #region 4.位置信息
 const getCurrentLocation = () => {
   if (!navigator.geolocation) {
@@ -812,11 +973,15 @@ const getCurrentLocation = () => {
       locationInfo.lng = lng
       locationPermission.value = 'granted'
       locationMessage.value = '位置获取成功'
+      console.log('位置获取成功：', position)
       // 尝试获取详细地址
       try {
-        const address = await getAddressFromCoords(lat, lng)
+        console.log('开始解析地址...')
+        const address = await getAddressFromCoords(lat, lng) //TODO
+        console.log('解析到的地址：', address)
         locationInfo.address = address
       } catch (error) {
+        console.error('地址解析失败的错误:', error.message)
         locationInfo.address = `位置 (${lat.toFixed(6)}, ${lng.toFixed(6)})`
       }
       // 不再自动设置formData.location，让用户手动决定
@@ -917,6 +1082,7 @@ const getAddressFromCoords = (lat, lng) => {
     })
   })
 }
+
 // #endregion
 
 // #region 6. 媒体文件上传
@@ -1106,158 +1272,6 @@ const showAlertMessage = (message, type = 'error') => {
   setTimeout(() => {
     showAlert.value = false
   }, 5000)
-}
-
-const handleSubmit = async () => {
-  // 验证表单
-  validateField('title')
-  validateField('content')
-  validateField('visibility')
-
-  // 检查是否有错误
-  const hasErrors = Object.values(formErrors).some((error) => error !== '')
-  if (hasErrors) {
-    showAlertMessage('请检查表单中的错误', 'error')
-    return
-  }
-
-  // 检查必填字段
-  if (
-    !formData.title.trim() ||
-    !formData.content.trim() ||
-    !formData.visibility
-  ) {
-    showAlertMessage('请填写所有必填字段', 'error')
-    return
-  }
-
-  // 🔓 额外验证：解锁条件 (仅验证密码类型)
-  if (
-    unlockConditions.type === 'password' &&
-    !unlockConditions.password.trim()
-  ) {
-    showAlertMessage('密码解锁类型必须输入密码', 'error')
-    return
-  }
-
-  // 🔓 额外验证：解锁时间
-  if (!unlockConditions.unlockable_time) {
-    showAlertMessage('请设置最早可解锁时间', 'error')
-    return
-  }
-
-  isSubmitting.value = true
-
-  try {
-    // ... (位置信息处理逻辑不变)
-    let location = formData.location || locationInfo.address || '未知位置'
-    let lat = formData.lat || locationInfo.lat
-    let lng = formData.lng || locationInfo.lng
-
-    if (!location || location === '正在获取位置...') {
-      location = '默认位置'
-    }
-    if (lat === null || lat === undefined || isNaN(lat)) {
-      lat = 39.9005
-    }
-    if (lng === null || lng === undefined || isNaN(lng)) {
-      lng = 116.302
-    }
-
-    // 🔓 修改：构造 unlock_conditions 对象 (新结构)
-    const unlockConditionsPayload = {
-      type: unlockConditions.type,
-      password:
-        unlockConditions.type === 'password'
-          ? unlockConditions.password.trim()
-          : null, // 仅密码类型携带密码
-      radius: parseInt(unlockConditions.radius) || 50, // 始终携带半径
-      is_unlocked: unlockConditions.is_unlocked, // 始终携带状态
-
-      // 将 datetime-local 格式 'YYYY-MM-DDTHH:mm' 转换为 ISO 8601 (UTC)
-      unlockable_time: unlockConditions.unlockable_time
-        ? `${unlockConditions.unlockable_time}:00Z`
-        : null,
-    }
-
-    // 构造完整的提交数据 (匹配后端期望的格式)
-    const submitData = {
-      title: formData.title.trim(),
-      content: formData.content.trim(),
-      visibility: formData.visibility,
-      tags: selectedTags.value,
-
-      location: {
-        latitude: lat,
-        longitude: lng,
-        address: location,
-      },
-
-      unlock_conditions: unlockConditionsPayload,
-
-      media_files: mediaFiles.map((file) => ({
-        id: file.id,
-        type: file.type,
-        url: file.url,
-        thumbnail: file.thumbnail,
-      })),
-    }
-
-    // 移除调试日志，转换逻辑已完成
-    let result = null
-    let successMessage = ''
-
-    // 🚨 修改点 3：根据 isEdit 状态选择调用创建或更新 API
-    if (props.isEdit) {
-      if (!props.editData.id) {
-        throw new Error('编辑模式下缺少胶囊 ID')
-      }
-      // 添加 ID 到提交数据 (如果 API 要求 ID 在 body 中)
-      const updatePayload = {
-        ...submitData,
-        id: props.editData.id,
-      }
-
-      // 调用更新 API
-      result = await updateCapsule(props.editData.id, updatePayload) // 假设 updateCapsule 接收 ID 和 payload
-      successMessage = '胶囊更新成功！'
-      console.log('更新胶囊结果:', result)
-    } else {
-      // 调用创建 API
-      result = await createCapsule(submitData)
-      successMessage = '胶囊创建成功！'
-      // 性能优化：移除多余的控制台输出
-    }
-
-    // 立即处理结果，提升响应速度
-    if (result && (result.id || Object.keys(result).length > 0)) {
-      setTimeout(() => {
-        // 传递结果数据给父组件
-        emit('submit', result)
-        handleClose()
-      }, 300) // 进一步减少延迟时间，提升响应速度
-    } else {
-      // 如果没有返回有效的数据，这可能是API的问题
-      showAlertMessage('胶囊创建成功但数据异常，请检查列表', 'warning')
-
-      setTimeout(() => {
-        alert('胶囊创建成功，但数据可能不完整。\n\n请检查胶囊列表确认。')
-        emit('submit', { title: submitData.title }) // 至少传递标题用于识别
-        handleClose()
-      }, 300)
-    }
-  } catch (error) {
-    console.error('表单提交错误:', error)
-    console.error('错误详情:', {
-      message: error.message,
-      code: error.code,
-      data: error.data,
-      fullResponse: error.fullResponse,
-    })
-    showAlertMessage(error.message || '提交失败，请稍后重试', 'error')
-  } finally {
-    isSubmitting.value = false
-  }
 }
 </script>
 
