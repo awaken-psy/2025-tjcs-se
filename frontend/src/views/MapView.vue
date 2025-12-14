@@ -129,6 +129,7 @@
 </template>
 
 <script setup>
+// #region import
 import { ref, onMounted } from 'vue'
 import AppHeader from '@/components/AppHeader.vue'
 import CapsuleForm from '@/components/CapsuleForm.vue'
@@ -141,6 +142,9 @@ import { getMyCapsules, getCapsuleDetail } from '@/api/new/capsulesApi'
 import { getNearbyCapsules } from '@/api/new/hubApi'
 import { unlockCapsule } from '@/api/new/unlockApi'
 
+// #endregion
+
+// #region 状态定义
 // --- 1. 状态定义 ---
 const defaultCenter = [120.529881, 31.026362]
 const isLoading = ref(false) 
@@ -169,20 +173,19 @@ const filters = ref({
   time: 'all'
 })
 
+// #endregion
+
 // --- 4. 地理定位更新函数 (对应步骤一) ---
 /**
  * 接收 MapContainer 报告的最新定位
  * @param {Object} coords - { longitude: number, latitude: number }
  */
 const handleLocationUpdate = (coords) => {
-  console.log('MapContainer 报告新的定位:', coords)
   userLocation.value = coords
-
-  // 定位成功后，立即开始加载胶囊 (步骤二)
   fetchCapsules()
 }
 
-// --- 5. 胶囊 API 调用函数 (步骤二：获取胶囊列表) ---
+// 胶囊 API 调用函数
 const fetchCapsules = async () => {
   loadingMessage.value = '正在加载胶囊数据...'
   isLoading.value = true
@@ -402,7 +405,6 @@ const applyFilters = () => {
 }
 
 // --- 9. 其他处理函数 ---
-// --- 9. 新增处理函数 ---
 // 切换胶囊列表显示
 const toggleCapsuleList = () => {
   showCapsuleList.value = !showCapsuleList.value
@@ -454,28 +456,41 @@ const handleUnlockCapsule = async (capsuleId) => {
   }
 }
 
-// --- 10. 其他处理函数 ---
+// #region 顶部导航栏事件处理
 const handleGoHub = () => {
-  routeJump('/hubviews')
+  routeJump('/hubviews') 
 }
-const handleSearch = (keyword) => {}
+
+const handleSearch = (keyword) => {
+  console.log('用户搜索关键词:', keyword)
+  // TODO: 在地图视图中，搜索功能通常意味着
+  // 1. 搜索地名并移动地图中心。
+  // 2. 搜索胶囊标题/标签，并刷新 fetchCapsules，可能需要一个新的 API 来支持关键词搜索。
+
+  // 示例：可以结合当前筛选条件重新获取数据
+  // fetchCapsules({ search: keyword }) 
+  alert(`搜索功能（关键词："${keyword}"）待实现。`)
+}
 
 const handleHeaderAction = (actionKey) => {
   if (actionKey === 'create') {
-    // 显示创建胶囊表单
     isEditMode.value = false
     currentEditData.value = null
     showFormModal.value = true
+
   } else if (actionKey === 'filter') {
-    // 切换筛选侧边栏显示（移动端）
     const sidebar = document.querySelector('.map-sidebar')
     if (sidebar) {
+      // 在移动端，通过切换 'show' 类来显示/隐藏侧边栏
       sidebar.classList.toggle('show')
     }
+
   } else if (actionKey === 'help') {
+    // 动作 3: 帮助
     alert('使用提示：\n\n1. 创建胶囊：点击"创建胶囊"按钮\n2. 查看胶囊：点击地图上的标记\n3. 筛选胶囊：使用左侧筛选面板\n4. 定位：允许浏览器获取位置信息')
   }
 }
+// #endregion
 
 // --- 10. 生命周期钩子 ---
 onMounted(() => {
