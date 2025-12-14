@@ -124,14 +124,6 @@
       @close="handleCloseForm"
       @submit="onCapsuleCreated" />
 
-    <CapsuleDetail
-      :show-modal="showDetailModal"
-      :detail-data="currentDetailData"
-      @close="handleCloseDetail"
-      @edit="handleEditCapsule"
-      @share="handleShareCapsule"
-      @openMedia="handleOpenMediaViewer" />
-
     <GenericModal
       :is-show="showExportModal"
       title="导出我的胶囊数据"

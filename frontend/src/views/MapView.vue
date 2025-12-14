@@ -51,7 +51,6 @@
         </div>
         <button class="btn small" @click="applyFilters">应用筛选</button>
 
-        <!-- 筛选结果统计 -->
         <div class="filter-stats" v-if="capsules.length >= 0">
           <p class="stats-text">
             找到 <span class="stats-number">{{ capsules.length }}</span> 个胶囊
@@ -75,7 +74,6 @@
         {{ loadingMessage }}
       </div>
 
-      <!-- 左下角胶囊列表 -->
       <div
         class="capsules-list-panel"
         :class="{ minimized: !showCapsuleList }"
@@ -102,7 +100,7 @@
               </div>
             </div>
             <div class="capsule-actions">
-              <button class="btn small" @click.stop="handleCapsuleClick(capsule.id)">查看</button>
+              <button class="btn small" @click.stop="handleViewCapsule(capsule.id)">查看</button>
               <button
                 class="btn small primary"
                 @click.stop="handleUnlockCapsule(capsule.id)"
@@ -126,33 +124,51 @@
     :initial-data="currentEditData"
     @close="handleCloseForm"
     @submit="onCapsuleSubmitted" />
+
+  <CapsuleDetail
+    :show-modal="showDetailModal"
+    :detail-data="currentDetailData"
+    @close="handleCloseDetail"
+    @edit="handleEditCapsule"
+    @share="handleShareCapsule"
+    @openMedia="handleOpenMediaViewer" />
 </template>
 
 <script setup>
-// #region import
+// #region 导入模块
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router' // 新增导入
+import { useUserStore } from '@/store/user' // 新增导入
 import AppHeader from '@/components/AppHeader.vue'
 import CapsuleForm from '@/components/CapsuleForm.vue'
 import MapContainer from '@/components/MapContainer.vue'
+import CapsuleDetail from '@/components/CapsuleDetail.vue' // 新增导入
 import { routeJump } from '@/utils/routeUtils'
 
 // 引入用户提供的 API 函数
 // 仅使用创建、获取列表、获取详情、更新、删除这几个api函数
-import { getMyCapsules, getCapsuleDetail } from '@/api/new/capsulesApi'
+import {
+  getMyCapsules,
+  getCapsuleDetail,
+  updateCapsule, // 新增
+  deleteCapsule, // 新增
+} from '@/api/new/capsulesApi'
 import { getNearbyCapsules } from '@/api/new/hubApi'
 import { unlockCapsule } from '@/api/new/unlockApi'
-
+import { likeCapsule, collectCapsule } from '@/api/new/interactionsApi' // 新增
 // #endregion
 
 // #region 状态定义
-// --- 1. 状态定义 ---
+// 路由和用户状态
+const router = useRouter()
+const userStore = useUserStore()
+
 const defaultCenter = [120.529881, 31.026362]
-const isLoading = ref(false) 
+const isLoading = ref(false)
 const loadingMessage = ref('')
 
 // --- 2. 胶囊数据状态 ---
 const capsules = ref([]) // 存储用于地图的胶囊列表 (用于 MapContainer:capsule-data)
-const capsuleTotal = ref(0) // 新增：存储胶囊总数
 const userLocation = ref({
   longitude: defaultCenter[0],
   latitude: defaultCenter[1],
@@ -161,21 +177,24 @@ const userLocation = ref({
 // --- 2.1 新增状态 ---
 const showCapsuleList = ref(true) // 控制胶囊列表显示
 const isUnlocking = ref(false) // 解锁状态
+const isProcessing = ref({}) // 用于处理点赞/删除等操作的加载状态 (从 MyCapsuleView 复用)
 
 // --- 3. 模态框/详情状态 ---
-const showFormModal = ref(false)
+const showFormModal = ref(false) // 表单（创建/编辑）
 const isEditMode = ref(false)
 const currentEditData = ref(null)
+
+const showDetailModal = ref(false) // 详情页（从 MyCapsuleView 复用）
+const currentDetailData = ref({}) // 详情数据（从 MyCapsuleView 复用）
 
 // --- 3.1 筛选状态 ---
 const filters = ref({
   visibility: 'all',
-  time: 'all'
+  time: 'all',
 })
-
 // #endregion
 
-// --- 4. 地理定位更新函数 (对应步骤一) ---
+// #region 地图核心方法 
 /**
  * 接收 MapContainer 报告的最新定位
  * @param {Object} coords - { longitude: number, latitude: number }
@@ -185,90 +204,62 @@ const handleLocationUpdate = (coords) => {
   fetchCapsules()
 }
 
-// 胶囊 API 调用函数
+// 核心方法：加载地图上的胶囊列表
 const fetchCapsules = async () => {
   loadingMessage.value = '正在加载胶囊数据...'
   isLoading.value = true
   try {
     let res
 
-    // 根据可见性筛选条件选择不同的API
+    //NOTE: 根据所有者不同调用不同的 API
     if (filters.value.visibility === 'mine') {
       // 获取我的胶囊
       res = await getMyCapsules({
         page: 1,
         size: 100,
-        status: 'all'
+        status: 'all',
       })
     } else {
       // 获取附近胶囊（默认情况）
       const requestParams = {
-        lat: userLocation.value.latitude || 31.026362,  // 同济大学默认坐标
+        lat: userLocation.value.latitude || 31.026362,
         lng: userLocation.value.longitude || 120.529881,
-        range: 500000, // 5公里范围
+        range: 5000, // 5公里范围
         page: 1,
-        size: 100
+        size: 100,
       }
-      console.log('使用请求参数:', requestParams)
-      console.log('当前userLocation:', userLocation.value)
       res = await getNearbyCapsules(requestParams)
     }
 
-    console.log('API返回的原始数据:', res)
-    console.log('请求参数:', {
-      lat: userLocation.value.latitude || 31.026362,
-      lng: userLocation.value.longitude || 120.529881,
-      range: 5000,
-      page: 1,
-      size: 100
-    })
-
-    // 检查并处理返回的数据结构
-    // 支持多种可能的API响应格式
+    // 统一处理返回数据结构
     let capsuleList = []
     if (res && Array.isArray(res.capsules)) {
       capsuleList = res.capsules
-    } else if (res && res.data && Array.isArray(res.data.capsules)) {
-      capsuleList = res.data.capsules
-    } else if (res && Array.isArray(res.data)) {
-      capsuleList = res.data
-    } else if (res && Array.isArray(res)) {
-      capsuleList = res
-    }
+    } 
 
     if (capsuleList.length > 0) {
-      console.log(`从附近API获取到 ${capsuleList.length} 个胶囊`)
-      // 1. 映射数据结构，增加地图所需属性 (lng/lat)
       let processedCapsules = capsuleList.map((capsule) => {
-        // 处理胶囊数据，支持不同的数据结构
-        const capsuleData = capsule.capsule || capsule // 如果是{capsule: {...}, distance: ...}的结构
-
+        const capsuleData =  capsule
         return {
           ...capsuleData,
-          // 保持原有的distance字段，如果有
           distance: capsule.distance || capsuleData.distance || 0,
-          is_mine: filters.value.visibility === 'mine', // 只有在"我的胶囊"筛选时才标记为自己的
+          is_mine: filters.value.visibility === 'mine',
           liked: capsuleData.is_liked ?? false,
           collected: capsuleData.is_collected ?? false,
           is_unlocked: capsuleData.is_unlocked ?? false,
-          // 关键：将位置信息映射为地图组件使用的 lng/lat
-          // 处理两种可能的数据结构：直接的 latitude/longitude 或 location 对象
           lng: capsuleData?.longitude || capsuleData?.location?.longitude,
           lat: capsuleData?.latitude || capsuleData?.location?.latitude,
-          content_preview: capsuleData.content_preview || capsuleData.content?.substring(0, 50) + '...' || '暂无描述',
+          content_preview:
+            capsuleData.content_preview ||
+            capsuleData.content?.substring(0, 50) + '...' ||
+            '暂无描述',
         }
       })
 
-      // 2. 应用前端筛选逻辑
-      processedCapsules = processedCapsules.filter(capsule => {
-        // 可见性筛选（除了"我的胶囊"外的其他筛选条件）
-        if (filters.value.visibility === 'unlocked') {
-          // 只显示已解锁的胶囊 (假设status为'published'表示已解锁)
-          if (capsule.status !== 'published') return false
-        }
-        // 注意：当筛选为"all"或"mine"时，不需要进行前端可见性筛选
+      // 应用前端筛选逻辑 (可见性和时间)
+      processedCapsules = processedCapsules.filter((capsule) => {
+        if (filters.value.visibility === 'unlocked' && capsule.status !== 'published') return false
 
-        // 时间筛选
         if (filters.value.time !== 'all') {
           const capsuleTime = new Date(capsule.created_at)
           const now = new Date()
@@ -281,110 +272,241 @@ const fetchCapsules = async () => {
             if (capsuleTime < weekAgo) return false
           }
         }
-
         return true
       })
 
-      // 3. 仅保留有有效坐标的胶囊用于地图显示
+      // 仅保留有有效坐标的胶囊用于地图显示
       const capsulesWithCoords = processedCapsules.filter(
-        (c) => {
-          // 基础坐标检查
-          if (!c.lng || !c.lat || isNaN(c.lng) || isNaN(c.lat)) {
-            return false
-          }
-
-          // 地理范围验证：过滤掉不在中国的坐标
-          // 中国大致范围：经度73°-135°，纬度18°-54°
-          if (c.lng < 73 || c.lng > 135 || c.lat < 18 || c.lat > 54) {
-            console.warn(`过滤掉无效坐标: [${c.lng}, ${c.lat}] (超出中国范围)`)
-            return false
-          }
-
-          // 上海同济大学附近范围检查（可选，更严格的过滤）
-          // 上海大致范围：经度120.8°-122.2°，纬度30.7°-31.8°
-          // if (c.lng < 120.8 || c.lng > 122.2 || c.lat < 30.7 || c.lat > 31.8) {
-          //   console.warn(`过滤掉远离上海的坐标: [${c.lng}, ${c.lat}]`)
-          //   return false
-          // }
-
-          return true
-        }
+        (c) => c.lng && c.lat && !isNaN(c.lng) && !isNaN(c.lat)
       )
 
-      // 4. 更新胶囊数据
       capsules.value = capsulesWithCoords
-
-      console.log(`筛选后加载 ${capsules.value.length} 个有坐标的胶囊（原始数据：${capsuleList.length} 个）`)
     } else {
-        console.log('附近胶囊为空，同济大学附近5公里范围内没有公开胶囊');
-        console.log('提示：请检查其他账号创建的胶囊是否：');
-        console.log('1. 设置为公开或校园可见');
-        console.log('2. 位置在同济大学附近5公里范围内');
-        console.log('3. 坐标设置正确');
-
-        capsules.value = [];
+      capsules.value = []
     }
-
   } catch (error) {
-    console.error('获取我的胶囊列表失败:', error)
+    console.error('获取胶囊列表失败:', error)
     alert('加载胶囊数据失败，请稍后重试。')
-    capsules.value = []; // 失败时清空列表
+    capsules.value = []
   } finally {
     isLoading.value = false
     loadingMessage.value = ''
   }
 }
+// #endregion
 
-// --- 6. 标记点击处理函数 (步骤三：获取胶囊详情) ---
+// #region 胶囊交互方法 (从 MyCapsuleView 复用并调整)
+
 /**
- * 处理 MapContainer 报告的标记点击事件，获取详情并弹出模态框
+ * 处理 MapContainer 报告的标记点击事件，获取详情并弹出模态框 (委托给 handleViewCapsule)
  * @param {string} capsuleId - 被点击胶囊的 ID
  */
-const handleCapsuleClick = async (capsuleId) => {
-  console.log(`点击了胶囊 ID: ${capsuleId}。开始加载详情...`)
+const handleCapsuleClick = (capsuleId) => {
+  handleViewCapsule(capsuleId)
+}
 
-  // 1. 显示加载状态，并弹出模态框 (使用 LoginView.vue 中做好的页面)
-  isEditMode.value = false // 查看详情，非编辑模式
-  currentEditData.value = { loading: true, id: capsuleId } 
-  showFormModal.value = true
+/**
+ * 委托给 handleViewCapsule，获取详情并展示
+ * @param {string} capsuleId
+ */
+const handleViewCapsule = async (capsuleId) => {
+  const loadingKey = `view_${capsuleId}`
+  isProcessing.value[loadingKey] = true
 
+  // 1. 关闭表单和列表弹窗
+  handleCloseForm()
+  handleCloseDetail()
+
+  // 2. 显示加载状态，并弹出模态框 (从 MyCapsuleView 复用)
   try {
-    // 2. 调用 API 获取胶囊详情
-    const response = await getCapsuleDetail(capsuleId)
+    // 调用 API 获取详情数据
+    const detail = await getCapsuleDetail(capsuleId)
 
-    // 3. 更新详情数据，展示在 CapsuleForm 中
-    currentEditData.value = response.data
+    if (detail) {
+      // 🌟 关键：根据 API 响应结构进行精确映射 (从 MyCapsuleView 复制)
+      currentDetailData.value = {
+        id: detail.id,
+        title: detail.title,
+        visibility: detail.visibility,
+        content: detail.content,
+        created_at: detail.created_at,
+        status: detail.status,
+        tags: detail.tags || [],
+        // location 信息
+        latitude: detail.location.latitude,
+        longitude: detail.location.longitude,
+        address: detail.location.address,
+        // unlock_conditions 信息
+        unlock_conditions_type: detail.unlock_conditions.type,
+        unlock_conditions_password: detail.unlock_conditions.password || '',
+        unlock_conditions_radius: detail.unlock_conditions.radius || 50,
+        unlock_conditions_is_unlocked: detail.unlock_conditions.is_unlocked || false,
+        unlock_conditions_unlockable_time: detail.unlock_conditions.unlockable_time || null,
+        // stats 信息
+        view_count: detail.stats.view_count || 0,
+        like_count: detail.stats.like_count || 0,
+        comment_count: detail.stats.comment_count || 0,
+        unlock_count: detail.stats.unlock_count || 0,
+        is_liked: detail.stats.is_liked ?? false,
+        is_collected: detail.stats.is_collected ?? false,
+        // media_files 信息
+        media_files: detail.media_files || [],
+        // creator 信息
+        is_mine: detail.creator?.user_id === userStore.user_id,
+      }
+
+      showDetailModal.value = true
+    } else {
+      console.error(`未找到胶囊 ${capsuleId}`)
+      alert('未找到胶囊信息')
+    }
   } catch (error) {
-    console.error(`获取胶囊 ${capsuleId} 详情失败:`, error)
-    currentEditData.value = { error: '加载详情失败，请重试或检查网络。' }
-    alert('加载胶囊详情失败。')
+    console.error(`查看胶囊详情(${capsuleId})失败：`, error)
+    alert('查看详情失败，请稍后重试')
+  } finally {
+    isProcessing.value[loadingKey] = false
   }
 }
 
-// --- 7. 模态框/表单事件处理函数 (保持不变) ---
+const handleCloseDetail = () => {
+  showDetailModal.value = false
+  currentDetailData.value = {}
+}
+
+const handleLikeCapsule = async (capsuleId) => {
+  const capsule = capsules.value.find((c) => c.id === capsuleId)
+  if (!capsule) return
+
+  isProcessing.value[`like_${capsuleId}`] = true
+  try {
+    await likeCapsule(capsuleId)
+    await fetchCapsules()
+  } catch (error) {
+    console.error(`点赞胶囊(${capsuleId})失败：`, error)
+    alert('点赞失败，请稍后重试')
+  } finally {
+    isProcessing.value[`like_${capsuleId}`] = false
+  }
+}
+
+const handleCollectCapsule = async (capsuleId) => {
+  const capsule = capsules.value.find((c) => c.id === capsuleId)
+  if (!capsule) return
+
+  isProcessing.value[`collect_${capsuleId}`] = true
+  try {
+    await collectCapsule(capsuleId)
+    await fetchCapsules()
+  } catch (error) {
+    console.error(`收藏胶囊(${capsuleId})失败：`, error)
+    alert('收藏失败，请稍后重试')
+  } finally {
+    isProcessing.value[`collect_${capsuleId}`] = false
+  }
+}
+
+const handleEditCapsule = (capsuleId) => {
+  // 💡 优化：从当前列表数据中查找，避免重复 API 调用
+  const capsule = capsules.value.find((c) => c.id === capsuleId)
+
+  if (capsule) {
+    currentEditData.value = {
+      ...capsule,
+    }
+
+    isEditMode.value = true
+    showFormModal.value = true
+
+    // 关闭详情弹窗
+    handleCloseDetail()
+  } else {
+    alert('编辑失败：未能找到该胶囊的列表数据。')
+  }
+}
+
+const handleDeleteCapsule = async (capsuleId) => {
+  if (!confirm('确定要删除该胶囊吗？此操作不可恢复！')) return
+
+  isProcessing.value[`delete_${capsuleId}`] = true
+  try {
+    await deleteCapsule(capsuleId)
+    alert('删除成功！')
+    await fetchCapsules()
+  } catch (error) {
+    console.error(`删除胶囊(${capsuleId})失败：`, error)
+    alert('删除失败，请稍后重试')
+  } finally {
+    isProcessing.value[`delete_${capsuleId}`] = false
+  }
+}
+
+const handleShareCapsule = (capsule) => {
+  // 💡 最佳实践：此处应调用一个专用的分享服务函数
+  console.log(`准备分享胶囊：${capsule.title}`)
+  alert(`分享胶囊：${capsule.title}（后续对接分享接口，支持复制链接/微信分享）`)
+}
+
+// #endregion
+
+// #region 模态框/表单事件处理函数 (更新)
 const handleCloseForm = () => {
   showFormModal.value = false
   currentEditData.value = null
+  isEditMode.value = false
 }
 
+// 替换原来的 onCapsuleSubmitted，使用 MyCapsuleView 中更强大的逻辑
 const onCapsuleSubmitted = async (result) => {
   console.log('Capsule Form Submitted:', result)
 
-  // CapsuleForm已经处理了成功/失败的显示，这里只需要处理成功的情况
-  // 如果result存在，说明操作成功
-  if (result) {
-    // 关闭表单
+  if (!result) {
     handleCloseForm()
-
-    // 刷新地图上的胶囊数据
-    await fetchCapsules()
-  } else {
-    // 只有在result为null或undefined时才处理失败情况
-    console.error('Capsule submission failed:', result)
+    return
   }
-}
 
-// --- 8. 筛选功能 ---
+  // 统一的请求数据结构
+  const payload = {
+    title: result.title,
+    content: result.content,
+    visibility: result.visibility,
+    tags: result.tags,
+    location: result.location,
+    unlock_conditions: result.unlock_conditions,
+    media_files: result.media_files || [],
+  }
+
+  if (isEditMode.value) {
+    // 🚀 更新模式 (从 MyCapsuleView 复用)
+    const capsuleId = currentEditData.value.id
+    if (!capsuleId) {
+      alert('编辑失败：无法获取胶囊ID。')
+      handleCloseForm()
+      return
+    }
+
+    try {
+      console.log(`📡 准备更新胶囊ID: ${capsuleId}`, payload)
+      await updateCapsule(capsuleId, payload)
+      alert('胶囊更新成功！')
+
+      // 重新加载列表数据以刷新地图
+      await fetchCapsules()
+    } catch (error) {
+      console.error(`更新胶囊(${capsuleId})失败:`, error)
+      alert(`胶囊更新失败：${error.message || '未知错误'}`)
+    }
+  } else {
+    // 🆕 创建模式 (假设 CapsuleForm 已经完成了 createCapsule API 调用)
+    console.log('创建模式：CapsuleForm已成功提交。')
+    // 重新加载列表以获取最新创建的胶囊
+    await fetchCapsules()
+  }
+
+  handleCloseForm() // 关闭表单
+}
+// #endregion
+
+// #region 筛选功能 (保留)
 const applyFilters = () => {
   // 获取选中的筛选条件
   const visibilityRadio = document.querySelector('input[name="visibility"]:checked')
@@ -398,13 +520,12 @@ const applyFilters = () => {
   }
 
   console.log('应用筛选:', filters.value)
-  console.log('当前用户位置:', userLocation.value)
-
   // 重新加载胶囊数据
   fetchCapsules()
 }
+// #endregion
 
-// --- 9. 其他处理函数 ---
+// #region 其他处理函数 (保留/调整)
 // 切换胶囊列表显示
 const toggleCapsuleList = () => {
   showCapsuleList.value = !showCapsuleList.value
@@ -413,11 +534,15 @@ const toggleCapsuleList = () => {
 // 获取可见性文字
 const getVisibilityText = (visibility) => {
   switch (visibility) {
-    case 'private': return '仅自己可见'
-    case 'friends': return '好友可见'
+    case 'private':
+      return '仅自己可见'
+    case 'friends':
+      return '好友可见'
     case 'campus':
-    case 'public': return '校园公开'
-    default: return '公开'
+    case 'public':
+      return '校园公开'
+    default:
+      return '公开'
   }
 }
 
@@ -427,7 +552,7 @@ const formatDistance = (distance) => {
   return `${(distance / 1000).toFixed(1)}公里`
 }
 
-// 解锁胶囊
+// 解锁胶囊 (保留)
 const handleUnlockCapsule = async (capsuleId) => {
   if (isUnlocking.value) return
 
@@ -437,8 +562,8 @@ const handleUnlockCapsule = async (capsuleId) => {
       capsule_id: capsuleId,
       user_location: {
         latitude: userLocation.value.latitude,
-        longitude: userLocation.value.longitude
-      }
+        longitude: userLocation.value.longitude,
+      },
     })
 
     if (result.success) {
@@ -456,49 +581,36 @@ const handleUnlockCapsule = async (capsuleId) => {
   }
 }
 
-// #region 顶部导航栏事件处理
 const handleGoHub = () => {
-  routeJump('/hubviews') 
+  routeJump('/hubviews')
 }
-
-const handleSearch = (keyword) => {
-  console.log('用户搜索关键词:', keyword)
-  // TODO: 在地图视图中，搜索功能通常意味着
-  // 1. 搜索地名并移动地图中心。
-  // 2. 搜索胶囊标题/标签，并刷新 fetchCapsules，可能需要一个新的 API 来支持关键词搜索。
-
-  // 示例：可以结合当前筛选条件重新获取数据
-  // fetchCapsules({ search: keyword }) 
-  alert(`搜索功能（关键词："${keyword}"）待实现。`)
-}
+const handleSearch = (keyword) => {}
 
 const handleHeaderAction = (actionKey) => {
   if (actionKey === 'create') {
+    // 显示创建胶囊表单
     isEditMode.value = false
     currentEditData.value = null
     showFormModal.value = true
-
   } else if (actionKey === 'filter') {
+    // 切换筛选侧边栏显示（移动端）
     const sidebar = document.querySelector('.map-sidebar')
     if (sidebar) {
-      // 在移动端，通过切换 'show' 类来显示/隐藏侧边栏
       sidebar.classList.toggle('show')
     }
-
   } else if (actionKey === 'help') {
-    // 动作 3: 帮助
-    alert('使用提示：\n\n1. 创建胶囊：点击"创建胶囊"按钮\n2. 查看胶囊：点击地图上的标记\n3. 筛选胶囊：使用左侧筛选面板\n4. 定位：允许浏览器获取位置信息')
+    alert(
+      '使用提示：\n\n1. 创建胶囊：点击"创建胶囊"按钮\n2. 查看胶囊：点击地图上的标记或列表中的"查看"\n3. 筛选胶囊：使用左侧筛选面板\n4. 定位：允许浏览器获取位置信息'
+    )
   }
 }
-// #endregion
 
-// --- 10. 生命周期钩子 ---
+
 onMounted(() => {
   // 页面加载时立即获取胶囊数据，不等待定位
   fetchCapsules()
-
-  // MapContainer 将在其内部的 mounted 钩子中处理地图初始化和初始定位
 })
+// #endregion
 </script>
 
 <style scoped>
@@ -514,7 +626,8 @@ onMounted(() => {
   --accent-light: rgba(108, 140, 255, 0.1);
   --danger: #ef4444;
   --shadow: 0 6px 18px rgba(12, 18, 36, 0.06);
-  --shadow-deep: 0 0 20px rgba(0, 0, 0, 0.08); /* 新增: 用于侧边栏阴影 */
+  --shadow-deep: 0 0 20px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1); /* 新增：用于移动端侧边栏 */
   --radius: 12px;
   --radius-sm: 8px;
 }
@@ -523,6 +636,8 @@ onMounted(() => {
 /* 整体布局样式 */
 /* ================================================= */
 .map-page {
+  /* 确保页面占满视口 */
+  width: 100%; 
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -531,6 +646,7 @@ onMounted(() => {
 .map-main {
   flex-grow: 1;
   display: flex;
+  min-height: 0; /* 解决 flex 容器内元素溢出问题 */
 }
 
 /* 侧边栏/筛选栏主体 */
@@ -538,10 +654,11 @@ onMounted(() => {
   width: 280px;
   min-width: 280px;
   padding: 16px;
-  background-color: var(--bg); /* 使用背景色 */
-  box-shadow: var(--shadow-deep); /* 启用阴影 */
+  background-color: var(--bg);
+  box-shadow: var(--shadow-deep);
   z-index: 10;
   overflow-y: auto;
+  flex-shrink: 0; /* 防止被地图压缩 */
 }
 
 /* 包装器取代了原来的 .map-container */
@@ -552,7 +669,6 @@ onMounted(() => {
   display: flex;
   min-height: 0;
 }
-/* MapContainer 内部的 amap-container 高度已由 props 控制 */
 
 .loading-overlay {
   position: absolute;
@@ -564,10 +680,11 @@ onMounted(() => {
   background: rgba(0, 0, 0, 0.7);
   color: white;
   border-radius: 5px;
+  font-size: 14px;
 }
 
 /* ================================================= */
-/* 筛选栏样式 (Filter Bar) - 新增或修正部分 */
+/* 筛选栏样式 (Filter Bar) */
 /* ================================================= */
 .filter-card {
   background: var(--card);
@@ -614,11 +731,10 @@ onMounted(() => {
 
 .option-item input[type='radio'] {
   margin-right: 10px;
-  /* 基础美化，实际效果可能依赖浏览器默认样式 */
   accent-color: var(--accent);
 }
 
-/* 底部按钮样式 (参考 MapContainer.vue) */
+/* 底部按钮样式 */
 .btn {
   background: var(--accent);
   color: white;
@@ -629,7 +745,7 @@ onMounted(() => {
   font-weight: 500;
   transition: all 0.3s ease;
   font-size: 13px;
-  display: block; /* 确保按钮占据一行 */
+  display: block;
   width: 100%;
   margin-top: 10px;
 }
@@ -678,9 +794,9 @@ onMounted(() => {
 /* 胶囊列表面板样式 */
 /* ================================================= */
 .capsules-list-panel {
-  position: fixed;
-  bottom: 80px;
-  left: 20px;
+  position: absolute; /* 修改为 absolute，以便在 map-container-wrapper 内部定位 */
+  bottom: 20px; /* 调整 bottom 距离 */
+  left: 20px; /* 调整 left 距离 */
   width: 280px;
   max-height: 300px;
   background: rgba(255, 255, 255, 0.95);
@@ -689,6 +805,7 @@ onMounted(() => {
   z-index: 900;
   overflow: hidden;
   backdrop-filter: blur(10px);
+  transition: max-height 0.3s ease-out; /* 增加过渡效果 */
 }
 
 .panel-header {
@@ -755,7 +872,7 @@ onMounted(() => {
 .capsule-info {
   flex: 1;
   margin-right: 8px;
-  min-width: 0; /* 允许内容省略 */
+  min-width: 0;
 }
 
 .capsule-info h5 {
@@ -858,6 +975,7 @@ onMounted(() => {
 /* 添加最小化状态 */
 .capsules-list-panel.minimized {
   max-height: 36px;
+  border-radius: var(--radius-sm);
 }
 
 .capsules-list-panel.minimized .capsules-list {
@@ -887,36 +1005,45 @@ onMounted(() => {
 }
 
 /* ================================================= */
-/* 媒体查询 (保持不变) */
+/* 媒体查询 (响应式) */
 /* ================================================= */
 @media (max-width: 768px) {
   .map-main {
     flex-direction: column;
   }
 
-
+  /* 移动端侧边栏 */
   .map-sidebar {
     /* 移动端时默认隐藏，通过 show 类控制显示 */
     display: none;
     position: fixed;
-    top: 70px;
-    left: 20px;
-    right: 20px;
+    top: 60px; /* 假设 AppHeader 高度在 60px 左右 */
+    left: 10px;
+    right: 10px;
+    width: auto; /* 占据父容器宽度 */
+    max-height: 80vh; /* 限制最大高度 */
     z-index: 90;
-    background: var(--bg);
     padding: 20px;
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-lg); /* 注意：shadow-lg 需在上层或此处定义 */
+    box-shadow: var(--shadow-lg); 
+    /* 确保在 show 状态下以 flex 方式展示内容 */
   }
 
-
   .map-sidebar.show {
-    display: flex;
+    /* 修复：在移动端显示时，应保持 block/flex，使其内容垂直排列 */
+    display: block; 
   }
 
   .map-container-wrapper {
     order: -1;
   }
-
+  
+  /* 移动端胶囊列表面板调整 */
+  .capsules-list-panel {
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 95%;
+    max-width: 350px;
+  }
 }
 </style>

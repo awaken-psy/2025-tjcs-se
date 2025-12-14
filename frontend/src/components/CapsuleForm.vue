@@ -1231,15 +1231,7 @@ const handleSubmit = async () => {
 
     // 立即处理结果，提升响应速度
     if (result && (result.id || Object.keys(result).length > 0)) {
-      // 先显示表单内的成功提示
-      showAlertMessage(successMessage, 'success')
-
-      // 同时弹出确认对话框，让用户点击确定
       setTimeout(() => {
-        alert(
-          `${successMessage}\n\n胶囊标题：${submitData.title}\n\n点击确定返回胶囊列表`
-        )
-
         // 传递结果数据给父组件
         emit('submit', result)
         handleClose()
