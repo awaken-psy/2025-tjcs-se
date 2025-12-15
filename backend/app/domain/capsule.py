@@ -242,7 +242,7 @@ class Capsule:
                     file_url = media_orm.file_path
                 elif media_orm.file_path.startswith('file_'):
                     # 如果只是文件ID，尝试查找完整路径
-                    file_url = self._find_media_file_url(media_orm.file_path, media_orm.file_type)
+                    file_url = _find_media_file_url(media_orm.file_path, media_orm.file_type)
                 else:
                     # 默认情况，添加uploads前缀
                     file_url = f"/uploads/{media_orm.file_path}"
