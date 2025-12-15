@@ -4,6 +4,9 @@ import router from './router'
 import { createPinia } from 'pinia'
 import './registerServiceWorker'
 
+// Font Awesome 图标库
+import '@fortawesome/fontawesome-free/css/all.min.css'
+
 // 高德地图插件
 import VueAMap, { initAMapApiLoader } from '@vuemap/vue-amap'
 import '@vuemap/vue-amap/dist/style.css'

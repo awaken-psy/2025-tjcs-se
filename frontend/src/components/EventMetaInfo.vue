@@ -1,132 +1,77 @@
 <template>
   <div class="detail-meta">
     <div class="meta-grid">
+      <!-- 活动时间 -->
       <div class="meta-item">
         <div class="meta-icon">
-          <i class="fas fa-user-circle" />
-        </div>
-        <div class="meta-content">
-          <span class="meta-label">主办方</span>
-          <span class="meta-value">
-            <img
-              v-if="event.organizerAvatar"
-              :src="event.organizerAvatar"
-              alt="主办方头像"
-              class="org-avatar"
-            >
-            <span class="organizer-name">{{ event.organizer || '未知主办方' }}</span>
-          </span>
-        </div>
-      </div>
-
-      <div class="meta-item">
-        <div class="meta-icon">
-          <i class="fas fa-clock" />
+          <i class="fas fa-calendar-alt"></i>
         </div>
         <div class="meta-content">
           <span class="meta-label">活动时间</span>
-          <span class="meta-value time-range">
-            <span class="time-start">{{ formatStandard(event.time) }}</span>
-            <i class="fas fa-arrow-right time-arrow" />
-            <span class="time-end">{{ formatStandard(event.endTime) }}</span>
+          <span class="meta-value">
+            <i class="fas fa-clock time-icon"></i>
+            {{ formatDate(event.date) }}
           </span>
         </div>
       </div>
 
+      <!-- 活动地点 -->
       <div class="meta-item">
         <div class="meta-icon">
-          <i class="fas fa-map-marker-alt" />
+          <i class="fas fa-map-marker-alt"></i>
         </div>
         <div class="meta-content">
           <span class="meta-label">活动地点</span>
-          <span class="meta-value location">
-            <i class="fas fa-location-dot" />
-            {{ event.location || '地点待定' }}
+          <span class="meta-value">
+            <i class="fas fa-location-dot location-icon"></i>
+            {{ event.location || '学校大礼堂' }}
           </span>
         </div>
       </div>
 
+      <!-- 报名截止（与活动时间相同） -->
       <div class="meta-item">
         <div class="meta-icon">
-          <i class="fas fa-hourglass-end" />
+          <i class="fas fa-hourglass-end"></i>
         </div>
         <div class="meta-content">
           <span class="meta-label">报名截止</span>
-          <span
-            class="meta-value deadline"
-            :class="{ 'deadline-passed': isDeadlinePassed }"
-          >
-            <i
-              class="fas"
-              :class="isDeadlinePassed ? 'fa-exclamation-triangle' : 'fa-clock'"
-            />
-            {{ formatStandard(event.registerDeadline) }}
-            <span
-              v-if="isDeadlinePassed"
-              class="deadline-status"
-            >（已截止）</span>
+          <span class="meta-value">
+            <i class="fas fa-clock deadline-icon"></i>
+            {{ formatDate(event.date) }}
+            <span v-if="isDeadlinePassed" class="deadline-tag">已截止</span>
           </span>
         </div>
       </div>
 
+      <!-- 参与人数 -->
       <div class="meta-item">
         <div class="meta-icon">
-          <i class="fas fa-users" />
+          <i class="fas fa-users"></i>
         </div>
         <div class="meta-content">
           <span class="meta-label">参与人数</span>
-          <span class="meta-value participants">
-            <span class="participant-count">{{ event.participantCount || 0 }}</span>
-            <span class="participant-separator">/</span>
-            <span class="participant-total">{{ event.maxParticipants || 0 }}</span>
-            <span class="participant-unit">人</span>
-            <div class="progress-bar">
-              <div 
-                class="progress-fill" 
-                :style="{ width: calculateProgress() + '%' }"
-                :class="{ 'progress-full': calculateProgress() >= 100 }"
-              />
-            </div>
-          </span>
-        </div>
-      </div>
-
-      <div class="meta-item">
-        <div class="meta-icon">
-          <i class="fas fa-flag" />
-        </div>
-        <div class="meta-content">
-          <span class="meta-label">活动状态</span>
           <span class="meta-value">
-            <EventStatusBadge
-              :status="event.status"
-              size="small"
-            />
+            <i class="fas fa-user-check user-icon"></i>
+            {{ event.participant_count || 0 }} 人已报名
           </span>
         </div>
       </div>
     </div>
 
-    <div
-      v-if="event.tags && event.tags.length > 0"
-      class="meta-tags"
-    >
+    <!-- 活动标签 -->
+    <div v-if="event.tags && event.tags.length > 0" class="meta-tags">
       <div class="tags-header">
-        <i class="fas fa-tags" />
-        <span class="tags-label">活动标签</span>
+        <i class="fas fa-tags"></i>
+        <span>活动标签</span>
       </div>
       <div class="tags-container">
         <span 
           v-for="(tag, idx) in event.tags" 
           :key="idx" 
           class="tag-item"
-          :style="{ 
-            backgroundColor: getTagColor(tag),
-            color: getTagTextColor(tag)
-          }"
         >
-          <i class="fas fa-hashtag" />
-          {{ tag }}
+          #{{ tag }}
         </span>
       </div>
     </div>
@@ -135,341 +80,193 @@
 
 <script setup>
 import { computed } from 'vue'
-import EventStatusBadge from './EventStatusBadge.vue'
 
 const props = defineProps({
   event: { type: Object, required: true },
 })
 
-const formatStandard = (date) => {
-  if (!date) return ''
-  const d = new Date(date)
-  return d.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).replace(/\//g, '-')
+// 格式化日期
+const formatDate = (dateString) => {
+  if (!dateString) return '时间待定'
+  try {
+    const date = new Date(dateString)
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).replace(/\//g, '-')
+  } catch (e) {
+    return '时间待定'
+  }
 }
 
+// 是否截止
 const isDeadlinePassed = computed(() => {
-  if (!props.event.registerDeadline) return false
-  return new Date(props.event.registerDeadline) < new Date()
+  if (!props.event.date) return false
+  try {
+    return new Date(props.event.date) < new Date()
+  } catch (e) {
+    return false
+  }
 })
-
-const calculateProgress = () => {
-  const current = props.event.participantCount || 0
-  const total = props.event.maxParticipants || 1
-  return Math.min((current / total) * 100, 100)
-}
-
-const getTagColor = (tag) => {
-  const colors = [
-    'rgba(66, 153, 225, 0.1)',
-    'rgba(72, 187, 120, 0.1)',
-    'rgba(246, 173, 85, 0.1)',
-    'rgba(237, 100, 166, 0.1)',
-    'rgba(159, 122, 234, 0.1)',
-    'rgba(102, 126, 234, 0.1)'
-  ]
-  const index = tag.length % colors.length
-  return colors[index]
-}
-
-const getTagTextColor = (tag) => {
-  const colors = [
-    '#4299e1',
-    '#48bb78',
-    '#f6ad55',
-    '#ed64a6',
-    '#9f7aea',
-    '#667eea'
-  ]
-  const index = tag.length % colors.length
-  return colors[index]
-}
 </script>
 
 <style scoped>
 .detail-meta {
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-radius: 20px;
-  padding: 28px;
-  border: 1px solid rgba(226, 232, 240, 0.8);
-  box-shadow: 0 4px 20px rgba(149, 157, 165, 0.08);
-  backdrop-filter: blur(10px);
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .meta-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 24px;
-  margin-bottom: 28px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
 }
 
 .meta-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 16px;
-  padding: 20px;
-  background: white;
-  border-radius: 16px;
-  border: 1px solid rgba(226, 232, 240, 0.6);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  position: relative;
-  overflow: hidden;
-}
-
-.meta-item::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 4px;
-  height: 100%;
-  background: linear-gradient(180deg, #4299e1, #667eea);
-  opacity: 0;
-  transition: opacity 0.3s ease;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
 }
 
 .meta-item:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 30px rgba(149, 157, 165, 0.12);
-  border-color: rgba(102, 126, 234, 0.2);
-}
-
-.meta-item:hover::before {
-  opacity: 1;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
 }
 
 .meta-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #4299e1, #667eea);
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #4299e1, #3182ce);
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 20px;
+  font-size: 18px;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
 }
 
 .meta-content {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .meta-label {
   font-size: 13px;
   font-weight: 600;
-  color: #64748b;
+  color: #718096;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .meta-value {
   font-size: 16px;
   font-weight: 500;
-  color: #1e293b;
+  color: #2d3748;
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
 }
 
-.org-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.organizer-name {
-  font-weight: 600;
-  color: #334155;
-}
-
-.time-range {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.time-start, .time-end {
-  background: rgba(102, 126, 234, 0.05);
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.time-arrow {
-  color: #94a3b8;
-  font-size: 12px;
-}
-
-.location {
-  background: rgba(72, 187, 120, 0.05);
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-weight: 500;
-}
-
-.location i {
-  color: #48bb78;
-}
-
-.deadline {
-  background: rgba(246, 173, 85, 0.05);
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-weight: 500;
-}
-
-.deadline i {
-  color: #f6ad55;
-}
-
-.deadline-passed {
-  background: rgba(248, 113, 113, 0.05);
-  color: #ef4444;
-}
-
-.deadline-passed i {
-  color: #ef4444;
-}
-
-.deadline-status {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.participants {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.participant-count {
-  font-size: 18px;
-  font-weight: 700;
+.time-icon {
   color: #4299e1;
-}
-
-.participant-total {
-  font-size: 16px;
-  font-weight: 600;
-  color: #64748b;
-}
-
-.participant-separator {
-  color: #cbd5e1;
-  font-weight: 500;
-}
-
-.participant-unit {
-  color: #64748b;
   font-size: 14px;
 }
 
-.progress-bar {
-  width: 100%;
-  height: 6px;
-  background: rgba(226, 232, 240, 0.8);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-top: 8px;
+.location-icon {
+  color: #48bb78;
+  font-size: 14px;
 }
 
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #4299e1, #667eea);
-  border-radius: 3px;
-  transition: width 0.5s ease;
+.deadline-icon {
+  color: #f6ad55;
+  font-size: 14px;
 }
 
-.progress-full {
-  background: linear-gradient(90deg, #48bb78, #38a169);
+.user-icon {
+  color: #9f7aea;
+  font-size: 14px;
+}
+
+.deadline-tag {
+  margin-left: 8px;
+  padding: 2px 8px;
+  background: #fed7d7;
+  color: #c53030;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 /* 标签样式 */
 .meta-tags {
-  background: white;
-  padding: 24px;
-  border-radius: 16px;
-  border: 1px solid rgba(226, 232, 240, 0.6);
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
 }
 
 .tags-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #2d3748;
 }
 
 .tags-header i {
-  color: #667eea;
-  font-size: 18px;
-}
-
-.tags-label {
-  font-size: 16px;
-  font-weight: 600;
-  color: #334155;
+  color: #4299e1;
 }
 
 .tags-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .tag-item {
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 13px;
+  padding: 6px 12px;
+  background: #edf2f7;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #4a5568;
   font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  border: 1px solid transparent;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  transition: all 0.2s ease;
 }
 
 .tag-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-color: currentColor;
-}
-
-.tag-item i {
-  font-size: 11px;
-  opacity: 0.8;
+  background: #e2e8f0;
+  color: #2d3748;
 }
 
 /* 响应式设计 */
 @media (max-width: 768px) {
+  .meta-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
   .detail-meta {
     padding: 20px;
   }
   
-  .meta-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-  
   .meta-item {
-    padding: 16px;
+    padding: 14px;
     gap: 12px;
   }
   
@@ -477,40 +274,6 @@ const getTagTextColor = (tag) => {
     width: 40px;
     height: 40px;
     font-size: 16px;
-  }
-  
-  .time-range {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-  }
-  
-  .time-arrow {
-    transform: rotate(90deg);
-  }
-}
-
-@media (max-width: 480px) {
-  .detail-meta {
-    padding: 16px;
-    border-radius: 16px;
-  }
-  
-  .meta-item {
-    padding: 12px;
-  }
-  
-  .meta-value {
-    font-size: 14px;
-  }
-  
-  .tags-container {
-    gap: 8px;
-  }
-  
-  .tag-item {
-    padding: 6px 12px;
-    font-size: 12px;
   }
 }
 </style>
