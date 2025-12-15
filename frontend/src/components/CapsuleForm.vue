@@ -237,7 +237,7 @@
                   class="form-input" />
               </div>
 
-              <div v-if="isEdit" class="form-group">
+              <!-- <div v-if="isEdit" class="form-group">
                 <label class="form-label">当前是否已解锁</label>
                 <div style="display: flex; align-items: center; gap: 12px">
                   <input
@@ -258,7 +258,7 @@
 
               <div class="form-footer">
                 <span class="char-count">{{ unlockHintText }}</span>
-              </div>
+              </div> -->
             </div>
           </div>
 

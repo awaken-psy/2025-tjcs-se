@@ -140,7 +140,7 @@
 
   <CapsuleDetail
     :show-modal="showDetailModal"
-    :detail-data="currentCapsuleDetail"
+    :detail-data="currentDetailData"
     @close="showDetailModal = false" />
 
   <GenericModal
@@ -248,6 +248,7 @@ const defaultCenter = [120.529881, 31.026362]
 const isLoading = ref(false)
 const loadingMessage = ref('')
 
+
 // --- 2. 胶囊数据状态 ---
 const capsules = ref([]) // 存储用于地图的胶囊列表 (用于 MapContainer:capsule-data)
 const userLocation = ref({
@@ -276,7 +277,7 @@ const currentDetailData = ref({}) // 详情数据（从 MyCapsuleView 复用）
 
 // --- 3.1 筛选状态 ---
 const filters = ref({
-  visibility: 'all',
+  visibility: 'public',
   time: 'all',
 })
 // #endregion
@@ -445,8 +446,10 @@ const handleViewCapsule = async (capsuleId) => {
         // media
         media_files: detail.media_files || [],
         // creator
-        is_mine: detail.creator?.user_id === userStore.user_id,
+        is_mine: detail.creator?.user_id === userStore.userInfo.user_id,
+        creator: detail.creator || {},
       }
+      console.log('mapview查看胶囊详情:', currentDetailData.value)
       showDetailModal.value = true
     } else {
       console.error(`未找到胶囊 ${capsuleId}`)
@@ -459,6 +462,8 @@ const handleViewCapsule = async (capsuleId) => {
     isProcessing.value[loadingKey] = false
   }
 }
+
+
 
 /**
  * 实际执行解锁API请求的函数，处理地理位置获取逻辑 (从 MyCapsuleView.vue 复制并调整 MapView 的位置参数)
@@ -609,11 +614,14 @@ const handleConfirmUnlock = () => {
 // #endregion
 
 // #region 模态框/表单事件处理函数 (更新)
+
 const handleCloseForm = () => {
   showFormModal.value = false
   currentEditData.value = null
   isEditMode.value = false
 }
+
+
 
 // 替换原来的 onCapsuleSubmitted，使用 MyCapsuleView 中更强大的逻辑
 const onCapsuleSubmitted = async (result) => {
@@ -732,9 +740,8 @@ const handleSearch = (keyword) => {}
 
 const handleHeaderAction = (actionKey) => {
   if (actionKey === 'create') {
-    // 显示创建胶囊表单
-    isEditMode.value = false
     currentEditData.value = null
+    isEditMode.value = true
     showFormModal.value = true
   } else if (actionKey === 'filter') {
     // 切换筛选侧边栏显示（移动端）
@@ -750,6 +757,7 @@ const handleHeaderAction = (actionKey) => {
 }
 
 // #endregion
+
 
 onMounted(() => {
   // 页面加载时立即获取胶囊数据，不等待定位

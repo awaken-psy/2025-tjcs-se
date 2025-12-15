@@ -12,27 +12,27 @@
         
         <div class="detail-meta">
           <span v-if="detailData.created_at" class="meta-item">
-            <i class="fas fa-clock" /> **投递时间：**
+            <i class="fas fa-clock" /> 投递时间：
             {{ formatStandard(detailData.created_at) }}
           </span>
           <span v-if="detailData.visibility" class="meta-item">
-            <i class="fas fa-eye" /> **可见性：**
+            <i class="fas fa-eye" /> 可见性：
             {{ getVisText(detailData.visibility) }}
           </span>
           <span class="meta-item">
-            <i class="fas fa-map-marker-alt" /> **投递位置：**
+            <i class="fas fa-map-marker-alt" /> 投递位置：
             {{ detailData.address || '未知位置' }} 
             </span>
           <span class="meta-item">
-            <i :class="getStatusIcon(detailData.status)" /> **状态：**
+            <i :class="getStatusIcon(detailData.status)" /> 状态：
             {{ getStatusText(detailData.status) }}
           </span>
         </div>
 
         <div class="detail-unlock-condition">
           <i :class="getUnlockIcon(detailData.unlock_conditions_type)" />
-          **解锁条件：**
-          {{ getUnlockText(detailData.unlock_conditions_type, detailData.unlock_conditions) }}
+          解锁条件：
+          {{ getUnlockText(detailData) }}
           <span v-if="detailData.unlock_conditions_is_unlocked" class="unlocked-status">
             (已解锁)
           </span>
@@ -58,11 +58,11 @@
             class="media-count">
             <i class="fas fa-images" /> +{{ detailData.media_files.length - 1 }}
           </div>
-          <div class="media-tip">**点击图片查看所有媒体文件**</div>
+          <div class="media-tip">点击图片查看所有媒体文件</div>
         </div>
 
         <div class="detail-content">
-          **胶囊内容：**
+          胶囊内容：
           {{ detailData.content || '无内容描述' }}
         </div>
 
@@ -109,17 +109,12 @@
 
       <div class="modal-actions">
         <button class="btn ghost" @click="handleClose">关闭</button>
-        <button
+        <!-- <button
           class="btn primary"
           v-if="detailData.is_mine"
           @click="handleEdit(detailData.id)">
           编辑胶囊
-        </button>
-        <button
-          class="btn ghost"
-          @click="handleShare(detailData)">
-          <i class="fas fa-share-alt" /> 分享
-        </button>
+        </button> -->
         </div>
     </div>
   </div>
@@ -138,7 +133,7 @@ const getVisText = (vis) => {
   switch (vis) {
     case 'private': return '仅自己可见';
     case 'friends': return '好友可见';
-    case 'school': return '校园公开';
+    case 'public': return '校园公开';
     default: return '未知可见性';
   }
 };
@@ -173,20 +168,18 @@ const getUnlockIcon = (type) => {
 };
 
 /** 获取解锁条件描述文本 */
-const getUnlockText = (type, conditions) => {
-  if (!type || type === 'none') return '无限制';
+const getUnlockText = (detailData) => {
+  if (!detailData.unlock_conditions_type || detailData.unlock_conditions_type === 'none') return '无限制';
 
-  switch (type) {
+  switch (detailData.unlock_conditions_type) {
     case 'time':
-      const unlockTime = conditions.unlockable_time ? formatStandard(conditions.unlockable_time) : '未知时间';
+      const unlockTime = detailData.unlock_conditions_unlockable_time ? formatStandard(detailData.unlock_conditions_unlockable_time) : '未知时间';
       return `需在 ${unlockTime} 之后`;
     case 'location':
-      const radius = conditions.radius || 50;
+      const radius = detailData.unlock_conditions_unlockable_radius || 50;
       return `需到达投递位置 ${radius} 米范围内`;
     case 'password':
-      return conditions.is_unlocked ? '密码已通过' : '需要输入密码';
-    default:
-      return `类型: ${type}，值: ${JSON.stringify(conditions)}`;
+      return detailData.unlock_conditions_is_unlocked ? '密码已通过' : '需要输入密码';
   }
 };
 
