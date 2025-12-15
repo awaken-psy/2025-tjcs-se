@@ -27,6 +27,7 @@
           { key: 'map', label: '地图', icon: '🗺️' },
           { key: 'create', label: '创建胶囊', icon: '✚' },
           { key: 'events', label: '校园活动', icon: '🎪' },
+          { key:'user', label:'个人中心', icon:'👤' },
           {
             key: 'logout',
             label: isLogoutLoading ? '注销中...' : '注销',
@@ -126,7 +127,7 @@
 
     <CapsuleDetail
       :show-modal="showDetailModal"
-      :detail-data="currentCapsuleDetail"
+      :detail-data="currentDetailData"
       @close="showDetailModal = false" />
 
     <GenericModal
@@ -670,13 +671,11 @@ const handleNavChange = async (key) => {
     myCapsule: '/my-capsule',
     hub: '/hubviews',
     map: '/map',
-    myCapsule: '/my-capsule',
-    hub: '/hubviews',
-    map: '/map',
     create: '/capsules',
     timeline: '/timeline',
     events: '/events',
     logout: '/logout',
+    user: '/user',
   }
 
   if (key === 'create') {
@@ -690,7 +689,7 @@ const handleNavChange = async (key) => {
     return
   }
 
-  router.push(routeMap[key] || '/my-capsule')
+  router.push(routeMap[key])
 }
 // #endregion
 
@@ -854,8 +853,8 @@ const handleLikeCapsule = async (capsuleId) => {
   isProcessing.value[`like_${capsuleId}`] = true
   try {
     const result = await likeCapsule(capsuleId)
-
-    await fetchCapsuleList()
+    capsule.is_liked = result.is_liked
+    capsule.like_count = result.like_count
   } catch (error) {
     const errorMessage = error.message || '点赞失败，请稍后重试'
     console.error(`点赞胶囊(${capsuleId})失败：`, error)
@@ -946,8 +945,7 @@ const handleCollectCapsule = async (capsuleId) => {
   isProcessing.value[`collect_${capsuleId}`] = true
   try {
     const result = await collectCapsule(capsuleId)
-
-    await fetchCapsuleList()
+    capsule.is_collected = result.is_collected
   } catch (error) {
     const errorMessage = error.message || '收藏失败，请稍后重试'
     console.error(`收藏胶囊(${capsuleId})失败：`, error)
@@ -1087,7 +1085,7 @@ const doUnlockRequest = (capsuleId, requiredRadius, password) => {
                 },
                 {
                     enableHighAccuracy: true,
-                    timeout: 5000,
+                    timeout: 10000,
                     maximumAge: 0,
                 }
             );
