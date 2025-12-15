@@ -236,9 +236,21 @@ class Capsule:
         if self.media_files_data:
             from app.model.capsule import MediaFile
             for media_orm in self.media_files_data:
-                # 构建媒体文件URL（这里需要根据实际的文件服务配置）
-                file_url = f"/api/files/{media_orm.file_path}"  # 简化的URL构建
-                thumbnail_url = None  # TODO: 实现缩略图逻辑
+                # 使用数据库中保存的完整文件路径
+                if media_orm.file_path.startswith('/uploads/'):
+                    # 如果已经是完整的URL路径，直接使用
+                    file_url = media_orm.file_path
+                elif media_orm.file_path.startswith('file_'):
+                    # 如果只是文件ID，尝试查找完整路径
+                    file_url = self._find_media_file_url(media_orm.file_path, media_orm.file_type)
+                else:
+                    # 默认情况，添加uploads前缀
+                    file_url = f"/uploads/{media_orm.file_path}"
+
+                # 构建缩略图URL
+                thumbnail_url = None
+                if media_orm.file_type == "image" and file_url.startswith('/uploads/image/'):
+                    thumbnail_url = _build_thumbnail_url_from_file_url(file_url)
 
                 media_file = MediaFile(
                     id=str(media_orm.id),  # 转换为字符串ID
@@ -405,3 +417,44 @@ def convert_capsule_list_for_api(capsules_list):
         list: 转换后的胶囊数据列表
     """
     return [convert_capsule_basic_for_api(capsule) for capsule in capsules_list]
+
+
+def _find_media_file_url(file_id: str, file_type: str) -> str:
+    """根据文件ID在uploads目录中查找文件的完整URL路径"""
+    import os
+    import glob
+
+    uploads_dir = os.path.join(os.getcwd(), 'uploads')
+    if file_type == "image":
+        search_pattern = os.path.join(uploads_dir, 'image', '**', f"{file_id}.*")
+    elif file_type == "audio":
+        search_pattern = os.path.join(uploads_dir, 'audio', '**', f"{file_id}.*")
+    else:
+        search_pattern = os.path.join(uploads_dir, '**', f"{file_id}.*")
+
+    files = glob.glob(search_pattern, recursive=True)
+    if files:
+        # 返回相对于uploads目录的路径
+        file_path = files[0]
+        relative_path = os.path.relpath(file_path, uploads_dir)
+        return f"/uploads/{relative_path.replace(os.sep, '/')}"
+
+    return f"/uploads/{file_id}"  # 回退到默认路径
+
+
+def _build_thumbnail_url_from_file_url(file_url: str) -> str:
+    """根据文件URL构建缩略图URL"""
+    try:
+        if "/uploads/image/" in file_url:
+            # 从 /uploads/image/20251215/file_xxx.png 构建缩略图路径
+            parts = file_url.split('/')
+            if len(parts) >= 5:
+                # 重新构建缩略图URL: /uploads/image/20251215/thumbnails/file_xxx_thumb.jpg
+                filename = parts[4]
+                filename_without_ext = filename.split('.')[0]
+                thumbnail_url = f"/uploads/{parts[2]}/{parts[3]}/thumbnails/{filename_without_ext}_thumb.jpg"
+                return thumbnail_url
+    except:
+        pass
+
+    return None

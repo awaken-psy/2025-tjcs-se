@@ -373,6 +373,8 @@ class CapsuleService:
                 # MediaFile对象格式
                 file_id = media_file.id
                 file_type = media_file.type or "unknown"
+                file_url = media_file.url or ""
+                thumbnail_url = media_file.thumbnail or None
                 file_name = f"media_file_{index + 1}"  # 从URL或ID生成文件名
                 if media_file.url:
                     file_name = media_file.url.split("/")[-1] if "/" in media_file.url else file_name
@@ -380,8 +382,10 @@ class CapsuleService:
                 mime_type = None  # MediaFile模型没有mime_type字段
             elif isinstance(media_file, dict):
                 # 字典格式（向后兼容）
-                file_id = media_file.get('id') or media_file.get('file_id') or media_file.get('url')
+                file_id = media_file.get('id') or media_file.get('file_id')
                 file_type = media_file.get('type', 'unknown')
+                file_url = media_file.get('url', '')
+                thumbnail_url = media_file.get('thumbnail')
                 file_name = media_file.get('name', f"media_file_{index + 1}")
                 file_size = media_file.get('size', 0)
                 mime_type = media_file.get('mime_type')
@@ -389,6 +393,8 @@ class CapsuleService:
                 # 简单格式（向后兼容）
                 file_id = str(media_file)
                 file_type = "unknown"
+                file_url = ""
+                thumbnail_url = None
                 file_name = f"media_file_{index + 1}"
                 file_size = 0
                 mime_type = None
@@ -410,11 +416,25 @@ class CapsuleService:
                 else:
                     file_type = "file"
 
+            # 保存完整的文件URL路径，而不是仅保存文件ID
+            # 如果URL为空，尝试通过文件ID构建路径
+            if not file_url and file_id_str.startswith("file_"):
+                # 从现有的uploads目录中查找文件
+                file_url = self._find_file_by_id(file_id_str, file_type)
+
+            # 构建缩略图URL
+            thumbnail_path = None
+            if thumbnail_url:
+                thumbnail_path = thumbnail_url
+            elif file_url and file_type == "image":
+                # 尝试构建缩略图URL
+                thumbnail_path = self._build_thumbnail_url(file_url)
+
             media_record = CapsuleMedia(
                 capsule_id=capsule_id,
                 file_type=file_type,
                 file_name=file_name,
-                file_path=file_id_str,  # 使用字符串形式的文件ID作为文件路径
+                file_path=file_url or file_id_str,  # 保存完整的文件URL路径
                 file_size=file_size,
                 mime_type=mime_type,
                 upload_order=index
@@ -423,6 +443,40 @@ class CapsuleService:
             self.repository.db.add(media_record)
 
         self.repository.db.commit()
+
+    def _find_file_by_id(self, file_id: str, file_type: str) -> str:
+        """根据文件ID在uploads目录中查找文件"""
+        import os
+        import glob
+
+        uploads_dir = os.path.join(os.getcwd(), 'uploads')
+        if file_type == "image":
+            search_pattern = os.path.join(uploads_dir, 'image', '**', f"{file_id}.*")
+        elif file_type == "audio":
+            search_pattern = os.path.join(uploads_dir, 'audio', '**', f"{file_id}.*")
+        else:
+            search_pattern = os.path.join(uploads_dir, '**', f"{file_id}.*")
+
+        files = glob.glob(search_pattern, recursive=True)
+        if files:
+            # 返回相对于uploads目录的路径
+            file_path = files[0]
+            relative_path = os.path.relpath(file_path, uploads_dir)
+            return f"/uploads/{relative_path.replace(os.sep, '/')}"
+
+        return ""
+
+    def _build_thumbnail_url(self, file_url: str) -> str:
+        """根据文件URL构建缩略图URL"""
+        if "/uploads/image/" in file_url:
+            # 从 /uploads/image/20251215/file_xxx.png 构建缩略图路径
+            parts = file_url.split('/')
+            if len(parts) >= 4:
+                # 重新构建缩略图URL: /uploads/image/20251215/thumbnails/file_xxx_thumb.jpg
+                thumbnail_url = f"/uploads/{parts[2]}/{parts[3]}/thumbnails/{parts[4].split('.')[0]}_thumb.jpg"
+                return thumbnail_url
+
+        return None
 
 
 # 向后兼容别名
