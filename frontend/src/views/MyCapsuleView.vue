@@ -678,11 +678,6 @@ const handleNavChange = async (key) => {
     user: '/user',
   }
 
-  if (key === 'create') {
-    handleOpenCreateForm()
-    return
-  }
-
   if (key === 'logout') {
     // 使用logout API实现注销
     await handleLogout()

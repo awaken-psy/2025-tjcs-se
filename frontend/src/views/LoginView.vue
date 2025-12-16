@@ -28,10 +28,6 @@
           <div class="muted">记录、分享、遇见更好的自己</div>
         </div>
       </div>
-      <div class="map-section">
-        <div class="feature-title">地图预览</div>
-        <div class="map-preview">校园地图功能即将上线</div>
-      </div>
       <div class="footer">同济大学 2025</div>
     </section>
 
@@ -125,10 +121,6 @@
           </button>
         </div>
 
-        <div class="example">
-          <div>演示账号：</div>
-          <div class="demo-account">邮箱：demo@univ.edu<br >密码：123456</div>
-        </div>
       </form>
 
       <!-- 注册表单（RegisterForm） -->

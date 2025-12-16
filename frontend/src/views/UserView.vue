@@ -6,27 +6,26 @@
       :show-search="false"
       :actions="[
         { key: 'edit', text: '编辑资料', icon: '✎', type: 'primary' },
-        { key: 'logout', text: '退出登录', icon: '🚪', type: 'ghost' }
+        { key: 'logout', text: '退出登录', icon: '🚪', type: 'ghost' },
       ]"
       @go-hub="handleGoHub"
-      @action-click="handleHeaderAction" 
-    />
+      @action-click="handleHeaderAction" />
 
     <div class="user-view-main">
-      
       <Sidebar
         :nav-items="[
           {
             key: 'myCapsule',
             label: '我的胶囊',
             icon: '👤',
-            badge: { count: capsuleTotal, color: '#6c8cff' },
+            // 注意: capsuleTotal 在新代码中没有定义，如果需要显示，请从状态中获取
+            // badge: { count: capsuleTotal, color: '#6c8cff' },
           },
           { key: 'hub', label: '中枢', icon: '🏠' },
           { key: 'map', label: '地图', icon: '🗺️' },
           { key: 'create', label: '创建胶囊', icon: '✚' },
           { key: 'events', label: '校园活动', icon: '🎪' },
-          { key:'user', label:'个人中心', icon:'👤' },
+          { key: 'user', label: '个人中心', icon: '👤' },
           {
             key: 'logout',
             label: isLogoutLoading ? '注销中...' : '注销',
@@ -39,7 +38,6 @@
         @nav-change="handleNavChange" />
 
       <main class="content-area">
-        
         <div v-if="loading" class="loading-state">
           <div class="spinner"></div>
           <p>正在拉取用户信息...</p>
@@ -47,37 +45,50 @@
 
         <div v-else class="profile-card">
           <div class="profile-cover"></div>
-          
+
           <div class="profile-body">
             <div class="profile-header">
               <div class="avatar-wrapper">
-                <img :src="userInfo.avatar" alt="用户头像" class="avatar" />
+                <img
+                  :src="
+                    userInfo.avatar ||
+                    'https://api.dicebear.com/7.x/adventurer/svg?seed=DefaultUser'
+                  "
+                  alt="用户头像"
+                  class="avatar" />
               </div>
               <div class="base-info">
                 <h2 class="username">{{ userInfo.nickname }}</h2>
                 <p class="user-id">ID: {{ userInfo.uid }}</p>
                 <div class="user-badges">
-                  <span v-for="role in userInfo.roles" :key="role" class="badge">{{ role }}</span>
+                  <span v-if="userInfo.isAdmin" class="badge">管理员</span>
+                  <span v-if="userInfo.isPro" class="badge">Pro会员</span>
                 </div>
               </div>
             </div>
 
             <div class="info-section">
               <h3>个人简介</h3>
-              <p class="bio-text">{{ userInfo.bio || '这个人很懒，什么都没有写...' }}</p>
+              <p class="bio-text">
+                {{ userInfo.bio || '这个人很懒，什么都没有写...' }}
+              </p>
             </div>
 
             <div class="stats-row">
               <div class="stat-item">
-                <div class="stat-num">{{ userInfo.stats.capsules }}</div>
-                <div class="stat-label">胶囊总数</div>
+                <div class="stat-num">
+                  {{ userInfo.stats.created_capsules }}
+                </div>
+                <div class="stat-label">创建胶囊</div>
               </div>
               <div class="stat-item">
-                <div class="stat-num">{{ userInfo.stats.days }}</div>
-                <div class="stat-label">加入天数</div>
+                <div class="stat-num">
+                  {{ userInfo.stats.unlocked_capsules }}
+                </div>
+                <div class="stat-label">解锁胶囊</div>
               </div>
               <div class="stat-item">
-                <div class="stat-num">{{ userInfo.stats.friends }}</div>
+                <div class="stat-num">{{ userInfo.stats.friends_count }}</div>
                 <div class="stat-label">好友</div>
               </div>
             </div>
@@ -90,16 +101,14 @@
                 <span class="value">{{ userInfo.email }}</span>
               </div>
               <div class="detail-item">
-                <span class="label">📱 手机号码</span>
-                <span class="value">{{ userInfo.phone }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="label">📍 所在地区</span>
-                <span class="value">{{ userInfo.location }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="label">📅 注册时间</span>
+                <span class="label">🗓️ 加入时间</span>
                 <span class="value">{{ userInfo.joinDate }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">⭐ 收藏胶囊</span>
+                <span class="value">{{
+                  userInfo.stats.collected_capsules
+                }}</span>
               </div>
             </div>
           </div>
@@ -111,65 +120,100 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import AppHeader from '@/components/AppHeader.vue' 
-import Sidebar from '@/components/Sidebar.vue'     
+import AppHeader from '@/components/AppHeader.vue'
+import Sidebar from '@/components/Sidebar.vue'
 import { useRouter } from 'vue-router'
+import { getCurrentUser } from '@/api/new/usersApi' // 假设路径正确
+// 导入用于注销的 store (需要你自己补全 useUserStore)
+import { useUserStore } from '@/store/user'
+// 导入注销 API (需要你自己补全 logout)
+import { logout } from '@/api/new/authenticationApi'
 
 // --- 状态定义 ---
 const loading = ref(true)
-const userInfo = ref({})
+const userInfo = ref({
+  uid: '',
+  nickname: '',
+  avatar: '',
+  bio: '',
+  email: '',
+  joinDate: '',
+  // 保持 stats 结构与 API 保持一致，方便直接访问
+  stats: {
+    created_capsules: 0,
+    unlocked_capsules: 0,
+    collected_capsules: 0,
+    friends_count: 0,
+  },
+  // 模拟徽章字段，实际根据后端逻辑调整
+  isAdmin: false,
+  isPro: true,
+})
 
 const router = useRouter()
 
-// 侧边栏菜单配置 (保持与 MyCapsuleView 一致，但可以高亮 'profile')
-const navItems = [
-  { key: 'profile', label: '个人资料', icon: '👤', badge: null }, // 当前页
-  { key: 'myCapsule', label: '我的胶囊', icon: '💊' },
-  { key: 'hub', label: '中枢', icon: '🏠' },
-  { key: 'map', label: '地图', icon: '🗺️' },
-  { key: 'setting', label: '设置', icon: '⚙️' },
-]
-
-// --- 模拟 API ---
-// 你可以在这里替换为真实的 axios/fetch 请求
-const mockFetchUserInfo = () => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        uid: 'user_9527',
-        nickname: '时光旅行者',
-        avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Felix', // 随机头像API
-        bio: '热爱记录生活，喜欢摄影和复古风格的设计。正在寻找埋藏在2015年的那颗胶囊。',
-        email: 'time.traveler@example.com',
-        phone: '138****0000',
-        location: '中国 · 上海',
-        joinDate: '2023-01-15',
-        roles: ['胶囊体验官', 'Pro会员'],
-        stats: {
-          capsules: 42,
-          days: 365,
-          friends: 12
-        }
+/**
+ * 格式化 ISO 日期字符串为 YYYY-MM-DD
+ * @param {string} isoString - ISO 8601 格式的日期字符串
+ * @returns {string} 格式化后的日期
+ */
+const formatDate = (isoString) => {
+  if (!isoString) return 'N/A'
+  try {
+    const date = new Date(isoString)
+    return date
+      .toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
       })
-    }, 800) // 模拟 0.8秒 网络延迟
-  })
+      .replace(/\//g, '-') // 替换斜杠为短横线，例如 2023-01-15
+  } catch (e) {
+    console.error('日期格式化失败:', e)
+    return 'N/A'
+  }
 }
 
-// --- 生命周期 ---
-onMounted(async () => {
+// --- 真实 API 调用和数据处理 ---
+const fetchUserInfo = async () => {
   try {
     loading.value = true
-    // 调用模拟接口
-    const data = await mockFetchUserInfo()
-    userInfo.value = data
+    const res = await getCurrentUser()
+
+    // --- 数据映射和处理 ---
+    userInfo.value = {
+      // 核心信息
+      uid: res.user_id, // 映射 user_id 到 uid
+      nickname: res.nickname,
+      avatar: res.avatar,
+      bio: res.bio,
+      email: res.email,
+      joinDate: formatDate(res.created_at), // 映射 created_at 到 joinDate 并格式化
+
+      // 统计数据可以直接使用
+      stats: res.stats || {
+        created_capsules: 0,
+        unlocked_capsules: 0,
+        collected_capsules: 0,
+        friends_count: 0,
+      },
+
+      // 模拟徽章字段，实际逻辑需要根据你的业务需求和API响应调整
+      isAdmin: false,
+      isPro: true,
+    }
+    // 移除不匹配的字段映射: roles, phone, location
   } catch (error) {
     console.error('获取用户信息失败', error)
   } finally {
     loading.value = false
   }
-})
+}
 
-// #region 侧边栏和顶部处理
+// --- 生命周期 ---
+onMounted(fetchUserInfo)
+
+// #region 侧边栏和顶部处理 (保持不变)
 // --- 事件处理 ---
 const handleGoHub = () => {
   router.push('/hubviews')
@@ -178,7 +222,7 @@ const handleGoHub = () => {
 const handleHeaderAction = (key) => {
   if (key === 'edit') {
     console.log('点击编辑资料')
-      // 这里可以弹窗或跳转到编辑页
+    // 这里可以弹窗或跳转到编辑页
     //TODO: 实现编辑资料功能
   } else if (key === 'logout') {
     handleLogout()
@@ -197,13 +241,7 @@ const handleNavChange = async (key) => {
     user: '/user',
   }
 
-  if (key === 'create') {
-    handleOpenCreateForm()
-    return
-  }
-
   if (key === 'logout') {
-    // 使用logout API实现注销
     await handleLogout()
     return
   }
@@ -222,47 +260,38 @@ const handleLogout = async () => {
   // 标记注销加载状态
   isLogoutLoading.value = true
 
-  try {
-    // 调用logout API通知后端清除会话
-    await logout()
-    console.log('注销API调用成功')
-  } catch (error) {
-    console.error('注销API调用失败:', error)
-    // 即使API调用失败，也要继续执行清理逻辑
-  } finally {
-    // 清理所有本地存储数据和 Pinia 状态
-    const keysToRemove = [
-      'user_token',
-      'user_info',
-      'access_token',
-      'refresh_token',
-      'saved_login_email',
-    ]
-    keysToRemove.forEach((key) => {
-      localStorage.removeItem(key)
-    })
-    localStorage.removeItem('user-store')
-    // 彻底清空 Pinia 用户状态
-    const userStore = useUserStore()
-    userStore.logout()
-    // 重置加载状态
-    isLogoutLoading.value = false
+  await logout()
 
-    // 立即跳转到登录页
-    router.replace({
-      path: '/login',
-      query: { from: 'logout' },
-    })
-  }
+  // 清理所有本地存储数据和 Pinia 状态
+  const keysToRemove = [
+    'user_token',
+    'user_info',
+    'access_token',
+    'refresh_token',
+    'saved_login_email',
+  ]
+  keysToRemove.forEach((key) => {
+    localStorage.removeItem(key)
+  })
+  localStorage.removeItem('user-store')
+
+  const userStore = useUserStore()
+  userStore.logout()
+
+  isLogoutLoading.value = false
+
+  // 立即跳转到登录页
+  router.replace({
+    path: '/login',
+    query: { from: 'logout' },
+  })
 }
 // #endregion
 // #endregion
 </script>
 
 <style scoped>
-/* 复用 MyCapsuleView 的基础变量 
-  注意：如果你的项目中没有全局定义 CSS 变量，请确保在这里定义或在 main.css 中定义
-*/
+/* 样式保持不变 */
 .user-view-page {
   display: flex;
   flex-direction: column;
@@ -307,7 +336,11 @@ const handleLogout = async () => {
 /* 顶部封面图 */
 .profile-cover {
   height: 160px;
-  background: linear-gradient(135deg, #6c8cff 0%, #809eff 100%); /* 这里的颜色使用了你的主题色 */
+  background: linear-gradient(
+    135deg,
+    #6c8cff 0%,
+    #809eff 100%
+  ); /* 这里的颜色使用了你的主题色 */
   opacity: 0.9;
 }
 
@@ -329,7 +362,7 @@ const handleLogout = async () => {
   padding: 4px;
   background: white;
   border-radius: 50%;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
 .avatar {

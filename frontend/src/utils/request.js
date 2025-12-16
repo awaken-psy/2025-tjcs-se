@@ -27,9 +27,9 @@ request.interceptors.request.use(config => {
 
   // 详细记录请求信息
   console.group(`📡 [REQUEST DETAILS] ${config.method?.toUpperCase()} ${config.url}`)
-  console.log('📋 请求方法:', config.method?.toUpperCase())
-  console.log('🌐 请求URL:', config.url)
-  console.log('🔑 认证头:', config.headers.Authorization ? '已设置' : '未设置')
+  //console.log('📋 请求方法:', config.method?.toUpperCase())
+  //console.log('🌐 请求URL:', config.url)
+  //console.log('🔑 认证头:', config.headers.Authorization ? '已设置' : '未设置')
   
   // 记录请求参数
   if (config.method === 'get' && config.params) {
@@ -38,7 +38,7 @@ request.interceptors.request.use(config => {
     console.log('📦 请求体数据:', config.data)
   }
   
-  console.log('📄 请求头:', config.headers)
+  //console.log('📄 请求头:', config.headers)
   console.groupEnd()
 
   // 如果是 FormData，让浏览器自动设置 Content-Type
@@ -58,18 +58,18 @@ request.interceptors.response.use(response => {
   // 详细记录响应信息
   console.group(`✅ [RESPONSE DETAILS] ${response.config.method?.toUpperCase()} ${response.config.url}`)
   console.log('📊 响应状态码:', response.status)
-  console.log('📋 响应头:', response.headers)
-  console.log('📦 完整响应数据:', result)
+  //console.log('📋 响应头:', response.headers)
+  //console.log('📦 完整响应数据:', result)
   
   // 检查是否为统一响应格式
   if (result && typeof result === 'object' && 'code' in result) {
-    console.log('🔢 业务状态码:', result.code)
-    console.log('📝 业务消息:', result.message)
+    //console.log('🔢 业务状态码:', result.code)
+    //console.log('📝 业务消息:', result.message)
     
     // 业务成功
     if (result.code === 200) {
       console.log('🎯 返回数据部分:', result.data)
-      console.log('✅ 请求成功')
+      //console.log('✅ 请求成功')
       console.groupEnd()
       return result.data // 只返回数据部分
     } else {

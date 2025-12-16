@@ -1,5 +1,4 @@
 <template>
-  胶囊卡片：展示胶囊基础信息，支持网格/列表两种视图
   <div 
     class="capsule-card"
     :class="{ 'list-mode': viewMode === 'list' }"

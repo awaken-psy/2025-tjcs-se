@@ -150,6 +150,7 @@ PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
 
 # 配置静态文件服务，用于访问用户上传的图片、视频等文件
 UPLOAD_DIR = os.getenv('UPLOAD_DIR', os.path.join(PROJECT_ROOT, 'uploads'))
+
 if os.path.exists(UPLOAD_DIR):
     # 挂载上传目录作为静态文件服务，通过 /uploads/filename 访问
     app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")

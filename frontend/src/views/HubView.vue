@@ -8,7 +8,6 @@
       :show-search="true"
       search-placeholder="搜索地点/标签/用户，例如：图书馆、毕业季..."
       :actions="[
-        { key: 'create', text: '快速创建', icon: '✚', type: 'primary' },
         { 
           key: 'notif', 
           text: '通知', 
@@ -566,6 +565,7 @@ const handleNavChange = async (key) => {
     map: '/map',
     myCapsule: '/my-capsule',
     events: '/events',
+    user: '/user',
     logout: '/login'
   }
   
