@@ -68,7 +68,8 @@
         :map-height="'1200px'"
         :is-loading-data="isLoading"
         @location-updated="handleLocationUpdate"
-        @marker-clicked="handleCapsuleClick" />
+        @marker-clicked="handleCapsuleClick"
+        @view-capsule="handleViewCapsule" />
 
       <div v-if="isLoading" class="loading-overlay">
         {{ loadingMessage }}

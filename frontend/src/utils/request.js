@@ -8,7 +8,7 @@ import router from '@/router/index' // 引入 router 实例
 const request = axios.create({
   baseURL: '/api', // 统一前缀，所有API都走/api
   //baseURL:'http://127.0.0.1:4523/m1/7397469-7130026-default', // 注释掉外部 mock 服务器
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
   }

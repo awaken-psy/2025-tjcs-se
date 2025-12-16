@@ -142,8 +142,14 @@ app.include_router(event_router, prefix="/api")
 # -----------------------------------------------------------
 # 6. 静态文件服务配置 (第一组配置)
 # -----------------------------------------------------------
+
+# 获取当前文件 (main.py) 所在的目录路径 (即 backend/app/)
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+# 获取项目根目录 (backend/)
+PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
+
 # 配置静态文件服务，用于访问用户上传的图片、视频等文件
-UPLOAD_DIR = os.getenv('UPLOAD_DIR', './uploads') # 从环境变量获取上传目录，默认为 ./uploads
+UPLOAD_DIR = os.getenv('UPLOAD_DIR', os.path.join(PROJECT_ROOT, 'uploads'))
 if os.path.exists(UPLOAD_DIR):
     # 挂载上传目录作为静态文件服务，通过 /uploads/filename 访问
     app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")

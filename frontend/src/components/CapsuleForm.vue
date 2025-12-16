@@ -1048,6 +1048,7 @@ const useAutoLocation = () => {
   }
 }
 
+
 /**
  * 使用高德地图 API 将经纬度转换为详细地址
  * @param {number} lat - 纬度
@@ -1056,28 +1057,34 @@ const useAutoLocation = () => {
  */
 const getAddressFromCoords = (lat, lng) => {
   return new Promise((resolve, reject) => {
-    // 检查全局 AMap 对象是否存在
     if (typeof AMap === 'undefined') {
-      return reject(new Error('高德地图 AMap 对象未初始化'))
+      return reject(new Error('高德地图 AMap 对象未初始化，请检查 HTML 引入'))
     }
 
-    // 1. 创建 Geocoder 实例
-    // @ts-ignore
-    const geocoder = new AMap.Geocoder({
-      radius: 1000, // 范围 1000 米
-      extensions: 'all', // 返回详细信息
-    })
+    // 核心修改：使用 AMap.plugin 确保 Geocoder 插件已加载
+    AMap.plugin(['AMap.Geocoder'], () => {
+      try {
+        // 1. 在插件加载成功回调中创建 Geocoder 实例
+        // @ts-ignore
+        const geocoder = new AMap.Geocoder({
+          radius: 1000,
+          extensions: 'all',
+        })
 
-    // 2. 调用逆地理编码服务
-    geocoder.getAddress([lng, lat], (status, result) => {
-      if (status === 'complete' && result.regeocode) {
-        // 成功获取地址
-        const address = result.regeocode.formattedAddress
-        resolve(address)
-      } else {
-        // 失败处理
-        console.error('逆地理编码失败:', result)
-        reject(new Error('未能解析到详细地址'))
+        // 2. 调用逆地理编码服务
+        geocoder.getAddress([lng, lat], (status, result) => {
+          if (status === 'complete' && result.regeocode) {
+            // 成功获取地址
+            const address = result.regeocode.formattedAddress
+            resolve(address)
+          } else {
+            // 失败处理
+            console.error('逆地理编码失败:', result)
+            reject(new Error('未能解析到详细地址: ' + (result?.info || '未知原因')))
+          }
+        })
+      } catch (error) {
+        reject(new Error('创建 AMap.Geocoder 实例失败: ' + error.message))
       }
     })
   })

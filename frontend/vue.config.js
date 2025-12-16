@@ -13,6 +13,14 @@ module.exports = defineConfig({
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
         pathRewrite: { '^/api': '/api' },
+        proxyTimeout: 20000,
+        timeout: 20000,
+      },
+      // 2. 新增的静态文件转发规则
+      '/uploads': {
+        target: 'http://127.0.0.1:8000', // 转发到后端 Docker 端口
+        changeOrigin: true,
+        // 注意：/uploads 不像 /api 需要特别长的超时，但设置长一些也无妨
       },
     },
     // 添加客户端错误显示配置
