@@ -234,10 +234,7 @@ const initMap = () => {
     // 延迟执行确保地图容器 DOM 元素已经获得了最终的像素高度
     setTimeout(() => {
         if (map) {
-            // AMap 实例提供了 resize 方法来修复初始化时的尺寸问题
-            map.resize() // 自动调整视图以包含所有覆盖物（或默认视图）
-            // 或者使用 map.resize()
-            // map.resize();
+            map.setFitView();
             console.log("AMap: 强制重绘/适配视图完成，地图应已显示。");
         }
     }, 100) // 给予 100ms 足够的时间让浏览器计算布局

@@ -656,7 +656,7 @@ watch(
       // 重置表单状态
       if (!props.isEdit) {
         resetForm()
-        loadDraft(); 
+        loadDraft()
       }
       // 重置定位相关状态
       locationPermission.value = ''
@@ -770,7 +770,7 @@ watch(
 // #endregion
 
 // #region 草稿相关
-const DRAFT_KEY = 'capsule_form_draft';
+const DRAFT_KEY = 'capsule_form_draft'
 
 // 保存草稿到 localStorage
 const saveDraft = () => {
@@ -779,37 +779,41 @@ const saveDraft = () => {
     unlockConditions: { ...unlockConditions },
     selectedTags: [...selectedTags.value],
     // 注意：文件对象(File)无法直接存入 localStorage，通常只存元数据
-    mediaFiles: mediaFiles.value.map(f => ({ id: f.id, type: f.type, url: f.url })),
-    timestamp: Date.now()
-  };
-  
-  localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData));
-  showAlertMessage('草稿已保存到本地', 'success');
-};
+    mediaFiles: mediaFiles.value.map((f) => ({
+      id: f.id,
+      type: f.type,
+      url: f.url,
+    })),
+    timestamp: Date.now(),
+  }
+
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData))
+  showAlertMessage('草稿已保存到本地', 'success')
+}
 
 // 加载草稿
 const loadDraft = () => {
-  const saved = localStorage.getItem(DRAFT_KEY);
-  if (!saved) return;
+  const saved = localStorage.getItem(DRAFT_KEY)
+  if (!saved) return
 
   try {
-    const draft = JSON.parse(saved);
+    const draft = JSON.parse(saved)
     // 将数据恢复到响应式对象中
-    Object.assign(formData, draft.formData);
-    Object.assign(unlockConditions, draft.unlockConditions);
-    selectedTags.value = draft.selectedTags || [];
-    mediaFiles.value = draft.mediaFiles || [];
-    
-    showAlertMessage('已自动恢复上次填写的草稿内容', 'success');
+    Object.assign(formData, draft.formData)
+    Object.assign(unlockConditions, draft.unlockConditions)
+    selectedTags.value = draft.selectedTags || []
+    mediaFiles.value = draft.mediaFiles || []
+
+    showAlertMessage('已自动恢复上次填写的草稿内容', 'success')
   } catch (e) {
-    console.error('加载草稿失败', e);
+    console.error('加载草稿失败', e)
   }
-};
+}
 
 // 清除草稿 (在提交成功后调用)
 const clearDraft = () => {
-  localStorage.removeItem(DRAFT_KEY);
-};
+  localStorage.removeItem(DRAFT_KEY)
+}
 
 // #endregion
 
@@ -979,7 +983,7 @@ const handleSubmit = async () => {
       // 调用创建 API
       result = await createCapsule(submitData)
       successMessage = '胶囊创建成功！'
-      clearDraft(); // 👈 提交成功后清除草稿
+      clearDraft() // 👈 提交成功后清除草稿
       // 性能优化：移除多余的控制台输出
     }
 
@@ -1252,26 +1256,11 @@ const handleFileUpload = async (event) => {
 
   uploadErrorStatus.value = false
 
-  // 1. 【调试日志】立即检查原始文件
-  console.log('--- 原始文件详情 ---')
-  Array.from(files).forEach((f) => {
-    console.log(
-      `文件名: ${f.name}, 大小: ${(f.size / 1024 / 1024).toFixed(
-        2
-      )}MB, 类型: "${f.type}"`
-    )
-  })
-
-  // 2. 【修复过滤逻辑】如果 type 为空，根据后缀名兜底，或者直接允许上传
   const filesToUpload = Array.from(files).filter((file) => {
     const isImage = file.type.startsWith('image/')
     const isVideo = file.type.startsWith('video/')
-    const hasType = isImage || isVideo
-    if (!hasType) {
-      console.warn(`⚠️ 文件 ${file.name} 类型识别失败，尝试强制放行`)
-      return file.size > 0 // 只要有大小就允许尝试上传
-    }
-    return true
+    const isAudio = file.type.startsWith('audio/') 
+    return isImage || isVideo || isAudio
   })
 
   if (filesToUpload.length === 0) {
@@ -1299,15 +1288,20 @@ const handleFileUpload = async (event) => {
       console.log(`📤 正在调用 API 上传: ${file.name}`)
 
       try {
-        // 这里务必确保你的 uploadFile 已经改成了带斜杠的路径 '/upload/'
         const uploadResult = await uploadFile(file)
 
-        console.log(`✅ ${file.name} 上传成功:`, uploadResult)
+        let finalType = 'image'
+        if (file.type.startsWith('video/')) {
+          finalType = 'video'
+        } 
+        else if (file.type.startsWith('audio/')) {
+          finalType = 'audio'
+        }
 
         mediaFiles.value.push({
           id: uploadResult.file_id || uploadResult.id,
           url: uploadResult.url || uploadResult, // 兼容不同的返回格式
-          type: file.type.startsWith('video') ? 'video' : 'image',
+          type: finalType,
           name: file.name,
           tempUrl: localPreviewUrl,
         })
