@@ -33,71 +33,109 @@
           <i :class="getUnlockIcon(detailData.unlock_conditions_type)" />
           解锁条件：
           {{ getUnlockText(detailData) }}
-          <span v-if="detailData.unlock_conditions_is_unlocked" class="unlocked-status"> (已解锁) </span>
+          <span
+            v-if="detailData.unlock_conditions_is_unlocked"
+            class="unlocked-status">
+            (已解锁)
+          </span>
           <span v-else class="locked-status"> (待解锁) </span>
         </div>
 
         <hr class="divider" />
 
-        <div 
-          v-if="detailData.media_files && detailData.media_files.length > 0" 
+        <div
+          v-if="detailData.media_files && detailData.media_files.length > 0"
           class="detail-media-preview"
-          @click="activeMediaIndex = 0"
-        >
+          @click="activeMediaIndex = 0">
           <img
-            :src="detailData.media_files[0].type === 'image' ? detailData.media_files[0].url : '/default-media-cover.png'"
+            :src="
+              detailData.media_files[0].thumbnail ||
+              (detailData.media_files[0].type === 'image'
+                ? detailData.media_files[0].url
+                : '')
+            "
             :alt="detailData.title"
-            class="detail-img-preview"
-          />
+            class="detail-img-preview" />
+
+          <div
+            v-if="detailData.media_files[0].type !== 'image'"
+            class="media-type-badge">
+            <i
+              :class="
+                detailData.media_files[0].type === 'video'
+                  ? 'fas fa-play-circle'
+                  : 'fas fa-volume-up'
+              "></i>
+          </div>
+
           <div v-if="detailData.media_files.length > 1" class="media-count">
             <i class="fas fa-images" /> +{{ detailData.media_files.length - 1 }}
           </div>
-          <div class="media-tip">
-            <i class="fas fa-expand"></i> 点击查看多媒体详情 (共{{ detailData.media_files.length }}个)
-          </div>
+          <div class="media-tip">点击查看详情</div>
         </div>
 
         <Transition name="fade">
           <div v-if="activeMediaIndex !== null" class="internal-media-viewer">
             <div class="viewer-overlay" @click="activeMediaIndex = null"></div>
-            
-            <div class="viewer-content">
-              <button class="viewer-close" @click="activeMediaIndex = null">✕</button>
 
-              <button v-if="activeMediaIndex > 0" class="nav-btn prev" @click.stop="activeMediaIndex--">◀</button>
-              <button v-if="activeMediaIndex < detailData.media_files.length - 1" class="nav-btn next" @click.stop="activeMediaIndex++">▶</button>
+            <div class="viewer-content">
+              <button class="viewer-close" @click="activeMediaIndex = null">
+                ✕
+              </button>
+
+              <button
+                v-if="activeMediaIndex > 0"
+                class="nav-btn prev"
+                @click.stop="activeMediaIndex--">
+                ◀
+              </button>
+              <button
+                v-if="activeMediaIndex < detailData.media_files.length - 1"
+                class="nav-btn next"
+                @click.stop="activeMediaIndex++">
+                ▶
+              </button>
 
               <div class="media-container">
-                <img v-if="currentMedia.type === 'image'" :src="currentMedia.url" class="full-media" />
+                <img
+                  v-if="currentMedia.type === 'image'"
+                  :src="currentMedia.url"
+                  class="full-media" />
 
-                <video 
-                  v-else-if="currentMedia.type === 'video'" 
-                  :src="currentMedia.url" 
-                  controls 
-                  autoplay 
-                  class="full-media"
-                ></video>
+                <video
+                  v-else-if="currentMedia.type === 'video'"
+                  :src="currentMedia.url"
+                  :poster="currentMedia.thumbnail"
+                  controls
+                  autoplay
+                  class="full-media"></video>
 
-                <div v-else-if="currentMedia.type === 'audio'" class="audio-player-wrapper">
-                  <div class="audio-visual-box" :class="{ rotating: isPlaying }">
-                    <i class="fas fa-music"></i>
+                <div
+                  v-else-if="currentMedia.type === 'audio'"
+                  class="audio-player-container">
+                  <div class="audio-card">
+                    <div
+                      class="audio-visualizer"
+                      :class="{ 'is-playing': isPlaying }">
+                      <div
+                        class="disc"
+                        :style="
+                          currentMedia.thumbnail
+                            ? `background-image: url(${currentMedia.thumbnail}); background-size: cover;`
+                            : ''
+                        ">
+                        <i
+                          v-if="!currentMedia.thumbnail"
+                          class="fas fa-music"></i>
+                      </div>
+                    </div>
+                    ...
+                    <audio
+                      :src="currentMedia.url"
+                      controls
+                      @play="isPlaying = true"
+                      @pause="isPlaying = false"></audio>
                   </div>
-                  <div class="audio-info">
-                    <p class="audio-name">{{ currentMedia.name || '音频文件' }}</p>
-                  </div>
-                  <audio 
-                    :src="currentMedia.url" 
-                    controls 
-                    autoplay
-                    @play="isPlaying = true"
-                    @pause="isPlaying = false"
-                  ></audio>
-                </div>
-
-                <div v-else class="unknown-media">
-                  <i class="fas fa-file-download"></i>
-                  <p>该格式暂不支持预览</p>
-                  <a :href="currentMedia.url" target="_blank" class="download-link">点击下载查看</a>
                 </div>
               </div>
 
@@ -110,11 +148,18 @@
 
         <div class="detail-content-section">
           <label class="section-label">内容描述：</label>
-          <div class="detail-content">{{ detailData.content || '暂无描述' }}</div>
+          <div class="detail-content">
+            {{ detailData.content || '暂无描述' }}
+          </div>
         </div>
 
-        <div v-if="detailData.tags && detailData.tags.length > 0" class="detail-tags">
-          <span v-for="(tag, idx) in detailData.tags" :key="idx" class="tag-item">
+        <div
+          v-if="detailData.tags && detailData.tags.length > 0"
+          class="detail-tags">
+          <span
+            v-for="(tag, idx) in detailData.tags"
+            :key="idx"
+            class="tag-item">
             # {{ tag }}
           </span>
         </div>
@@ -129,7 +174,8 @@
             <i class="fas fa-heart" /> {{ detailData.like_count || 0 }} 点赞
           </span>
           <span class="stat-item">
-            <i class="fas fa-comment-dots" /> {{ detailData.comment_count || 0 }} 评论
+            <i class="fas fa-comment-dots" />
+            {{ detailData.comment_count || 0 }} 评论
           </span>
           <span class="stat-item">
             <i class="fas fa-unlock" /> {{ detailData.unlock_count || 0 }} 解锁
@@ -139,7 +185,10 @@
 
       <div class="modal-actions">
         <button class="btn ghost" @click="handleClose">关闭</button>
-        <button v-if="detailData.is_mine" class="btn primary" @click="$emit('edit', detailData.id)">
+        <button
+          v-if="detailData.is_mine"
+          class="btn primary"
+          @click="$emit('edit', detailData.id)">
           编辑内容
         </button>
       </div>
@@ -148,10 +197,9 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits, ref, computed,watch} from 'vue';
+import { defineProps, defineEmits, ref, computed, watch } from 'vue'
 
 // #region 辅助函数
-
 
 /** 格式化 ISO 时间字符串为本地标准时间 */
 const formatStandard = (isoStr) =>
@@ -234,7 +282,6 @@ const getUnlockText = (detailData) => {
 }
 // #endregion
 
-
 // #region props & emits
 /**
  * 属性定义
@@ -292,7 +339,7 @@ const emit = defineEmits(['close', 'edit', 'share'])
 
 // --- 事件处理函数 ---
 const handleClose = () => {
-  activeMediaIndex.value = null; // 关闭大弹窗时重置媒体索引
+  activeMediaIndex.value = null // 关闭大弹窗时重置媒体索引
   emit('close')
 }
 
@@ -305,22 +352,21 @@ const handleShare = (data) => {
 }
 // #endregion
 
-const activeMediaIndex = ref(null);
+const activeMediaIndex = ref(null)
 
 const currentMedia = computed(() => {
-  if (activeMediaIndex.value === null) return null;
-  return props.detailData.media_files[activeMediaIndex.value];
-});
+  if (activeMediaIndex.value === null) return null
+  return props.detailData.media_files[activeMediaIndex.value]
+})
 
 // 在 script setup 中增加
-const isPlaying = ref(false);
-const audioPlayer = ref(null);
+const isPlaying = ref(false)
+const audioPlayer = ref(null)
 
 // 当切换媒体时，重置播放状态
 watch(activeMediaIndex, () => {
-  isPlaying.value = false;
-});
-
+  isPlaying.value = false
+})
 </script>
 
 <style scoped>
@@ -597,7 +643,7 @@ watch(activeMediaIndex, () => {
   max-width: 100%;
   max-height: 70vh;
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 .audio-wrapper {
@@ -611,15 +657,19 @@ watch(activeMediaIndex, () => {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
   color: white;
   border: none;
   padding: 15px;
   cursor: pointer;
   border-radius: 50%;
 }
-.nav-btn.prev { left: -20px; }
-.nav-btn.next { right: -20px; }
+.nav-btn.prev {
+  left: -20px;
+}
+.nav-btn.next {
+  right: -20px;
+}
 
 .viewer-close {
   position: absolute;
@@ -652,7 +702,7 @@ watch(activeMediaIndex, () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
 
 .audio-visualizer {
@@ -679,8 +729,12 @@ watch(activeMediaIndex, () => {
 }
 
 @keyframes rotateDisc {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .audio-info {
@@ -706,5 +760,38 @@ watch(activeMediaIndex, () => {
   height: 40px;
   border-radius: 8px;
 }
+/* 预览图上的类型标识 */
+.media-type-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.4);
+  color: white;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  pointer-events: none; /* 不干扰点击 */
+}
 
+/* 音频光盘封面样式优化 */
+.audio-visualizer .disc {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 4px solid #333;
+  overflow: hidden; /* 确保缩略图不溢出圆圈 */
+}
+
+/* 播放时的旋转动画 */
+.is-playing .disc {
+  animation: rotateDisc 5s linear infinite;
+}
 </style>

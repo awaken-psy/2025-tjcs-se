@@ -323,14 +323,20 @@
                 class="uploaded-file-item">
                 <div class="file-preview-wrapper">
                   <img
-                    v-if="file.type === 'image'"
-                    :src="file.local_url || file.thumbnail || file.url"
+                    v-if="file.thumbnail || file.type === 'image'"
+                    :src="file.thumbnail || file.local_url || file.url"
                     alt="预览图"
-                    class="file-preview-img" />
+                    class="file-preview-img"
+                    @error="(e) => (e.target.style.display = 'none')" />
                   <div
                     v-else-if="file.type === 'audio'"
                     class="file-preview-audio">
                     <i class="fas fa-file-audio audio-icon" />
+                  </div>
+                  <div
+                    v-else-if="file.type === 'video'"
+                    class="file-preview-video">
+                    <i class="fas fa-file-video video-icon" />
                   </div>
                 </div>
 
@@ -1259,7 +1265,7 @@ const handleFileUpload = async (event) => {
   const filesToUpload = Array.from(files).filter((file) => {
     const isImage = file.type.startsWith('image/')
     const isVideo = file.type.startsWith('video/')
-    const isAudio = file.type.startsWith('audio/') 
+    const isAudio = file.type.startsWith('audio/')
     return isImage || isVideo || isAudio
   })
 
@@ -1293,14 +1299,14 @@ const handleFileUpload = async (event) => {
         let finalType = 'image'
         if (file.type.startsWith('video/')) {
           finalType = 'video'
-        } 
-        else if (file.type.startsWith('audio/')) {
+        } else if (file.type.startsWith('audio/')) {
           finalType = 'audio'
         }
 
         mediaFiles.value.push({
           id: uploadResult.file_id || uploadResult.id,
           url: uploadResult.url || uploadResult, // 兼容不同的返回格式
+          thumbnail: uploadResult.thumbnail || uploadResult.thumbnail_url,
           type: finalType,
           name: file.name,
           tempUrl: localPreviewUrl,
