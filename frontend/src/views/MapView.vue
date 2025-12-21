@@ -200,7 +200,7 @@
 
   <CapsuleForm
     :is-show="showFormModal"
-    :is-edit="isEditMode"
+    :is-edit="false"
     :edit-data="currentEditData"
     @close="handleCloseForm"
     @submit="onCapsuleCreated" />
@@ -365,33 +365,43 @@ const handleLocationUpdate = (coords) => {
 const fetchCapsules = async () => {
   isLoading.value = true
   loadingMessage.value = '正在根据条件过滤胶囊...'
-  
+
   try {
     const res = await getNearbyCapsules({
       lat: userLocation.value.latitude,
       lng: userLocation.value.longitude,
       range: 500000,
       page: 1,
-      size: 300 
+      size: 300,
     })
 
     let rawList = res?.capsules || []
 
     // 执行多维度前端过滤
-    const filteredList = rawList.filter(capsule => {
+    const filteredList = rawList.filter((capsule) => {
       // 1. 关键词过滤 (标题或标签数组)
       if (filters.value.keyword) {
         const kw = filters.value.keyword.toLowerCase()
         const titleMatch = capsule.title?.toLowerCase().includes(kw)
-        const tagMatch = capsule.tags?.some(tag => tag.toLowerCase().includes(kw))
+        const tagMatch = capsule.tags?.some((tag) =>
+          tag.toLowerCase().includes(kw)
+        )
         if (!titleMatch && !tagMatch) return false
       }
 
       // 2. 时间范围过滤 (创建日期)
       if (filters.value.startTime || filters.value.endTime) {
-        const capsuleDate = new Date(capsule.created_at).setHours(0,0,0,0)
-        if (filters.value.startTime && capsuleDate < new Date(filters.value.startTime).getTime()) return false
-        if (filters.value.endTime && capsuleDate > new Date(filters.value.endTime).getTime()) return false
+        const capsuleDate = new Date(capsule.created_at).setHours(0, 0, 0, 0)
+        if (
+          filters.value.startTime &&
+          capsuleDate < new Date(filters.value.startTime).getTime()
+        )
+          return false
+        if (
+          filters.value.endTime &&
+          capsuleDate > new Date(filters.value.endTime).getTime()
+        )
+          return false
       }
 
       // 3. 可见性匹配 (public, friend, private)
@@ -401,7 +411,8 @@ const fetchCapsules = async () => {
 
       // 4. 解锁方式匹配 (通过 unlock_conditions.type)
       if (filters.value.unlockType !== 'all') {
-        const currentUnlockType = capsule.unlock_conditions?.type || capsule.unlock_conditions_type
+        const currentUnlockType =
+          capsule.unlock_conditions?.type || capsule.unlock_conditions_type
         if (currentUnlockType !== filters.value.unlockType) return false
       }
 
@@ -409,13 +420,14 @@ const fetchCapsules = async () => {
     })
 
     // 格式化数据并映射坐标
-    capsules.value = filteredList.map(c => ({
-      ...c,
-      lng: c.longitude || c.location?.longitude,
-      lat: c.latitude || c.location?.latitude,
-      is_unlocked: c.is_unlocked ?? false
-    })).filter(c => c.lng && c.lat && !isNaN(c.lng))
-
+    capsules.value = filteredList
+      .map((c) => ({
+        ...c,
+        lng: c.longitude || c.location?.longitude,
+        lat: c.latitude || c.location?.latitude,
+        is_unlocked: c.is_unlocked ?? false,
+      }))
+      .filter((c) => c.lng && c.lat && !isNaN(c.lng))
   } catch (error) {
     console.error('筛选请求失败:', error)
   } finally {
@@ -434,10 +446,6 @@ const handleCapsuleClick = (capsuleId) => {
   handleViewCapsule(capsuleId)
 }
 
-/**
- * 委托给 handleViewCapsule，获取详情并展示 (从 MyCapsuleView.vue 复制并调整)
- * @param {string} capsuleId
- */
 const handleViewCapsule = async (capsuleId) => {
   const loadingKey = `view_${capsuleId}`
   isProcessing.value[loadingKey] = true
@@ -641,6 +649,10 @@ const handleConfirmUnlock = () => {
   startUnlockProcess(capsule.id, unlockPasswordInput.value)
 }
 
+const onCapsuleCreated = async (result) => {
+  alert('胶囊创建成功！')
+  handleCloseForm()
+}
 // #endregion
 
 // #region 模态框/表单事件处理函数 (更新)
@@ -1295,7 +1307,4 @@ onMounted(() => {
   background: transparent;
   color: var(--muted);
 }
-
-
-
 </style>

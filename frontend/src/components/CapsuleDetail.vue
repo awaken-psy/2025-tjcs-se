@@ -8,8 +8,8 @@
         </h3>
         <button class="modal-close" @click="handleClose">✕</button>
       </div>
+
       <div class="modal-body">
-        
         <div class="detail-meta">
           <span v-if="detailData.created_at" class="meta-item">
             <i class="fas fa-clock" /> 投递时间：
@@ -21,8 +21,8 @@
           </span>
           <span class="meta-item">
             <i class="fas fa-map-marker-alt" /> 投递位置：
-            {{ detailData.address || '未知位置' }} 
-            </span>
+            {{ detailData.address || '未知位置' }}
+          </span>
           <span class="meta-item">
             <i :class="getStatusIcon(detailData.status)" /> 状态：
             {{ getStatusText(detailData.status) }}
@@ -33,158 +33,209 @@
           <i :class="getUnlockIcon(detailData.unlock_conditions_type)" />
           解锁条件：
           {{ getUnlockText(detailData) }}
-          <span v-if="detailData.unlock_conditions_is_unlocked" class="unlocked-status">
-            (已解锁)
-          </span>
-          <span v-else class="locked-status">
-            (待解锁)
-          </span>
+          <span v-if="detailData.unlock_conditions_is_unlocked" class="unlocked-status"> (已解锁) </span>
+          <span v-else class="locked-status"> (待解锁) </span>
         </div>
-        
-        <hr class="divider"/>
 
-        <div
-          v-if="
-            detailData.media_files && detailData.media_files.length > 0
-          "
-          class="detail-media-preview">
+        <hr class="divider" />
+
+        <div 
+          v-if="detailData.media_files && detailData.media_files.length > 0" 
+          class="detail-media-preview"
+          @click="activeMediaIndex = 0"
+        >
           <img
-            :src="detailData.media_files[0].url"
-            :alt="detailData.title + '媒体预览'"
+            :src="detailData.media_files[0].type === 'image' ? detailData.media_files[0].url : '/default-media-cover.png'"
+            :alt="detailData.title"
             class="detail-img-preview"
-            @click="handleOpenMediaViewer(detailData.media_files)" />
-          <div
-            v-if="detailData.media_files.length > 1"
-            class="media-count">
+          />
+          <div v-if="detailData.media_files.length > 1" class="media-count">
             <i class="fas fa-images" /> +{{ detailData.media_files.length - 1 }}
           </div>
-          <div class="media-tip">点击图片查看所有媒体文件</div>
+          <div class="media-tip">
+            <i class="fas fa-expand"></i> 点击查看多媒体详情 (共{{ detailData.media_files.length }}个)
+          </div>
         </div>
 
-        <div class="detail-content">
-          胶囊内容：
-          {{ detailData.content || '无内容描述' }}
+        <Transition name="fade">
+          <div v-if="activeMediaIndex !== null" class="internal-media-viewer">
+            <div class="viewer-overlay" @click="activeMediaIndex = null"></div>
+            
+            <div class="viewer-content">
+              <button class="viewer-close" @click="activeMediaIndex = null">✕</button>
+
+              <button v-if="activeMediaIndex > 0" class="nav-btn prev" @click.stop="activeMediaIndex--">◀</button>
+              <button v-if="activeMediaIndex < detailData.media_files.length - 1" class="nav-btn next" @click.stop="activeMediaIndex++">▶</button>
+
+              <div class="media-container">
+                <img v-if="currentMedia.type === 'image'" :src="currentMedia.url" class="full-media" />
+
+                <video 
+                  v-else-if="currentMedia.type === 'video'" 
+                  :src="currentMedia.url" 
+                  controls 
+                  autoplay 
+                  class="full-media"
+                ></video>
+
+                <div v-else-if="currentMedia.type === 'audio'" class="audio-player-wrapper">
+                  <div class="audio-visual-box" :class="{ rotating: isPlaying }">
+                    <i class="fas fa-music"></i>
+                  </div>
+                  <div class="audio-info">
+                    <p class="audio-name">{{ currentMedia.name || '音频文件' }}</p>
+                  </div>
+                  <audio 
+                    :src="currentMedia.url" 
+                    controls 
+                    autoplay
+                    @play="isPlaying = true"
+                    @pause="isPlaying = false"
+                  ></audio>
+                </div>
+
+                <div v-else class="unknown-media">
+                  <i class="fas fa-file-download"></i>
+                  <p>该格式暂不支持预览</p>
+                  <a :href="currentMedia.url" target="_blank" class="download-link">点击下载查看</a>
+                </div>
+              </div>
+
+              <div class="viewer-footer">
+                {{ activeMediaIndex + 1 }} / {{ detailData.media_files.length }}
+              </div>
+            </div>
+          </div>
+        </Transition>
+
+        <div class="detail-content-section">
+          <label class="section-label">内容描述：</label>
+          <div class="detail-content">{{ detailData.content || '暂无描述' }}</div>
         </div>
 
-        <div
-          v-if="detailData.tags && detailData.tags.length > 0"
-          class="detail-tags">
-          <span
-            v-for="(tag, idx) in detailData.tags"
-            :key="idx"
-            class="tag-item">
+        <div v-if="detailData.tags && detailData.tags.length > 0" class="detail-tags">
+          <span v-for="(tag, idx) in detailData.tags" :key="idx" class="tag-item">
             # {{ tag }}
           </span>
         </div>
 
-        <hr class="divider"/>
+        <hr class="divider" />
 
         <div class="detail-stats">
           <span class="stat-item">
-            <i class="fas fa-eye" />
-            {{ detailData.view_count || 0 }} 浏览
+            <i class="fas fa-eye" /> {{ detailData.view_count || 0 }} 浏览
+          </span>
+          <span class="stat-item" :class="{ active: detailData.is_liked }">
+            <i class="fas fa-heart" /> {{ detailData.like_count || 0 }} 点赞
           </span>
           <span class="stat-item">
-            <i
-              class="fas fa-heart"
-              :class="{ liked: detailData.is_liked }" />
-            {{ detailData.like_count || 0 }} 点赞
+            <i class="fas fa-comment-dots" /> {{ detailData.comment_count || 0 }} 评论
           </span>
           <span class="stat-item">
-            <i class="fas fa-comment-dots" />
-            {{ detailData.comment_count || 0 }} 评论
-          </span>
-          <span class="stat-item">
-            <i class="fas fa-unlock" />
-            {{ detailData.unlock_count || 0 }} 解锁
-          </span>
-          <span class="stat-item">
-            <i
-              class="fas fa-bookmark"
-              :class="{ collected: detailData.is_collected }" />
-            {{ detailData.is_collected ? '已收藏' : '未收藏' }}
+            <i class="fas fa-unlock" /> {{ detailData.unlock_count || 0 }} 解锁
           </span>
         </div>
       </div>
 
       <div class="modal-actions">
         <button class="btn ghost" @click="handleClose">关闭</button>
-        <!-- <button
-          class="btn primary"
-          v-if="detailData.is_mine"
-          @click="handleEdit(detailData.id)">
-          编辑胶囊
-        </button> -->
-        </div>
+        <button v-if="detailData.is_mine" class="btn primary" @click="$emit('edit', detailData.id)">
+          编辑内容
+        </button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { defineProps, defineEmits } from 'vue';
+import { defineProps, defineEmits, ref, computed,watch} from 'vue';
 
-// --- 辅助函数 ---
+// #region 辅助函数
+
 
 /** 格式化 ISO 时间字符串为本地标准时间 */
-const formatStandard = (isoStr) => isoStr ? new Date(isoStr).toLocaleString() : 'N/A';
+const formatStandard = (isoStr) =>
+  isoStr ? new Date(isoStr).toLocaleString() : 'N/A'
 
 /** 获取可见性文本 */
 const getVisText = (vis) => {
   switch (vis) {
-    case 'private': return '仅自己可见';
-    case 'friends': return '好友可见';
-    case 'public': return '校园公开';
-    default: return '未知可见性';
+    case 'private':
+      return '仅自己可见'
+    case 'friends':
+      return '好友可见'
+    case 'public':
+      return '所有人可见'
   }
-};
+}
 
 /** 获取胶囊状态文本 */
 const getStatusText = (status) => {
   switch (status) {
-    case 'draft': return '草稿';
-    case 'published': return '已发布';
-    case 'all': return '全部'; // 通常不会在详情页显示'all'
-    default: return '未知状态';
+    case 'draft':
+      return '草稿'
+    case 'published':
+      return '已发布'
+    case 'all':
+      return '全部' // 通常不会在详情页显示'all'
+    default:
+      return '未知状态'
   }
-};
+}
 
 /** 获取胶囊状态图标 */
 const getStatusIcon = (status) => {
   switch (status) {
-    case 'draft': return 'fas fa-pencil-alt';
-    case 'published': return 'fas fa-check-circle';
-    default: return 'fas fa-question-circle';
+    case 'draft':
+      return 'fas fa-pencil-alt'
+    case 'published':
+      return 'fas fa-check-circle'
+    default:
+      return 'fas fa-question-circle'
   }
-};
+}
 
 /** 获取解锁条件图标 */
 const getUnlockIcon = (type) => {
   switch (type) {
-    case 'time': return 'fas fa-hourglass-half';
-    case 'location': return 'fas fa-map-pin';
-    case 'password': return 'fas fa-key';
-    default: return 'fas fa-lock-open';
+    case 'time':
+      return 'fas fa-hourglass-half'
+    case 'location':
+      return 'fas fa-map-pin'
+    case 'password':
+      return 'fas fa-key'
+    default:
+      return 'fas fa-lock-open'
   }
-};
+}
 
 /** 获取解锁条件描述文本 */
 const getUnlockText = (detailData) => {
-  if (!detailData.unlock_conditions_type || detailData.unlock_conditions_type === 'none') return '无限制';
+  if (
+    !detailData.unlock_conditions_type ||
+    detailData.unlock_conditions_type === 'none'
+  )
+    return '无限制'
 
   switch (detailData.unlock_conditions_type) {
     case 'time':
-      const unlockTime = detailData.unlock_conditions_unlockable_time ? formatStandard(detailData.unlock_conditions_unlockable_time) : '未知时间';
-      return `需在 ${unlockTime} 之后`;
+      const unlockTime = detailData.unlock_conditions_unlockable_time
+        ? formatStandard(detailData.unlock_conditions_unlockable_time)
+        : '未知时间'
+      return `需在 ${unlockTime} 之后`
     case 'location':
-      const radius = detailData.unlock_conditions_unlockable_radius || 50;
-      return `需到达投递位置 ${radius} 米范围内`;
+      const radius = detailData.unlock_conditions_unlockable_radius || 50
+      return `需到达投递位置 ${radius} 米范围内`
     case 'password':
-      return detailData.unlock_conditions_is_unlocked ? '密码已通过' : '需要输入密码';
+      return detailData.unlock_conditions_is_unlocked
+        ? '密码已通过'
+        : '需要输入密码'
   }
-};
+}
+// #endregion
 
-// --- Props & Emits 定义 ---
 
+// #region props & emits
 /**
  * 属性定义
  * @param {Boolean} showModal - 是否显示模态框
@@ -193,14 +244,14 @@ const getUnlockText = (detailData) => {
 const props = defineProps({
   showModal: {
     type: Boolean,
-    required: true
+    required: true,
   },
   detailData: {
     type: Object,
     required: true,
-    default: () => ({ 
+    default: () => ({
       id: null,
-      title: '', 
+      title: '',
       visibility: 'school',
       content: '',
       created_at: null,
@@ -211,7 +262,7 @@ const props = defineProps({
       longitude: null,
       address: '未知位置',
       // unlock_conditions
-      unlock_conditions_type: 'none', 
+      unlock_conditions_type: 'none',
       unlock_conditions_password: '',
       unlock_conditions_radius: 50,
       unlock_conditions_is_unlocked: false,
@@ -221,42 +272,54 @@ const props = defineProps({
       like_count: 0,
       comment_count: 0,
       unlock_count: 0,
-      is_liked: false, 
+      is_liked: false,
       is_collected: false,
       // media_files
       media_files: [],
       // other
       is_mine: false,
-    })
-  }
-});
+    }),
+  },
+})
 
 /**
  * 事件定义
  * @emit close - 关闭模态框
  * @emit edit - 编辑胶囊 (参数: id)
  * @emit share - 分享胶囊 (参数: 完整数据对象)
- * @emit openMedia - 打开媒体查看器 (参数: 媒体文件列表)
  */
-const emit = defineEmits(['close', 'edit', 'share', 'openMedia']);
+const emit = defineEmits(['close', 'edit', 'share'])
 
 // --- 事件处理函数 ---
-
 const handleClose = () => {
-  emit('close');
-};
+  activeMediaIndex.value = null; // 关闭大弹窗时重置媒体索引
+  emit('close')
+}
 
 const handleEdit = (id) => {
-  emit('edit', id);
-};
+  emit('edit', id)
+}
 
 const handleShare = (data) => {
-  emit('share', data);
-};
+  emit('share', data)
+}
+// #endregion
 
-const handleOpenMediaViewer = (mediaFiles) => {
-  emit('openMedia', mediaFiles);
-};
+const activeMediaIndex = ref(null);
+
+const currentMedia = computed(() => {
+  if (activeMediaIndex.value === null) return null;
+  return props.detailData.media_files[activeMediaIndex.value];
+});
+
+// 在 script setup 中增加
+const isPlaying = ref(false);
+const audioPlayer = ref(null);
+
+// 当切换媒体时，重置播放状态
+watch(activeMediaIndex, () => {
+  isPlaying.value = false;
+});
 
 </script>
 
@@ -338,10 +401,10 @@ const handleOpenMediaViewer = (mediaFiles) => {
 }
 
 .divider {
-    border: 0;
-    height: 1px;
-    background: #eee;
-    margin: 15px 0;
+  border: 0;
+  height: 1px;
+  background: #eee;
+  margin: 15px 0;
 }
 
 .detail-meta {
@@ -359,27 +422,27 @@ const handleOpenMediaViewer = (mediaFiles) => {
 }
 
 .detail-unlock-condition {
-    font-size: 15px;
-    color: #333;
-    display: flex;
-    align-items: center;
+  font-size: 15px;
+  color: #333;
+  display: flex;
+  align-items: center;
 }
 
 .detail-unlock-condition i {
-    margin-right: 5px;
-    color: #ff9800; /* 解锁条件用不同的颜色区分 */
+  margin-right: 5px;
+  color: #ff9800; /* 解锁条件用不同的颜色区分 */
 }
 
 .unlocked-status {
-    color: #4caf50; /* 绿色 */
-    margin-left: 10px;
-    font-weight: bold;
+  color: #4caf50; /* 绿色 */
+  margin-left: 10px;
+  font-weight: bold;
 }
 
 .locked-status {
-    color: #f44336; /* 红色 */
-    margin-left: 10px;
-    font-weight: bold;
+  color: #f44336; /* 红色 */
+  margin-left: 10px;
+  font-weight: bold;
 }
 
 .detail-media-preview {
@@ -493,4 +556,155 @@ const handleOpenMediaViewer = (mediaFiles) => {
 .btn.primary:hover {
   background: #5a7cff;
 }
+/* 内部媒体查看器样式 */
+.internal-media-viewer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1001; /* 高于 modal-body */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.viewer-overlay {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.viewer-content {
+  position: relative;
+  z-index: 2;
+  width: 90%;
+  max-height: 80%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.media-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.full-media {
+  max-width: 100%;
+  max-height: 70vh;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+.audio-wrapper {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: none;
+  padding: 15px;
+  cursor: pointer;
+  border-radius: 50%;
+}
+.nav-btn.prev { left: -20px; }
+.nav-btn.next { right: -20px; }
+
+.viewer-close {
+  position: absolute;
+  top: -40px;
+  right: 0;
+  color: white;
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.viewer-footer {
+  margin-top: 15px;
+  color: white;
+  font-size: 14px;
+}
+
+/* 音频特有容器 */
+.audio-player-container {
+  width: 100%;
+  max-width: 400px;
+  padding: 20px;
+}
+
+.audio-card {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 30px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.audio-visualizer {
+  width: 120px;
+  height: 120px;
+  background: #333;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 20px;
+  border: 8px solid #f0f0f0;
+  position: relative;
+}
+
+.audio-visualizer .disc {
+  color: #6c8cff;
+  font-size: 40px;
+}
+
+/* 播放时的旋转动画 */
+.is-playing .disc {
+  animation: rotateDisc 3s linear infinite;
+}
+
+@keyframes rotateDisc {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.audio-info {
+  text-align: center;
+  margin-bottom: 25px;
+}
+
+.audio-title {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.audio-subtitle {
+  margin: 5px 0 0;
+  font-size: 13px;
+  color: #999;
+}
+
+/* 让原生控制条宽度自适应 */
+.custom-audio-element {
+  width: 100%;
+  height: 40px;
+  border-radius: 8px;
+}
+
 </style>
