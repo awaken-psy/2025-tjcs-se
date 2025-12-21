@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, func
 from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime
 from app.utils.datetime_helper import beijing_now
@@ -428,3 +428,17 @@ class CapsuleRepository:
             self.db.commit()
             return True
         return False
+
+    def get_capsule_view_count(self, capsule_id: int) -> int:
+        """获取胶囊的总浏览次数（通过统计解锁记录的查看次数）"""
+        from app.database.orm.unlock_record import UnlockRecord
+
+        # 查询所有解锁记录的查看次数总和
+        result = self.db.query(func.sum(UnlockRecord.view_count)).filter(
+            UnlockRecord.capsule_id == capsule_id
+        ).first()
+
+        # 如果结果为None，返回0；否则返回总和
+        if result is None or result[0] is None:
+            return 0
+        return int(result[0])
