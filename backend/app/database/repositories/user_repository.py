@@ -255,6 +255,33 @@ class UserRepository:
         except Exception as e:
             self.db.rollback()
             return False
+
+    def update_user_password(self, user_id: int, password_hash: str) -> tuple[bool, str]:
+        """
+        更新用户密码
+
+        Args:
+            user_id: 用户ID
+            password_hash: 新密码哈希
+
+        Returns:
+            (success, message): 是否成功和相关信息
+        """
+        try:
+            user = self.db.query(User).filter(User.id == user_id).first()
+            if not user:
+                return False, "用户不存在"
+
+            user.password_hash = password_hash
+            # 自动更新 updated_at 字段
+            from sqlalchemy.sql import func
+            user.updated_at = func.now()
+
+            self.db.commit()
+            return True, "密码更新成功"
+        except Exception as e:
+            self.db.rollback()
+            return False, f"密码更新失败: {str(e)}"
         
     def delete_user(self, user_id: int) -> bool:
         """

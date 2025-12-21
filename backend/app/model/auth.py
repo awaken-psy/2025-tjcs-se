@@ -36,3 +36,13 @@ class UserRefreshTokenResponse(BaseModel):
     """用户刷新令牌请求响应"""
     token: str
     refresh_token: str
+
+class ForgotPasswordRequest(BaseModel):
+    """忘记密码请求模型"""
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    """重置密码请求模型"""
+    email: EmailStr
+    verify_code: str
+    new_password: str

@@ -150,10 +150,10 @@ class EmailVerifyCodeManager:
     
     def send_verify_code(self, email: str) -> tuple[bool, str]:
         """发送验证码到指定邮箱"""
-        
+
         key = self._get_redis_key(email)
         expire_seconds = self.expire_minutes * 60
-        
+
         if not self.redis_client:
             return False, "系统错误：Redis 客户端未连接"
 
@@ -166,7 +166,7 @@ class EmailVerifyCodeManager:
         import os
         is_dev_mode = os.getenv("APP_ENV", "development") == "development"
         code = "123456" if is_dev_mode else self._generate_code()
-        
+
         # 🔴 关键：保存验证码到 Redis (使用 SETEX 自动处理过期时间)
         try:
             # SETEX: 设置 Key, 设置有效期(秒), 设置值
@@ -204,6 +204,60 @@ class EmailVerifyCodeManager:
 
             # 立即返回成功
             return True, "验证码发送成功，请查收邮件"
+
+    def send_password_reset_code(self, email: str) -> tuple[bool, str]:
+        """发送密码重置验证码到指定邮箱"""
+
+        key = self._get_redis_key(email)
+        expire_seconds = self.expire_minutes * 60
+
+        if not self.redis_client:
+            return False, "系统错误：Redis 客户端未连接"
+
+        # 🔴 关键：检查冷却期（使用 Redis TTL）
+        if self.redis_client.ttl(key) > (expire_seconds - 1):
+            return False, "验证码发送过于频繁，请稍后再试"
+
+        # 开发模式：使用固定验证码123456，避免SMTP配置问题
+        import os
+        is_dev_mode = os.getenv("APP_ENV", "development") == "development"
+        code = "123456" if is_dev_mode else self._generate_code()
+
+        # 🔴 关键：保存验证码到 Redis (使用 SETEX 自动处理过期时间)
+        try:
+            self.redis_client.setex(
+                name=key,
+                value=code,
+                time=expire_seconds
+            )
+        except Exception as e:
+            logger.error(f"保存验证码到 Redis 失败: {e}")
+            return False, "系统错误，无法存储验证码"
+
+        if is_dev_mode:
+            # 开发模式：跳过邮件发送
+            logger.info(f"开发模式：跳过邮件发送，密码重置验证码已保存: {email} -> {code}")
+            return True, f"开发模式：密码重置验证码是 {code}（有效期 {self.expire_minutes} 分钟）"
+        else:
+            # 生产模式：异步发送邮件
+            subject = "时光胶囊·校园 - 密码重置验证码"
+            content = f"""
+亲爱的用户：
+
+您正在重置时光胶囊·校园的密码，验证码为：{code}
+
+验证码有效期为 {self.expire_minutes} 分钟，请尽快使用。
+
+如非本人操作，请忽略此邮件。
+
+时光胶囊·校园团队
+            """.strip()
+
+            # 异步发送邮件 (如果发送失败，_send_email_async 会清理 Key)
+            self._send_email_async(email, subject, content, email)
+
+            # 立即返回成功
+            return True, "密码重置验证码发送成功，请查收邮件"
 
 
     def verify_code(self, email: str, code: str) -> tuple[bool, str]:

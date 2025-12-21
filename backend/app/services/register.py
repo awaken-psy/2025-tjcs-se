@@ -217,3 +217,69 @@ class RegisterManager:
                 return True, "学号可用"
         except Exception as e:
             return False, f"检查学号可用性失败: {str(e)}"
+
+    def send_password_reset_code(self, email: str) -> Tuple[bool, str]:
+        """
+        发送密码重置验证码
+
+        Args:
+            email: 邮箱地址
+
+        Returns:
+            (success, message): 是否成功和相关信息
+        """
+        try:
+            # 1. 检查邮箱是否存在
+            existing_user = self.user_repository.get_user_by_email(email)
+            if not existing_user:
+                return False, "该邮箱尚未注册"
+
+            # 2. 调用验证码管理器发送重置验证码
+            success, message = verify_code_manager.send_password_reset_code(email)
+            return success, message
+
+        except Exception as e:
+            self.logger.error(f"发送密码重置验证码失败: {str(e)}")
+            return False, f"发送重置验证码失败: {str(e)}"
+
+    def reset_password(self, email: str, verify_code: str, new_password: str) -> Tuple[bool, str]:
+        """
+        重置密码
+
+        Args:
+            email: 邮箱地址
+            verify_code: 验证码
+            new_password: 新密码
+
+        Returns:
+            (success, message): 是否成功和相关信息
+        """
+        try:
+            # 1. 检查用户是否存在
+            existing_user = self.user_repository.get_user_by_email(email)
+            if not existing_user:
+                return False, "该邮箱尚未注册"
+
+            # 2. 验证验证码
+            verify_success, verify_message = verify_code_manager.verify_code(email, verify_code)
+            if not verify_success:
+                return False, verify_message
+
+            # 3. 对新密码进行哈希处理
+            hash_success, hashed_password = PasswordManager.hash_password(new_password)
+            if not hash_success:
+                return False, "密码处理失败，请重试"
+
+            # 4. 更新用户密码
+            update_success, update_message = self.user_repository.update_user_password(
+                existing_user.user_id, hashed_password
+            )
+
+            if update_success:
+                return True, "密码重置成功，请使用新密码登录"
+            else:
+                return False, f"密码重置失败: {update_message}"
+
+        except Exception as e:
+            self.logger.error(f"重置密码失败: {str(e)}")
+            return False, f"重置密码失败: {str(e)}"
