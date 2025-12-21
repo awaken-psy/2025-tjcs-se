@@ -2,11 +2,10 @@
   <AppHeader
     page-title="时光胶囊 · 地图"
     page-subtitle="探索校园内的胶囊，定位后可查看附近内容"
-    :show-search="true"
+    :show-search="false"
     search-placeholder="搜索地点/胶囊标题/标签..."
     :actions="[
       { key: 'create', text: '创建胶囊', icon: '✚', type: 'primary' },
-      { key: 'filter', text: '筛选', icon: '🔍', type: 'ghost' },
       { key: 'help', text: '帮助', icon: '❓', type: 'ghost' },
     ]"
     @go-hub="handleGoHub"
@@ -14,7 +13,7 @@
     @action-click="handleHeaderAction" />
 
   <div class="map-main">
-    <div class="map-sidebar">
+    <!-- <div class="map-sidebar">
       <div class="filter-card">
         <h3 class="filter-title">胶囊筛选</h3>
         <div class="filter-group">
@@ -57,6 +56,73 @@
           </p>
           <p class="stats-detail" v-if="capsules.length === 0">
             没有找到符合条件的胶囊，请调整筛选条件
+          </p>
+        </div>
+      </div>
+    </div> -->
+
+    <div class="map-sidebar">
+      <div class="filter-card">
+        <h3 class="filter-title">胶囊探索筛选</h3>
+
+        <div class="filter-group">
+          <label class="filter-label">🔍 关键词检索</label>
+          <input
+            type="text"
+            v-model="filters.keyword"
+            placeholder="输入地点、标题或标签..."
+            class="filter-input"
+            @keyup.enter="applyFilters" />
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">📅 创建时间范围</label>
+          <div class="date-range-inputs">
+            <input
+              type="date"
+              v-model="filters.startTime"
+              class="filter-input date-input" />
+            <span class="date-sep">至</span>
+            <input
+              type="date"
+              v-model="filters.endTime"
+              class="filter-input date-input" />
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">👁️ 可见范围</label>
+          <select v-model="filters.visibility" class="filter-input">
+            <option value="all">全部可见性</option>
+            <option value="public">公开 (所有人)</option>
+            <option value="friend">好友可见</option>
+            <option value="private">私密 (仅自己)</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">🔒 解锁要求</label>
+          <select v-model="filters.unlockType" class="filter-input">
+            <option value="all">全部解锁方式</option>
+            <option value="public">直接解锁 (无门槛)</option>
+            <option value="password">密码解锁</option>
+            <option value="private">仅限创建者解锁</option>
+          </select>
+        </div>
+
+        <div class="filter-actions">
+          <button class="btn primary apply-btn" @click="applyFilters">
+            应用筛选条件
+          </button>
+          <button class="btn ghost small reset-btn" @click="resetFilters">
+            清空重置
+          </button>
+        </div>
+
+        <div class="filter-stats" v-if="capsules.length >= 0">
+          <p class="stats-text">
+            地图显示:
+            <span class="stats-number">{{ capsules.length }}</span> 个胶囊
           </p>
         </div>
       </div>
@@ -249,7 +315,6 @@ const defaultCenter = [120.529881, 31.026362]
 const isLoading = ref(false)
 const loadingMessage = ref('')
 
-
 // --- 2. 胶囊数据状态 ---
 const capsules = ref([]) // 存储用于地图的胶囊列表 (用于 MapContainer:capsule-data)
 const userLocation = ref({
@@ -278,8 +343,11 @@ const currentDetailData = ref({}) // 详情数据（从 MyCapsuleView 复用）
 
 // --- 3.1 筛选状态 ---
 const filters = ref({
-  visibility: 'public',
-  time: 'all',
+  keyword: '', // 搜索标题/标签
+  startTime: '', // 开始时间
+  endTime: '', // 结束时间
+  visibility: 'all', // 可见性: all, public, friends, private
+  unlockType: 'all', // 解锁方式: all, any, password, mine_only
 })
 // #endregion
 
@@ -295,99 +363,63 @@ const handleLocationUpdate = (coords) => {
 
 // 核心方法：加载地图上的胶囊列表
 const fetchCapsules = async () => {
-  loadingMessage.value = '正在加载胶囊数据...'
   isLoading.value = true
+  loadingMessage.value = '正在根据条件过滤胶囊...'
+  
   try {
-    let res
+    const res = await getNearbyCapsules({
+      lat: userLocation.value.latitude,
+      lng: userLocation.value.longitude,
+      range: 500000,
+      page: 1,
+      size: 300 
+    })
 
-    //NOTE: 根据所有者不同调用不同的 API
-    if (filters.value.visibility === 'mine') {
-      // 获取我的胶囊
-      res = await getMyCapsules({
-        page: 1,
-        size: 100,
-        status: 'all',
-      })
-    } else {
-      // 获取附近胶囊（默认情况）
-      const requestParams = {
-        lat: userLocation.value.latitude || 31.026362,
-        lng: userLocation.value.longitude || 120.529881,
-        range: 500000, // 5公里范围
-        page: 1,
-        size: 100,
+    let rawList = res?.capsules || []
+
+    // 执行多维度前端过滤
+    const filteredList = rawList.filter(capsule => {
+      // 1. 关键词过滤 (标题或标签数组)
+      if (filters.value.keyword) {
+        const kw = filters.value.keyword.toLowerCase()
+        const titleMatch = capsule.title?.toLowerCase().includes(kw)
+        const tagMatch = capsule.tags?.some(tag => tag.toLowerCase().includes(kw))
+        if (!titleMatch && !tagMatch) return false
       }
-      res = await getNearbyCapsules(requestParams)
-    }
 
-    // 统一处理返回数据结构
-    let capsuleList = []
-    if (res && Array.isArray(res.capsules)) {
-      capsuleList = res.capsules
-    }
+      // 2. 时间范围过滤 (创建日期)
+      if (filters.value.startTime || filters.value.endTime) {
+        const capsuleDate = new Date(capsule.created_at).setHours(0,0,0,0)
+        if (filters.value.startTime && capsuleDate < new Date(filters.value.startTime).getTime()) return false
+        if (filters.value.endTime && capsuleDate > new Date(filters.value.endTime).getTime()) return false
+      }
 
-    if (capsuleList.length > 0) {
-      let processedCapsules = capsuleList.map((capsule) => {
-        const capsuleData = capsule
-        return {
-          ...capsuleData,
-          distance: capsule.distance || capsuleData.distance || 0,
-          is_mine: filters.value.visibility === 'mine',
-          liked: capsuleData.is_liked ?? false,
-          collected: capsuleData.is_collected ?? false,
-          is_unlocked: capsuleData.is_unlocked ?? false,
-          lng: capsuleData?.longitude || capsuleData?.location?.longitude,
-          lat: capsuleData?.latitude || capsuleData?.location?.latitude,
-          content_preview:
-            capsuleData.content_preview ||
-            capsuleData.content?.substring(0, 50) + '...' ||
-            '暂无描述',
-        }
-      })
+      // 3. 可见性匹配 (public, friend, private)
+      if (filters.value.visibility !== 'all') {
+        if (capsule.visibility !== filters.value.visibility) return false
+      }
 
-      // 应用前端筛选逻辑 (可见性和时间)
-      processedCapsules = processedCapsules.filter((capsule) => {
-        if (
-          filters.value.visibility === 'unlocked' &&
-          capsule.status !== 'published'
-        )
-          return false
+      // 4. 解锁方式匹配 (通过 unlock_conditions.type)
+      if (filters.value.unlockType !== 'all') {
+        const currentUnlockType = capsule.unlock_conditions?.type || capsule.unlock_conditions_type
+        if (currentUnlockType !== filters.value.unlockType) return false
+      }
 
-        if (filters.value.time !== 'all') {
-          const capsuleTime = new Date(capsule.created_at)
-          const now = new Date()
+      return true
+    })
 
-          if (filters.value.time === 'today') {
-            const today = new Date(
-              now.getFullYear(),
-              now.getMonth(),
-              now.getDate()
-            )
-            if (capsuleTime < today) return false
-          } else if (filters.value.time === 'week') {
-            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-            if (capsuleTime < weekAgo) return false
-          }
-        }
-        return true
-      })
+    // 格式化数据并映射坐标
+    capsules.value = filteredList.map(c => ({
+      ...c,
+      lng: c.longitude || c.location?.longitude,
+      lat: c.latitude || c.location?.latitude,
+      is_unlocked: c.is_unlocked ?? false
+    })).filter(c => c.lng && c.lat && !isNaN(c.lng))
 
-      // 仅保留有有效坐标的胶囊用于地图显示
-      const capsulesWithCoords = processedCapsules.filter(
-        (c) => c.lng && c.lat && !isNaN(c.lng) && !isNaN(c.lat)
-      )
-
-      capsules.value = capsulesWithCoords
-    } else {
-      capsules.value = []
-    }
   } catch (error) {
-    console.error('获取胶囊列表失败:', error)
-    alert('加载胶囊数据失败，请稍后重试。')
-    capsules.value = []
+    console.error('筛选请求失败:', error)
   } finally {
     isLoading.value = false
-    loadingMessage.value = ''
   }
 }
 // #endregion
@@ -463,8 +495,6 @@ const handleViewCapsule = async (capsuleId) => {
     isProcessing.value[loadingKey] = false
   }
 }
-
-
 
 /**
  * 实际执行解锁API请求的函数，处理地理位置获取逻辑 (从 MyCapsuleView.vue 复制并调整 MapView 的位置参数)
@@ -565,7 +595,6 @@ const startUnlockProcess = async (capsuleId, password = null) => {
     showUnlockModal.value = false
     unlockPasswordInput.value = ''
     await fetchCapsules() // 刷新地图数据
-    
   } catch (error) {
     console.error(`解锁胶囊(${capsuleId})失败：`, error)
     alert(`解锁失败：${error.message || '请稍后重试'}`)
@@ -622,8 +651,6 @@ const handleCloseForm = () => {
   isEditMode.value = false
 }
 
-
-
 // 替换原来的 onCapsuleSubmitted，使用 MyCapsuleView 中更强大的逻辑
 const onCapsuleSubmitted = async (result) => {
   console.log('Capsule Form Submitted:', result)
@@ -676,22 +703,20 @@ const onCapsuleSubmitted = async (result) => {
 // #endregion
 
 // #region 筛选功能 (保留)
+// 应用筛选并刷新数据
 const applyFilters = () => {
-  // 获取选中的筛选条件
-  const visibilityRadio = document.querySelector(
-    'input[name="visibility"]:checked'
-  )
-  const timeRadio = document.querySelector('input[name="time"]:checked')
+  fetchCapsules()
+}
 
-  if (visibilityRadio) {
-    filters.value.visibility = visibilityRadio.value
+// 重置筛选条件
+const resetFilters = () => {
+  filters.value = {
+    keyword: '',
+    startTime: '',
+    endTime: '',
+    visibility: 'all',
+    unlockType: 'all',
   }
-  if (timeRadio) {
-    filters.value.time = timeRadio.value
-  }
-
-  console.log('应用筛选:', filters.value)
-  // 重新加载胶囊数据
   fetchCapsules()
 }
 // #endregion
@@ -758,7 +783,6 @@ const handleHeaderAction = (actionKey) => {
 }
 
 // #endregion
-
 
 onMounted(() => {
   // 页面加载时立即获取胶囊数据，不等待定位
@@ -1200,4 +1224,78 @@ onMounted(() => {
     max-width: 350px;
   }
 }
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-light);
+}
+
+.filter-group {
+  margin-bottom: 24px; /* 稍微加大间距 */
+}
+
+.filter-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background-color: #fff;
+  color: #334155;
+  margin-top: 4px;
+}
+
+.filter-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
+  outline: none;
+}
+
+.date-range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.date-input {
+  flex: 1;
+  padding: 8px;
+  font-size: 11px;
+}
+
+.date-sep {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.filter-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 25px;
+}
+
+.apply-btn {
+  height: 40px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.reset-btn {
+  background: transparent;
+  color: var(--muted);
+}
+
+
+
 </style>

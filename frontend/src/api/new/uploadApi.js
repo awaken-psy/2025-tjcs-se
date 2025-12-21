@@ -17,12 +17,10 @@ export const uploadFile = (file, type = '') => {
   }
 
   return request({
-    url: '/upload',
+    url: '/upload/',
     method: 'post',
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    },
-    data: formData
+    data: formData,
+    timeout: 120000,
   })
 }
 

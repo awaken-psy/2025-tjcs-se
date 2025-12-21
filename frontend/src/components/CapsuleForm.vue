@@ -14,7 +14,7 @@
       </div>
 
       <!-- 表单内容 -->
-      <div class="modal-content">
+      <div ref="scrollContainer" class="modal-content">
         <!-- 状态提示 -->
         <div v-if="showAlert" class="form-alert" :class="alertType">
           <div class="alert-content">
@@ -185,7 +185,7 @@
             <div class="section-header">
               <i class="fas fa-lock section-icon" />
               <h3 class="section-title">解锁条件</h3>
-              <span class="optional-badge">选填</span>
+              <span class="required-badge">必填</span>
             </div>
             <div class="unlock-conditions-section">
               <div class="form-group">
@@ -234,7 +234,8 @@
                 <input
                   v-model="unlockConditions.unlockable_time"
                   type="datetime-local"
-                  class="form-input" />
+                  class="form-input"
+                  :min="minDateTime" />
               </div>
 
               <!-- <div v-if="isEdit" class="form-group">
@@ -278,12 +279,20 @@
                 :class="{
                   'is-disabled': isUploading || mediaFiles.length >= 5,
                   'is-active': isDragging,
+                  'has-error': uploadErrorStatus,
                 }"
                 @click="triggerFileInput"
                 @dragover.prevent="isDragging = true"
                 @dragleave.prevent="isDragging = false"
                 @drop.prevent="handleFileDrop">
-                <i class="fas fa-cloud-upload-alt upload-icon" />
+                <i
+                  :class="[
+                    'fas',
+                    'upload-icon',
+                    uploadErrorStatus
+                      ? 'fa-exclamation-circle'
+                      : 'fa-cloud-upload-alt',
+                  ]" />
 
                 <p class="upload-text">
                   <span class="upload-link">{{
@@ -399,6 +408,14 @@
           <!-- 表单操作 -->
           <div class="form-actions">
             <button
+              v-if="!isEdit"
+              type="button"
+              class="btn btn-draft"
+              :disabled="isSubmitting"
+              @click="saveDraft">
+              <i class="fas fa-save" /> 保存草稿
+            </button>
+            <button
               type="button"
               class="btn btn-secondary"
               :disabled="isSubmitting"
@@ -490,12 +507,13 @@ const suggestedTags = ref([
 ])
 
 // 图片上传
-const mediaFiles = reactive([]) // Array of { id, type, url, thumbnail }
+const mediaFiles = ref([]) // Array of { id, type, url, thumbnail }
 const isUploading = ref(false)
 
 // 🚀 新增：用于自定义上传区域
 const fileInputRef = ref(null) // 引用隐藏的 input[type="file"]
 const isDragging = ref(false) // 拖拽状态
+const uploadErrorStatus = ref(false)
 
 // 位置信息
 const locationInfo = reactive({
@@ -537,6 +555,8 @@ const visibilityOptions = [
   },
 ]
 
+// 滚动容器引用
+const scrollContainer = ref(null)
 // #endregion
 
 // #region 辅助函数
@@ -611,7 +631,7 @@ const unlockHintText = computed(() => {
 
 // 🔓 新增：用于最早可解锁时间的标签
 const unlockTimeLabel = computed(() => {
-  return '最早可解锁时间 (UTC)'
+  return '最早可解锁时间'
 })
 // #endregion
 
@@ -636,6 +656,7 @@ watch(
       // 重置表单状态
       if (!props.isEdit) {
         resetForm()
+        loadDraft(); 
       }
       // 重置定位相关状态
       locationPermission.value = ''
@@ -686,6 +707,18 @@ watch(
         const { type, password, radius, is_unlocked, unlockable_time } =
           newData.unlock_conditions
 
+        let localTimeForInput = ''
+        if (unlockable_time) {
+          const d = new Date(unlockable_time)
+          // 关键：将任何时区的时间转换为本地 YYYY-MM-DDTHH:mm 格式
+          const year = d.getFullYear()
+          const month = String(d.getMonth() + 1).padStart(2, '0')
+          const day = String(d.getDate()).padStart(2, '0')
+          const hours = String(d.getHours()).padStart(2, '0')
+          const minutes = String(d.getMinutes()).padStart(2, '0')
+          localTimeForInput = `${year}-${month}-${day}T${hours}:${minutes}`
+        }
+
         Object.assign(unlockConditions, {
           type: type || 'public',
           password: password || '',
@@ -696,11 +729,11 @@ watch(
       }
 
       // 🔓 加载编辑模式下的媒体文件
-      mediaFiles.splice(0, mediaFiles.length) // 先清空
+      mediaFiles.value.splice(0, mediaFiles.value.length) // 先清空
       if (newData.media_files && Array.isArray(newData.media_files)) {
         newData.media_files.forEach((file) => {
           if (file.id && file.type && file.url) {
-            mediaFiles.push(file)
+            mediaFiles.value.push(file)
           }
         })
       }
@@ -734,7 +767,49 @@ watch(
   { immediate: true }
 )
 
+// #endregion
 
+// #region 草稿相关
+const DRAFT_KEY = 'capsule_form_draft';
+
+// 保存草稿到 localStorage
+const saveDraft = () => {
+  const draftData = {
+    formData: { ...formData },
+    unlockConditions: { ...unlockConditions },
+    selectedTags: [...selectedTags.value],
+    // 注意：文件对象(File)无法直接存入 localStorage，通常只存元数据
+    mediaFiles: mediaFiles.value.map(f => ({ id: f.id, type: f.type, url: f.url })),
+    timestamp: Date.now()
+  };
+  
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData));
+  showAlertMessage('草稿已保存到本地', 'success');
+};
+
+// 加载草稿
+const loadDraft = () => {
+  const saved = localStorage.getItem(DRAFT_KEY);
+  if (!saved) return;
+
+  try {
+    const draft = JSON.parse(saved);
+    // 将数据恢复到响应式对象中
+    Object.assign(formData, draft.formData);
+    Object.assign(unlockConditions, draft.unlockConditions);
+    selectedTags.value = draft.selectedTags || [];
+    mediaFiles.value = draft.mediaFiles || [];
+    
+    showAlertMessage('已自动恢复上次填写的草稿内容', 'success');
+  } catch (e) {
+    console.error('加载草稿失败', e);
+  }
+};
+
+// 清除草稿 (在提交成功后调用)
+const clearDraft = () => {
+  localStorage.removeItem(DRAFT_KEY);
+};
 
 // #endregion
 
@@ -763,7 +838,7 @@ const resetForm = () => {
 
   tagInput.value = ''
   // 🔓 重置媒体文件
-  mediaFiles.splice(0, mediaFiles.length)
+  mediaFiles.value.splice(0, mediaFiles.value.length)
 
   Object.keys(formErrors).forEach((key) => {
     formErrors[key] = ''
@@ -810,6 +885,13 @@ const handleSubmit = async () => {
     showAlertMessage('请设置最早可解锁时间', 'error')
     return
   }
+  if (unlockConditions.unlockable_time) {
+    const selected = new Date(unlockConditions.unlockable_time)
+    if (selected < new Date()) {
+      showAlertMessage('解锁时间不能早于当前时间', 'error')
+      return
+    }
+  }
 
   isSubmitting.value = true
 
@@ -841,7 +923,13 @@ const handleSubmit = async () => {
 
       // 将 datetime-local 格式 'YYYY-MM-DDTHH:mm' 转换为 ISO 8601 (UTC)
       unlockable_time: unlockConditions.unlockable_time
-        ? `${unlockConditions.unlockable_time}:00Z`
+        ? (() => {
+            const d = new Date(unlockConditions.unlockable_time)
+            const offset = d.getTimezoneOffset() // 获取分钟偏移，北京时间为 -480
+            // 将时间调整为本地时间对应的“看起来像UTC”的时间，或者直接发送带偏移的字符串
+            const localDate = new Date(d.getTime() - offset * 60 * 1000)
+            return localDate.toISOString().replace('Z', '') // 移除 Z，后端将作为本地时间处理
+          })()
         : null,
     }
 
@@ -860,7 +948,7 @@ const handleSubmit = async () => {
 
       unlock_conditions: unlockConditionsPayload,
 
-      media_files: mediaFiles.map((file) => ({
+      media_files: mediaFiles.value.map((file) => ({
         id: file.id,
         type: file.type,
         url: file.url,
@@ -891,6 +979,7 @@ const handleSubmit = async () => {
       // 调用创建 API
       result = await createCapsule(submitData)
       successMessage = '胶囊创建成功！'
+      clearDraft(); // 👈 提交成功后清除草稿
       // 性能优化：移除多余的控制台输出
     }
 
@@ -949,7 +1038,6 @@ const validateField = (field) => {
       formErrors.visibility = '请选择可见性设置'
     }
   }
-
 }
 
 // #endregion
@@ -1049,7 +1137,6 @@ const useAutoLocation = () => {
   }
 }
 
-
 /**
  * 使用高德地图 API 将经纬度转换为详细地址
  * @param {number} lat - 纬度
@@ -1081,7 +1168,9 @@ const getAddressFromCoords = (lat, lng) => {
           } else {
             // 失败处理
             console.error('逆地理编码失败:', result)
-            reject(new Error('未能解析到详细地址: ' + (result?.info || '未知原因')))
+            reject(
+              new Error('未能解析到详细地址: ' + (result?.info || '未知原因'))
+            )
           }
         })
       } catch (error) {
@@ -1096,17 +1185,27 @@ const getAddressFromCoords = (lat, lng) => {
 // #region 5.解锁条件
 const minDateTime = computed(() => {
   const now = new Date()
-  // 转换为 YYYY-MM-DDTHH:mm 格式
-  return now.toISOString().slice(0, 16)
+  // 补零函数
+  const pad = (n) => String(n).padStart(2, '0')
+
+  const year = now.getFullYear()
+  const month = pad(now.getMonth() + 1)
+  const day = pad(now.getDate())
+  const hours = pad(now.getHours())
+  const minutes = pad(now.getMinutes())
+
+  // 返回格式：2023-10-27T15:30
+  return `${year}-${month}-${day}T${hours}:${minutes}`
 })
 // #endregion
+
 // #region 6. 媒体文件上传
 
 /**
  * 触发隐藏的文件输入框点击事件
  */
 const triggerFileInput = () => {
-  if (fileInputRef.value && !isUploading.value && mediaFiles.length < 5) {
+  if (fileInputRef.value && !isUploading.value && mediaFiles.value.length < 5) {
     fileInputRef.value.click()
   }
 }
@@ -1117,7 +1216,7 @@ const triggerFileInput = () => {
  */
 const handleFileDrop = (event) => {
   isDragging.value = false
-  if (isUploading.value || mediaFiles.length >= 5) return
+  if (isUploading.value || mediaFiles.value.length >= 5) return
 
   const droppedFiles = event.dataTransfer.files
   if (droppedFiles && droppedFiles.length > 0) {
@@ -1139,7 +1238,7 @@ const removeMediaFile = (index) => {
     URL.revokeObjectURL(fileToRemove.local_url)
   }
 
-  mediaFiles.splice(index, 1)
+  mediaFiles.value.splice(index, 1)
 }
 
 /**
@@ -1151,88 +1250,82 @@ const handleFileUpload = async (event) => {
   const files = event.target.files
   if (!files || files.length === 0) return
 
-  const maxFiles = 5 // 最大文件数量限制
-  // 过滤出符合类型且未超限的文件
-  const filesToUpload = Array.from(files)
-    .filter(
-      (file) => file.type.startsWith('image/') || file.type.startsWith('audio/')
+  uploadErrorStatus.value = false
+
+  // 1. 【调试日志】立即检查原始文件
+  console.log('--- 原始文件详情 ---')
+  Array.from(files).forEach((f) => {
+    console.log(
+      `文件名: ${f.name}, 大小: ${(f.size / 1024 / 1024).toFixed(
+        2
+      )}MB, 类型: "${f.type}"`
     )
-    .slice(0, maxFiles - mediaFiles.length)
+  })
+
+  // 2. 【修复过滤逻辑】如果 type 为空，根据后缀名兜底，或者直接允许上传
+  const filesToUpload = Array.from(files).filter((file) => {
+    const isImage = file.type.startsWith('image/')
+    const isVideo = file.type.startsWith('video/')
+    const hasType = isImage || isVideo
+    if (!hasType) {
+      console.warn(`⚠️ 文件 ${file.name} 类型识别失败，尝试强制放行`)
+      return file.size > 0 // 只要有大小就允许尝试上传
+    }
+    return true
+  })
 
   if (filesToUpload.length === 0) {
-    if (Array.from(files).length > 0 && mediaFiles.length >= maxFiles) {
-      showAlertMessage(`已达到最大文件数量 (${maxFiles} 个)。`, 'warning')
-    } else {
-      showAlertMessage('仅支持图片 (image) 和音频 (audio) 文件。', 'warning')
-    }
-    event.target.value = null
+    showAlertMessage('未识别到有效的图片或视频文件', 'warning')
     return
   }
 
   isUploading.value = true
-  showAlertMessage(`正在上传 ${filesToUpload.length} 个文件...`, 'info')
+  console.log('🚀 开始进入上传循环...')
 
   try {
-    const successfullyUploaded = []
-
-    // 🚀 核心修改：使用 for...of 循环实现顺序上传 (并发度为 1)
     for (const file of filesToUpload) {
+      // 检查大小限制（例如 100MB）
+      if (file.size > 100 * 1024 * 1024) {
+        showAlertMessage(`文件 ${file.name} 过大，超过100MB限制`, 'error')
+        continue
+      }
+
+      // 3. 【优化】只有小文件才生成预览，大文件直接上传，减少内存压力
+      let localPreviewUrl = ''
+      if (file.size < 10 * 1024 * 1024) {
+        localPreviewUrl = URL.createObjectURL(file)
+      }
+
+      console.log(`📤 正在调用 API 上传: ${file.name}`)
+
       try {
-        // 📌 步骤 1: 生成本地预览 URL (Object URL)
-        const localPreviewUrl = URL.createObjectURL(file) // URL.createObjectURL(File)
-
-        // 每次只等待一个文件上传完成
+        // 这里务必确保你的 uploadFile 已经改成了带斜杠的路径 '/upload/'
         const uploadResult = await uploadFile(file)
-        const fileType = file.type.startsWith('image/') ? 'image' : 'audio'
 
-        successfullyUploaded.push({
+        console.log(`✅ ${file.name} 上传成功:`, uploadResult)
+
+        mediaFiles.value.push({
           id: uploadResult.file_id || uploadResult.id,
-          type: fileType,
-          url: uploadResult.url,
-          // 🚀 步骤 2: 保存本地 URL
-          local_url: localPreviewUrl,
-          // 保持远程 thumbnail_url，用于提交后重新加载或备份
-          thumbnail:
-            fileType === 'image'
-              ? uploadResult.thumbnail_url || uploadResult.thumbnail || null
-              : null,
+          url: uploadResult.url || uploadResult, // 兼容不同的返回格式
+          type: file.type.startsWith('video') ? 'video' : 'image',
+          name: file.name,
+          tempUrl: localPreviewUrl,
         })
-
-        // 可选：实时更新进度或提示
-        showAlertMessage(
-          `文件 ${successfullyUploaded.length}/${filesToUpload.length} 上传中...`,
-          'info'
-        )
       } catch (uploadError) {
-        console.error(`单个文件上传失败: ${file.name}`, uploadError)
+        console.error(`❌ ${file.name} 上传失败:`, uploadError)
+        uploadErrorStatus.value = true
         showAlertMessage(
-          `文件 ${file.name} 上传失败: ${uploadError.message || '未知错误'}`,
+          `${file.name} 上传失败: ${uploadError.message || '服务器响应异常'}`,
           'error'
         )
-        // 单个文件失败不中断整个流程
       }
     }
-
-    // 存储上传成功的媒体信息
-    mediaFiles.push(...successfullyUploaded.filter((f) => f.id && f.url))
-
-    showAlertMessage(
-      `文件上传成功！共成功上传 ${successfullyUploaded.length} 个文件。`,
-      'success'
-    )
-  } catch (error) {
-    // 外部错误处理，例如 if (!navigator.geolocation)
-    console.error('文件上传失败:', error)
-    showAlertMessage(`文件上传失败: ${error.message || '未知错误'}`, 'error')
+  } catch (globalError) {
+    console.error('🔥 全局循环崩溃:', globalError)
   } finally {
     isUploading.value = false
-    // 清空文件输入
-
-    if (fileInputRef.value) {
-      fileInputRef.value.value = null
-    } else {
-      event.target.value = null
-    }
+    if (fileInputRef.value) fileInputRef.value.value = null
+    console.log('--- 上传流程结束 ---')
   }
 }
 // #endregion
@@ -1284,9 +1377,20 @@ const showAlertMessage = (message, type = 'error') => {
       : 'fas fa-exclamation-circle'
   showAlert.value = true
 
+  // --- 新增滚动代码 ---
+  // 使用 nextTick 确保 DOM 更新后（即提示框显示后）再滚动
+  nextTick(() => {
+    if (scrollContainer.value) {
+      scrollContainer.value.scrollTo({
+        top: 0,
+        behavior: 'smooth', // 平滑滚动
+      })
+    }
+  })
+
   setTimeout(() => {
     showAlert.value = false
-  }, 5000)
+  }, 7000)
 }
 </script>
 
@@ -2087,6 +2191,32 @@ const showAlertMessage = (message, type = 'error') => {
   background-color: #f1f5f9;
 }
 
+/* 错误状态下的样式 */
+.upload-drop-area.has-error {
+  border-color: #ef4444 !important; /* 强制显示红色 */
+  background-color: rgba(239, 68, 68, 0.05);
+  animation: shake 0.4s ease-in-out; /* 增加抖动动画 */
+}
+
+.upload-drop-area.has-error .upload-icon,
+.upload-drop-area.has-error .upload-text {
+  color: #ef4444;
+}
+
+/* 抖动动画定义 */
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px);
+  }
+  75% {
+    transform: translateX(6px);
+  }
+}
+
 .upload-icon {
   font-size: 36px;
   color: #6c8cff;
@@ -2240,5 +2370,17 @@ const showAlertMessage = (message, type = 'error') => {
 
 .audio-icon {
   font-size: 20px;
+}
+
+/* CapsuleForm.vue <style> */
+.btn-draft {
+  background-color: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  margin-right: auto; /* 将保存草稿按钮推向最左侧 */
+}
+
+.btn-draft:hover {
+  background-color: #e5e7eb;
 }
 </style>
