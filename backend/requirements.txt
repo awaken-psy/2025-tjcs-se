@@ -61,9 +61,14 @@ pymysql>=1.1,<2.0  # MySQL驱动
 # 文件处理
 Pillow>=10.0,<11.0  # 图片处理
 aiofiles>=23.0,<24.0  # 异步文件操作
+python-magic>=0.4.27,<1.0  # 文件类型检测
+moviepy>=1.0.3,<2.0  # 视频处理
 
 # 地理位置计算
 geopy>=2.4,<3.0  # 地理编码和距离计算
 
 
 redis
+
+Pillow
+python-magic

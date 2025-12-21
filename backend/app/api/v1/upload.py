@@ -11,6 +11,7 @@ import secrets
 from app.utils.datetime_helper import beijing_now
 from pathlib import Path
 from enum import Enum
+from app.logger import get_logger
 
 # 导入模型和服务
 import sys
@@ -31,18 +32,31 @@ def login_required():
 class Type(str, Enum):
     Audio = "audio"
     Image = "image"
+    Video = "video"
 
-# 文件格式枚举 - 匹配Apifox规范
+# 文件格式枚举 - 扩展支持更多格式
 class Format(str, Enum):
-    Aac = "aac"
-    Bmp = "bmp"
-    Flac = "flac"
-    Gif = "gif"
-    Jpeg = "jpeg"
+    # 图片格式
     Jpg = "jpg"
-    Mp3 = "mp3"
+    Jpeg = "jpeg"
     Png = "png"
+    Gif = "gif"
+    Bmp = "bmp"
+    Webp = "webp"
+
+    # 音频格式
+    Mp3 = "mp3"
     Wav = "wav"
+    Aac = "aac"
+    Flac = "flac"
+    M4a = "m4a"
+
+    # 视频格式
+    Mp4 = "mp4"
+    Avi = "avi"
+    Mov = "mov"
+    Wmv = "wmv"
+    Webm = "webm"
 
 
 # 响应模型 - 匹配TypeScript接口规范
@@ -65,12 +79,13 @@ class UploadResponse(BaseModel):
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 
 router = APIRouter(prefix='/upload', tags=['Upload'])
+logger = get_logger(f"router<{__name__}>")
 
 
 @router.post("/", response_model=UploadResponse)
 async def upload_file(
     file: UploadFile = File(..., description="要上传的文件"),
-    type: Optional[Type] = Form(None, description="文件类型：audio 或 image"),
+    type: Optional[Type] = Form(None, description="文件类型：audio、image 或 video"),
     user = Depends(login_required)
 ):
     """
@@ -114,15 +129,20 @@ async def upload_file(
                     file_type = Type.Image
                 elif file.content_type.startswith('audio/'):
                     file_type = Type.Audio
+                elif file.content_type.startswith('video/'):
+                    file_type = Type.Video
             else:
                 # 根据文件扩展名判断
                 ext = Path(file.filename).suffix.lower()
-                image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.bmp'}
-                audio_exts = {'.mp3', '.wav', '.aac', '.flac'}
+                image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+                audio_exts = {'.mp3', '.wav', '.aac', '.flac', '.m4a'}
+                video_exts = {'.mp4', '.avi', '.mov', '.wmv', '.webm'}
                 if ext in image_exts:
                     file_type = Type.Image
                 elif ext in audio_exts:
                     file_type = Type.Audio
+                elif ext in video_exts:
+                    file_type = Type.Video
 
         if not file_type:
             return UploadResponse(
@@ -139,10 +159,17 @@ async def upload_file(
             'png': Format.Png,
             'gif': Format.Gif,
             'bmp': Format.Bmp,
+            'webp': Format.Webp,
             'mp3': Format.Mp3,
             'wav': Format.Wav,
             'aac': Format.Aac,
-            'flac': Format.Flac
+            'flac': Format.Flac,
+            'm4a': Format.M4a,
+            'mp4': Format.Mp4,
+            'avi': Format.Avi,
+            'mov': Format.Mov,
+            'wmv': Format.Wmv,
+            'webm': Format.Webm
         }
         file_format = format_map.get(ext, Format.Jpg if file_type == Type.Image else Format.Mp3)
 
@@ -161,23 +188,79 @@ async def upload_file(
 
         # 读取并保存文件
         try:
+            # 记录文件信息以便调试
+            logger.info(f"开始处理文件上传: filename={file.filename}, content_type={file.content_type}")
+
             content = await file.read()
             actual_file_size = len(content)
 
+            logger.info(f"文件读取完成: size={actual_file_size} bytes, filename={file.filename}")
+
+            # 检查文件是否为空
+            if actual_file_size == 0:
+                logger.warning(f"文件内容为空: filename={file.filename}")
+                return UploadResponse(
+                    code=400,
+                    data=None,
+                    message="文件内容为空"
+                )
+
             # 检查实际文件大小
             if actual_file_size > MAX_FILE_SIZE:
+                logger.warning(f"文件大小超限: filename={file.filename}, size={actual_file_size}")
                 return UploadResponse(
                     code=413,
                     data=None,
                     message=f"文件大小不能超过50MB，当前文件大小：{actual_file_size / (1024 * 1024):.1f}MB"
                 )
 
-            if file_size == 0:
-                file_size = actual_file_size
+            file_size = actual_file_size
 
-            with open(file_path, "wb") as f:
-                f.write(content)
+            # 确保目录存在后再写入文件
+            try:
+                upload_dir.mkdir(parents=True, exist_ok=True)
+                logger.info(f"目录创建成功: {upload_dir}")
+            except Exception as dir_error:
+                logger.error(f"创建上传目录失败: {upload_dir}, error={str(dir_error)}")
+                return UploadResponse(
+                    code=500,
+                    data=None,
+                    message=f"创建上传目录失败: {str(dir_error)}"
+                )
+
+            # 写入文件
+            try:
+                with open(file_path, "wb") as f:
+                    f.write(content)
+                logger.info(f"文件保存成功: {file_path}, size={file_size}")
+            except Exception as write_error:
+                logger.error(f"文件写入失败: path={file_path}, error={str(write_error)}")
+                return UploadResponse(
+                    code=500,
+                    data=None,
+                    message=f"文件写入失败: {str(write_error)}"
+                )
+
+            # 验证文件是否成功写入
+            if not file_path.exists():
+                logger.error(f"文件保存后验证失败: 文件不存在 {file_path}")
+                return UploadResponse(
+                    code=500,
+                    data=None,
+                    message="文件保存后验证失败"
+                )
+
+            written_size = file_path.stat().st_size
+            if written_size != file_size:
+                logger.error(f"文件大小不匹配: 期望={file_size}, 实际={written_size}")
+                return UploadResponse(
+                    code=500,
+                    data=None,
+                    message=f"文件大小不匹配: 期望={file_size}, 实际={written_size}"
+                )
+
         except Exception as e:
+            logger.error(f"文件处理异常: filename={file.filename}, error={str(e)}", exc_info=True)
             return UploadResponse(
                 code=500,
                 data=None,
@@ -190,46 +273,65 @@ async def upload_file(
         # 生成缩略图（仅图片）
         thumbnail_url = None
         if file_type == Type.Image:
-            thumbnail_filename = f"{file_id}_thumb.jpg"
-            thumbnail_dir = upload_dir / "thumbnails"
-            thumbnail_path = thumbnail_dir / thumbnail_filename
-
-            # 创建缩略图目录
-            thumbnail_dir.mkdir(parents=True, exist_ok=True)
-
-            # 简化：暂时使用原图作为缩略图
-            thumbnail_url = f"/uploads/{file_type.value}/{timestamp}/thumbnails/{thumbnail_filename}"
-
             try:
+                thumbnail_filename = f"{file_id}_thumb.jpg"
+                thumbnail_dir = upload_dir / "thumbnails"
+                thumbnail_path = thumbnail_dir / thumbnail_filename
+
+                # 创建缩略图目录
+                thumbnail_dir.mkdir(parents=True, exist_ok=True)
+                logger.info(f"缩略图目录创建成功: {thumbnail_dir}")
+
+                # 简化：暂时使用原图作为缩略图
+                thumbnail_url = f"/uploads/{file_type.value}/{timestamp}/thumbnails/{thumbnail_filename}"
+
                 # 复制原图作为缩略图（实际应该生成真正的缩略图）
                 with open(thumbnail_path, "wb") as thumb_f:
                     thumb_f.write(content)
-            except:
+                logger.info(f"缩略图生成成功: {thumbnail_path}")
+
+            except Exception as thumb_error:
+                logger.warning(f"缩略图生成失败: {str(thumb_error)}")
                 thumbnail_url = None
 
-        # 获取音频时长（仅音频，简化处理）
+        # 获取音频/视频时长（简化处理）
         duration = None
         if file_type == Type.Audio:
             # 简化：设置默认时长
             duration = 120.0
+        elif file_type == Type.Video:
+            # 简化：设置默认时长
+            duration = 180.0
 
         # 构建响应数据
-        upload_data = UploadResponseData(
-            duration=duration,
-            file_id=file_id,
-            format=file_format,
-            size=file_size or 0,  # 确保size不为None
-            thumbnail_url=thumbnail_url,
-            url=file_url
-        )
+        try:
+            upload_data = UploadResponseData(
+                duration=duration,
+                file_id=file_id,
+                format=file_format,
+                size=file_size or 0,  # 确保size不为None
+                thumbnail_url=thumbnail_url,
+                url=file_url
+            )
 
-        return UploadResponse(
-            code=200,
-            data=upload_data,
-            message="文件上传成功"
-        )
+            logger.info(f"文件上传完成: file_id={file_id}, filename={file.filename}, size={file_size}, url={file_url}")
+
+            return UploadResponse(
+                code=200,
+                data=upload_data,
+                message="文件上传成功"
+            )
+
+        except Exception as response_error:
+            logger.error(f"构建响应数据失败: {str(response_error)}", exc_info=True)
+            return UploadResponse(
+                code=500,
+                data=None,
+                message=f"构建响应数据失败: {str(response_error)}"
+            )
 
     except Exception as e:
+        logger.error(f"文件上传异常: filename={file.filename}, error={str(e)}", exc_info=True)
         return UploadResponse(
             code=500,
             data=None,
