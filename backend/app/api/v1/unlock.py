@@ -1,5 +1,6 @@
 from typing import Optional
 from datetime import datetime
+from app.utils.datetime_helper import beijing_now
 from fastapi import APIRouter, HTTPException, Depends, Path, Query
 from sqlalchemy.orm import Session
 import secrets # 原始代码中导入了 secrets，但未在最终逻辑中使用，可忽略或用于替代 JWT 的临时令牌
@@ -41,7 +42,7 @@ async def unlock_capsule(
     解锁胶囊API：用户尝试对指定的胶囊执行解锁操作。
     """
     try:
-        current_time = datetime.now()
+        current_time = beijing_now()
 
         # 实例化服务层管理器
         unlock_manager = UnlockManager(db)

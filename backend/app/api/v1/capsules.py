@@ -1,5 +1,6 @@
 from typing import Optional, List, Dict
 from datetime import datetime
+from app.utils.datetime_helper import beijing_now
 from fastapi import APIRouter, HTTPException, Depends, Query, Path # 导入 FastAPI 核心组件
 from sqlalchemy.orm import Session # 导入数据库 Session
 from app.database.database import get_db # 数据库依赖注入函数
@@ -287,7 +288,7 @@ async def update_capsule(
             message="更新成功",
             data=CapsuleUpdateResponse(
                 capsule_id=str(capsule_id),
-                updated_at=datetime.utcnow() # 返回更新时间
+                updated_at=beijing_now() # 返回更新时间
             )
         )
 

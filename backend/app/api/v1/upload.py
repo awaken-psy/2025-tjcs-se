@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 import os
 import uuid
 import secrets
+from app.utils.datetime_helper import beijing_now
 from pathlib import Path
 from enum import Enum
 
@@ -60,6 +61,9 @@ class UploadResponse(BaseModel):
     data: Optional[UploadResponseData] = Field(None, description="响应数据")
     message: str = Field(..., description="操作结果描述")
 
+# 文件大小限制常量
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+
 router = APIRouter(prefix='/upload', tags=['Upload'])
 
 
@@ -99,16 +103,8 @@ async def upload_file(
                 message="请选择要上传的文件"
             )
 
-        # 文件大小限制（50MB）
+        # 初始化文件大小变量
         file_size = 0
-        if hasattr(file, 'size'):
-            file_size = file.size
-            if file_size > 50 * 1024 * 1024:
-                return UploadResponse(
-                    code=413,
-                    data=None,
-                    message="文件大小不能超过50MB"
-                )
 
         # 根据文件名确定文件类型（如果未指定）
         file_type = type
@@ -152,7 +148,7 @@ async def upload_file(
 
         # 生成文件ID和保存路径
         file_id = f"file_{secrets.token_hex(8)}"
-        timestamp = datetime.now().strftime("%Y%m%d")
+        timestamp = beijing_now().strftime("%Y%m%d")
         upload_dir = Path("uploads") / file_type.value / timestamp
 
         # 确保上传目录存在
@@ -167,6 +163,14 @@ async def upload_file(
         try:
             content = await file.read()
             actual_file_size = len(content)
+
+            # 检查实际文件大小
+            if actual_file_size > MAX_FILE_SIZE:
+                return UploadResponse(
+                    code=413,
+                    data=None,
+                    message=f"文件大小不能超过50MB，当前文件大小：{actual_file_size / (1024 * 1024):.1f}MB"
+                )
 
             if file_size == 0:
                 file_size = actual_file_size
@@ -214,7 +218,7 @@ async def upload_file(
             duration=duration,
             file_id=file_id,
             format=file_format,
-            size=file_size,
+            size=file_size or 0,  # 确保size不为None
             thumbnail_url=thumbnail_url,
             url=file_url
         )

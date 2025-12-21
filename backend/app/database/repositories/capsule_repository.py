@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_
 from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime
+from app.utils.datetime_helper import beijing_now
 
 from app.domain.capsule import Capsule as CapsuleDomain, CapsuleStatus, Visibility, ContentType
 from app.database.orm.capsule import Capsule
@@ -337,7 +338,7 @@ class CapsuleRepository:
     def update_unlock_record_view_count(self, unlock_record: UnlockRecord) -> None:
         """更新解锁记录的查看次数"""
         unlock_record.view_count += 1
-        unlock_record.last_viewed_at = datetime.utcnow()
+        unlock_record.last_viewed_at = beijing_now()
         self.db.commit()
 
     def get_capsule_with_full_details(self, capsule_id: int) -> Optional[Tuple[Capsule, Optional[UnlockRecord]]]:

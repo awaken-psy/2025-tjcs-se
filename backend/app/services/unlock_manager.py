@@ -1,8 +1,9 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 import math
+from app.utils.datetime_helper import beijing_now
 
 from app.database.orm.capsule import Capsule
 from app.database.orm.unlock_record import UnlockRecord, UnlockAttempt
@@ -186,7 +187,7 @@ class UnlockManager:
                 'success': True,
                 'message': '解锁成功',
                 'capsule_id': capsule_id,
-                'unlocked_at': datetime.now().isoformat(),
+                'unlocked_at': beijing_now().isoformat(),
                 'capsule_detail': capsule_detail.model_dump() if hasattr(capsule_detail, 'model_dump') else capsule_detail,
                 'unlock_method': unlock_result['unlock_method'],
                 'conditions_met': unlock_result['conditions_met']
@@ -294,7 +295,7 @@ class UnlockManager:
         # 4. 检查时间条件（如果有）
         unlockable_time = getattr(unlock_condition, 'unlockable_time', None)
         if unlockable_time is not None:
-            if datetime.now() >= unlockable_time:
+            if beijing_now() >= unlockable_time:
                 conditions_met.append(f'时间条件满足 (解锁时间: {unlockable_time})')
                 time_condition_met = True
             else:
@@ -411,7 +412,7 @@ class UnlockManager:
                 user_id=user_id,
                 attempt_location_latitude=user_location[0] if user_location else None,
                 attempt_location_longitude=user_location[1] if user_location else None,
-                attempt_time=datetime.now(),
+                attempt_time=beijing_now(),
                 time_condition_met=time_condition_met,
                 location_condition_met=location_condition_met,
                 all_conditions_met=all_conditions_met,
@@ -440,7 +441,7 @@ class UnlockManager:
                 unlock_method=unlock_method,
                 unlock_location_latitude=latitude,
                 unlock_location_longitude=longitude,
-                unlocked_at=datetime.now()
+                unlocked_at=beijing_now()
             )
             self.db.add(unlock_record)
             self.db.commit()
@@ -476,7 +477,7 @@ class UnlockManager:
                 unlock_condition = UnlockCondition(
                     capsule_id=int(capsule_id),
                     condition_type=unlock_result.get('unlock_method', 'manual'),
-                    created_at=datetime.now()
+                    created_at=beijing_now()
                 )
                 self.db.add(unlock_condition)
 
@@ -587,7 +588,7 @@ class UnlockManager:
                 'longitude': user_longitude,
                 'address': '用户当前位置'
             },
-            'check_time': current_time.isoformat() if current_time else datetime.now().isoformat()
+            'check_time': current_time.isoformat() if current_time else beijing_now().isoformat()
         }
 
     

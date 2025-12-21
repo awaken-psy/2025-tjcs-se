@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from typing import Optional, List, Dict
 from datetime import datetime
+from app.utils.datetime_helper import beijing_now
 
 from app.domain.capsule import (
     Capsule as CapsuleDomain, CapsuleStatus, Visibility, ContentType
@@ -52,8 +53,8 @@ class CapsuleService:
             visibility=self._convert_visibility(request.visibility),
             status=CapsuleStatus.PUBLISHED,
             content_type=content_type,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=beijing_now(),
+            updated_at=beijing_now(),
             unlock_location=unlock_location
         )
         
@@ -225,7 +226,7 @@ class CapsuleService:
         if request.visibility:
             capsule_domain.visibility = self._convert_visibility(request.visibility)
         
-        capsule_domain.updated_at = datetime.utcnow()
+        capsule_domain.updated_at = beijing_now()
         
         try:
             # 即使 find_by_id 成功，也使用 try-except 块以应对 Repository 内部的潜在异常
@@ -256,8 +257,8 @@ class CapsuleService:
             visibility=self._convert_visibility(request.visibility or "private"),
             status=CapsuleStatus.DRAFT,
             content_type=ContentType.TEXT,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            created_at=beijing_now(),
+            updated_at=beijing_now()
         )
         
         saved_domain = self.repository.save(capsule_domain)

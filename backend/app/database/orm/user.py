@@ -1,9 +1,12 @@
 from sqlalchemy import Column, String, Integer, DateTime, Boolean, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.database.database import Base
+
+# 北京时间（UTC+8）
+BEIJING_TZ = lambda: datetime.utcnow() + timedelta(hours=8)
 
 class User(Base):
     """用户模型"""
@@ -59,7 +62,7 @@ class User(Base):
 
     def update_last_login(self):
         """更新最后登录时间"""
-        self.last_login_at = datetime.now()
+        self.last_login_at = BEIJING_TZ()
 
 
 class UserFriend(Base):

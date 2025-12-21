@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+from app.utils.datetime_helper import beijing_now
 
 from app.database.repositories.event_repository import EventRepository
 from app.database.orm.event import Event, EventRegistration
@@ -272,7 +273,7 @@ class EventService:
             registration = EventRegistration(
                 event_id=event_int_id,
                 user_id=user_id,
-                registered_at=datetime.utcnow()
+                registered_at=beijing_now()
             )
 
             saved_registration = self.repository.create_registration(registration)
