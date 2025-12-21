@@ -80,3 +80,33 @@ export const refreshToken = (refreshToken) => {
     }
   })
 }
+
+/**
+ * 忘记密码 - 发送重置邮件/验证码
+ * @param {Object} data - 数据
+ * @param {string} data.email - 用户邮箱
+ * @returns {Promise}
+ */
+export const forgotPassword = (data) => {
+  return request({
+    url: '/auth/forgot-password',
+    method: 'post',
+    data
+  })
+}
+
+/**
+ * 重置密码 - 提交新密码
+ * @param {Object} data - 数据
+ * @param {string} data.email - 用户邮箱
+ * @param {string} data.verify_code - 验证码
+ * @param {string} data.new_password - 新密码（加密后）
+ * @returns {Promise}
+ */
+export const resetPassword = (data) => {
+  return request({
+    url: '/auth/reset-password',
+    method: 'post',
+    data
+  })
+}

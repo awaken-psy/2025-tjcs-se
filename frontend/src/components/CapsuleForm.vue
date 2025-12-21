@@ -949,6 +949,7 @@ const validateField = (field) => {
       formErrors.visibility = '请选择可见性设置'
     }
   }
+
 }
 
 // #endregion
@@ -1092,6 +1093,13 @@ const getAddressFromCoords = (lat, lng) => {
 
 // #endregion
 
+// #region 5.解锁条件
+const minDateTime = computed(() => {
+  const now = new Date()
+  // 转换为 YYYY-MM-DDTHH:mm 格式
+  return now.toISOString().slice(0, 16)
+})
+// #endregion
 // #region 6. 媒体文件上传
 
 /**

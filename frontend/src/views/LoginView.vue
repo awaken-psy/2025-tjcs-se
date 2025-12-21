@@ -81,7 +81,7 @@
             type="email"
             :class="{ 'input-error': formErrors.login.email }"
             placeholder="user@example.com"
-            required >
+            required />
           <p v-if="formErrors.login.email" class="error-tip">
             {{ formErrors.login.email }}
           </p>
@@ -95,17 +95,18 @@
             type="password"
             :class="{ 'input-error': formErrors.login.password }"
             placeholder="请输入密码"
-            required >
+            required />
+
+          <div
+            class="helper"
+            style="margin-top: 4px; justify-content: flex-end">
+            <a href="#" class="small muted" @click.prevent="openModal('forgot')"
+              >忘记密码？</a
+            >
+          </div>
           <p v-if="formErrors.login.password" class="error-tip">
             {{ formErrors.login.password }}
           </p>
-        </div>
-
-        <div class="helper">
-          <a href="#" @click.prevent="openModal('forgot')">忘记密码？</a>
-          <a href="#" title="游客模式" @click.prevent="handleGuestLogin"
-            >以游客身份体验</a
-          >
         </div>
 
         <div class="btn-group">
@@ -120,7 +121,6 @@
             注册
           </button>
         </div>
-
       </form>
 
       <!-- 注册表单（RegisterForm） -->
@@ -138,7 +138,7 @@
             type="email"
             :class="{ 'input-error': formErrors.reg.email }"
             placeholder="your@univ.edu"
-            required >
+            required />
           <p v-if="formErrors.reg.email" class="error-tip">
             {{ formErrors.reg.email }}
           </p>
@@ -152,7 +152,7 @@
             type="password"
             :class="{ 'input-error': formErrors.reg.password }"
             placeholder="至少6位"
-            required >
+            required />
           <p v-if="formErrors.reg.password" class="error-tip">
             {{ formErrors.reg.password }}
           </p>
@@ -166,7 +166,7 @@
             type="password"
             :class="{ 'input-error': formErrors.reg.password2 }"
             placeholder="再次输入密码"
-            required >
+            required />
           <p v-if="formErrors.reg.password2" class="error-tip">
             {{ formErrors.reg.password2 }}
           </p>
@@ -180,7 +180,7 @@
             type="text"
             :class="{ 'input-error': formErrors.reg.nickname }"
             placeholder="你的昵称（1-20个字符）"
-            required >
+            required />
           <p v-if="formErrors.reg.nickname" class="error-tip">
             {{ formErrors.reg.nickname }}
           </p>
@@ -192,7 +192,7 @@
             id="reg-student-id"
             v-model="regForm.student_id"
             type="text"
-            placeholder="2024123456" >
+            placeholder="2024123456" />
         </div>
 
         <div class="field">
@@ -205,7 +205,7 @@
               :class="{ 'input-error': formErrors.reg.verify_code }"
               placeholder="请输入6位验证码"
               maxlength="6"
-              required >
+              required />
             <button
               type="button"
               class="btn verify-btn"
@@ -228,8 +228,12 @@
             id="agree"
             v-model="regForm.agree"
             type="checkbox"
-            :class="{ 'input-error': formErrors.reg.agree }" >
-          <label for="agree" class="small">我已阅读并同意<a href="#" @click.prevent="openModal('privacy')">隐私政策</a></label>
+            :class="{ 'input-error': formErrors.reg.agree }" />
+          <label for="agree" class="small"
+            >我已阅读并同意<a href="#" @click.prevent="openModal('privacy')"
+              >隐私政策</a
+            ></label
+          >
           <p v-if="formErrors.reg.agree" class="error-tip">
             {{ formErrors.reg.agree }}
           </p>
@@ -287,41 +291,69 @@
   </div>
 
   <!-- 忘记密码模态框（ForgotPasswordModal） -->
-  <div
-    v-if="showForgotModal"
-    id="forgot-modal"
-    class="modal"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="forgot-title">
+  <div v-if="showForgotModal" class="modal" role="dialog">
     <div class="modal-panel small">
       <div class="modal-header">
-        <h3 id="forgot-title">找回密码</h3>
-        <button
-          id="forgot-close"
-          class="modal-close"
-          @click="closeModal('forgot')">
-          ✕
-        </button>
+        <h3 id="forgot-title">
+          {{ forgotStep === 1 ? '找回密码' : '设置新密码' }}
+        </h3>
+        <button class="modal-close" @click="closeModal('forgot')">✕</button>
       </div>
-      <p class="muted">请输入注册邮箱，系统会发送重置指引。</p>
-      <div class="field" style="margin: 16px 0">
-        <input
-          id="forgot-email"
-          v-model="forgotForm.email"
-          type="email"
-          placeholder="your@univ.edu">
+
+      <div v-if="forgotStep === 1">
+        <p class="muted small">请输入您的注册邮箱，系统将发送 6 位验证码。</p>
+        <div class="field" style="margin: 16px 0">
+          <input
+            v-model="forgotForm.email"
+            type="email"
+            placeholder="your@univ.edu" />
+        </div>
+        <div class="modal-btn-group">
+          <button class="btn ghost" @click="closeModal('forgot')">取消</button>
+          <button
+            class="btn primary"
+            :disabled="isLoading"
+            @click="handleForgotSend">
+            {{ isLoading ? '发送中...' : '下一步' }}
+          </button>
+        </div>
       </div>
-      <div class="modal-btn-group">
-        <button
-          id="forgot-cancel"
-          class="btn ghost"
-          @click="closeModal('forgot')">
-          取消
-        </button>
-        <button id="forgot-send" class="btn primary" @click="handleForgotSend">
-          发送重置邮件
-        </button>
+
+      <div v-else>
+        <p class="muted small">验证码已发送至：{{ forgotForm.email }}</p>
+        <div class="form" style="margin-top: 16px">
+          <div class="field">
+            <label>验证码</label>
+            <input
+              v-model="forgotForm.verify_code"
+              type="text"
+              placeholder="6位数字"
+              maxlength="6" />
+          </div>
+          <div class="field">
+            <label>新密码</label>
+            <input
+              v-model="forgotForm.new_password"
+              type="password"
+              placeholder="至少6位" />
+          </div>
+          <div class="field">
+            <label>确认新密码</label>
+            <input
+              v-model="forgotForm.confirm_password"
+              type="password"
+              placeholder="再次输入密码" />
+          </div>
+        </div>
+        <div class="modal-btn-group" style="margin-top: 24px">
+          <button class="btn ghost" @click="forgotStep = 1">返回</button>
+          <button
+            class="btn primary"
+            :disabled="isLoading"
+            @click="handleResetSubmit">
+            {{ isLoading ? '提交中...' : '重置密码' }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -404,7 +436,13 @@
 </template>
 
 <script setup>
-import { login, register, sendCode } from '@/api/new/authenticationApi'
+import {
+  login,
+  register,
+  sendCode,
+  forgotPassword,
+  resetPassword,
+} from '@/api/new/authenticationApi'
 import { useUserStore } from '@/store/user'
 import { encryptPassword } from '@/utils/encryptionUtils'
 import { routeJump } from '@/utils/routeUtils'
@@ -440,8 +478,13 @@ const regForm = reactive({
   verify_code: '',
   agree: false,
 })
+
+const forgotStep = ref(1) // 1: 输入邮箱发送码, 2: 输入码和新密码
 const forgotForm = reactive({
   email: '',
+  verify_code: '',
+  new_password: '',
+  confirm_password: '',
 })
 
 // 表单错误提示
@@ -500,7 +543,14 @@ const switchToRegister = () => {
 // ===== 模态框控制 =====
 const openModal = (modalType) => {
   if (modalType === 'perm') showPermModal.value = true
-  if (modalType === 'forgot') showForgotModal.value = true
+  if (modalType === 'forgot') {
+    // 每次打开时重置为第一步，并清空旧数据
+    forgotStep.value = 1
+    forgotForm.verify_code = ''
+    forgotForm.new_password = ''
+    forgotForm.confirm_password = ''
+    showForgotModal.value = true
+  }
   if (modalType === 'privacy') {
     showPrivacyModal.value = true
     showServiceModal.value = false
@@ -620,7 +670,7 @@ const validateRegForm = () => {
 
 // ===== 事件处理 =====
 // 登录处理 - 适配新的响应结构
-const handleLogin = async() => {
+const handleLogin = async () => {
   if (!validateLoginForm()) return
   try {
     isLoading.value = true
@@ -669,7 +719,7 @@ const handleLogin = async() => {
 }
 
 // 注册处理 - 适配新的响应结构
-const handleRegister = async() => {
+const handleRegister = async () => {
   if (!validateRegForm()) return
   try {
     isLoading.value = true
@@ -727,19 +777,13 @@ const handleRegister = async() => {
   }
 }
 
-// 游客登录
-const handleGuestLogin =() => {
-  // TODO: 游客模式逻辑
-  alert('游客模式功能开发中...')
-}
-
 // 权限同意
 const handlePermissionAccept = () => {
   closeModal('perm')
 }
 
 // 发送验证码
-const handleSendVerifyCode = async() => {
+const handleSendVerifyCode = async () => {
   if (!regForm.email.trim()) {
     formErrors.reg.email = '请先输入邮箱'
     return
@@ -774,13 +818,60 @@ const handleSendVerifyCode = async() => {
 }
 
 // 忘记密码发送邮件
-const handleForgotSend = async() => {
+const handleForgotSend = async () => {
+  if (!forgotForm.email.trim()) {
+    alert('请输入邮箱')
+    return
+  }
   try {
-    // TODO: 对接忘记密码API
-    alert('密码重置功能开发中...')
-    closeModal('forgot')
+    isLoading.value = true
+    await forgotPassword({ email: forgotForm.email.trim() })
+    alert('验证码已发送')
+    forgotStep.value = 2 // 切换到第二步
   } catch (error) {
+    alert(error.message || '发送失败')
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const handleResetSubmit = async () => {
+  if (forgotForm.new_password.length < 6) {
+    alert('密码长度不能少于6位')
+    return
+  }
+  if (forgotForm.new_password !== forgotForm.confirm_password) {
+    alert('两次密码输入不一致')
+    return
+  }
+  if (!forgotForm.verify_code.trim()) {
+    alert('请输入验证码')
+    return
+  }
+
+  try {
+    isLoading.value = true
+    // 加密新密码
+    const encryptedPw = await encryptPassword(forgotForm.new_password)
+
+    await resetPassword({
+      email: forgotForm.email.trim(),
+      verify_code: forgotForm.verify_code.trim(),
+      new_password: encryptedPw,
+    })
+
+    alert('密码修改成功，请重新登录')
     closeModal('forgot')
+    // 重置状态
+    forgotStep.value = 1
+    forgotForm.email = ''
+    forgotForm.verify_code = ''
+    forgotForm.new_password = ''
+    forgotForm.confirm_password = ''
+  } catch (error) {
+    alert(error.message || '重置失败')
+  } finally {
+    isLoading.value = false
   }
 }
 </script>
