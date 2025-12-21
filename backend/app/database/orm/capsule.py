@@ -73,6 +73,7 @@ class CapsuleMedia(Base):
     file_path = Column(String(500), nullable=False, comment="文件存储路径")
     file_size = Column(Integer, nullable=False, comment="文件大小（字节）")
     mime_type = Column(String(100), nullable=True, comment="MIME类型")
+    thumbnail_path = Column(String(500), nullable=True, comment="缩略图路径")
     upload_order = Column(Integer, nullable=False, default=0, comment="上传顺序")
     created_at = Column(DateTime, default=func.now(), nullable=False, comment="创建时间")
 

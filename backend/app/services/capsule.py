@@ -427,8 +427,8 @@ class CapsuleService:
             thumbnail_path = None
             if thumbnail_url:
                 thumbnail_path = thumbnail_url
-            elif file_url and file_type == "image":
-                # 尝试构建缩略图URL
+            elif file_url and file_type in ["image", "video", "audio"]:
+                # 尝试构建缩略图URL（支持所有媒体类型）
                 thumbnail_path = self._build_thumbnail_url(file_url)
 
             media_record = CapsuleMedia(
@@ -438,6 +438,7 @@ class CapsuleService:
                 file_path=file_url or file_id_str,  # 保存完整的文件URL路径
                 file_size=file_size,
                 mime_type=mime_type,
+                thumbnail_path=thumbnail_path,  # 保存缩略图路径
                 upload_order=index
             )
 
@@ -469,11 +470,11 @@ class CapsuleService:
 
     def _build_thumbnail_url(self, file_url: str) -> str:
         """根据文件URL构建缩略图URL"""
-        if "/uploads/image/" in file_url:
-            # 从 /uploads/image/20251215/file_xxx.png 构建缩略图路径
+        if "/uploads/" in file_url:
+            # 从 /uploads/{type}/20251215/file_xxx.mp4 构建缩略图路径
             parts = file_url.split('/')
-            if len(parts) >= 4:
-                # 重新构建缩略图URL: /uploads/image/20251215/thumbnails/file_xxx_thumb.jpg
+            if len(parts) >= 5:
+                # 重新构建缩略图URL: /uploads/{type}/20251215/thumbnails/file_xxx_thumb.jpg
                 thumbnail_url = f"/uploads/{parts[2]}/{parts[3]}/thumbnails/{parts[4].split('.')[0]}_thumb.jpg"
                 return thumbnail_url
 

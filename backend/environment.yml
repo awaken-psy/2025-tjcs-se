@@ -83,6 +83,8 @@ dependencies:
   - python-magic=0.4.27
   - numpy=2.4.0
   - moviepy=1.0.3
+  - opencv-python=4.8.0.76
+  - mutagen=1.47.0
   # 通过pip安装的包（跨平台兼容）
   - pip:
     - watchfiles==1.1.1

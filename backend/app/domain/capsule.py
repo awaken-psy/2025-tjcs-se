@@ -148,6 +148,24 @@ class Capsule:
            latitude = self.unlock_location[0]
            longitude = self.unlock_location[1]
 
+       # 获取封面图片（从第一个媒体文件的缩略图获取）
+       cover_image = ""
+       if self.media_files_data and len(self.media_files_data) > 0:
+           first_media = self.media_files_data[0]
+           if first_media.thumbnail_path:
+               # 如果数据库中有缩略图路径，直接使用
+               cover_image = first_media.thumbnail_path
+           elif first_media.file_type in ["image", "video", "audio"]:
+               # 动态生成缩略图URL
+               if first_media.file_path.startswith('/uploads/'):
+                   file_url = first_media.file_path
+               elif first_media.file_path.startswith('file_'):
+                   file_url = _find_media_file_url(first_media.file_path, first_media.file_type)
+               else:
+                   file_url = f"/uploads/{first_media.file_path}"
+
+               cover_image = _build_thumbnail_url_from_file_url(file_url, first_media.file_type)
+
        return CapsuleBasic(
             id=capsule_id_str,  # 转换为字符串ID
             title=self.title,
@@ -155,7 +173,7 @@ class Capsule:
             status=api_status,
             created_at=self.created_at,
             content_preview=self.description,
-            cover_image="",  # 确保不是None
+            cover_image=cover_image,  # 使用实际的缩略图URL
             unlock_count=len(self.unlocked_by),
             like_count=self.like_count,
             comment_count=self.comment_count,
@@ -284,10 +302,11 @@ class Capsule:
                     # 默认情况，添加uploads前缀
                     file_url = f"/uploads/{media_orm.file_path}"
 
-                # 构建缩略图URL
-                thumbnail_url = None
-                if media_orm.file_type == "image" and file_url.startswith('/uploads/image/'):
-                    thumbnail_url = _build_thumbnail_url_from_file_url(file_url)
+                # 获取缩略图URL
+                thumbnail_url = media_orm.thumbnail_path
+                # 如果数据库中没有缩略图路径，尝试动态生成
+                if not thumbnail_url and media_orm.file_type in ["image", "video", "audio"] and file_url.startswith('/uploads/'):
+                    thumbnail_url = _build_thumbnail_url_from_file_url(file_url, media_orm.file_type)
 
                 media_file = MediaFile(
                     id=str(media_orm.id),  # 转换为字符串ID
@@ -479,14 +498,14 @@ def _find_media_file_url(file_id: str, file_type: str) -> str:
     return f"/uploads/{file_id}"  # 回退到默认路径
 
 
-def _build_thumbnail_url_from_file_url(file_url: str) -> str:
+def _build_thumbnail_url_from_file_url(file_url: str, file_type: str = "image") -> str:
     """根据文件URL构建缩略图URL"""
     try:
-        if "/uploads/image/" in file_url:
-            # 从 /uploads/image/20251215/file_xxx.png 构建缩略图路径
+        if "/uploads/" in file_url:
+            # 从 /uploads/{type}/20251215/file_xxx.mp4 构建缩略图路径
             parts = file_url.split('/')
             if len(parts) >= 5:
-                # 重新构建缩略图URL: /uploads/image/20251215/thumbnails/file_xxx_thumb.jpg
+                # 重新构建缩略图URL: /uploads/{type}/20251215/thumbnails/file_xxx_thumb.jpg
                 filename = parts[4]
                 filename_without_ext = filename.split('.')[0]
                 thumbnail_url = f"/uploads/{parts[2]}/{parts[3]}/thumbnails/{filename_without_ext}_thumb.jpg"

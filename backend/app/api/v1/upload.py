@@ -81,7 +81,7 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 router = APIRouter(prefix='/upload', tags=['Upload'])
 logger = get_logger(f"router<{__name__}>")
 
-def _create_default_thumbnail(thumbnail_path: Path, media_type: str) -> Optional[str]:
+def _create_default_thumbnail(thumbnail_path: Path, media_type: str) -> bool:
     """创建默认缩略图"""
     try:
         from PIL import Image, ImageDraw, ImageFont
@@ -134,13 +134,8 @@ def _create_default_thumbnail(thumbnail_path: Path, media_type: str) -> Optional
         # 保存图片
         img.save(thumbnail_path, 'JPEG', quality=85, optimize=True)
 
-        # 返回相对路径
-        parts = thumbnail_path.parts
-        uploads_idx = parts.index('uploads')
-        relative_path = '/'.join(parts[uploads_idx:])
-
         logger.info(f"默认{media_type}缩略图创建成功: {thumbnail_path}")
-        return f"/{relative_path}"
+        return True
 
     except Exception as e:
         logger.error(f"创建默认缩略图失败: {str(e)}")
@@ -149,13 +144,9 @@ def _create_default_thumbnail(thumbnail_path: Path, media_type: str) -> Optional
             from PIL import Image
             img = Image.new('RGB', (1, 1), color='#f0f0f0')
             img.save(thumbnail_path, 'JPEG')
-
-            parts = thumbnail_path.parts
-            uploads_idx = parts.index('uploads')
-            relative_path = '/'.join(parts[uploads_idx:])
-            return f"/{relative_path}"
+            return True
         except:
-            return None
+            return False
 
 
 @router.post("/", response_model=UploadResponse)
@@ -247,7 +238,13 @@ async def upload_file(
             'wmv': Format.Wmv,
             'webm': Format.Webm
         }
-        file_format = format_map.get(ext, Format.Jpg if file_type == Type.Image else Format.Mp3)
+              # 根据文件类型设置默认格式
+        default_format = {
+            Type.Image: Format.Jpg,
+            Type.Video: Format.Mp4,
+            Type.Audio: Format.Mp3
+        }.get(file_type, Format.Jpg)
+        file_format = format_map.get(ext, default_format)
 
         # 生成文件ID和保存路径
         file_id = f"file_{secrets.token_hex(8)}"
@@ -257,8 +254,16 @@ async def upload_file(
         # 确保上传目录存在
         upload_dir.mkdir(parents=True, exist_ok=True)
 
-        # 生成文件名
-        file_ext = ext or ('jpg' if file_type == Type.Image else 'mp3')
+        # 生成文件名，优先使用检测到的实际格式
+        if ext:
+            file_ext = ext  # 如果从格式映射中获得了扩展名，使用它
+        else:
+            # 回退到类型默认值
+            file_ext = {
+                Type.Image: 'jpg',
+                Type.Video: 'mp4',
+                Type.Audio: 'mp3'
+            }.get(file_type, 'jpg')
         filename = f"{file_id}.{file_ext}"
         file_path = upload_dir / filename
 
@@ -393,9 +398,11 @@ async def upload_file(
 
             elif file_type == Type.Video:
                 # 视频：提取第一帧作为封面
+                video_thumb_generated = False
+
+                # 方法1：尝试使用OpenCV提取视频第一帧
                 try:
-                    # 尝试使用moviepy提取视频第一帧
-                    from moviepy.editor import VideoFileClip
+                    import cv2
                     import tempfile
 
                     # 先保存视频文件到临时位置
@@ -404,15 +411,19 @@ async def upload_file(
                         temp_video_path = temp_video.name
 
                     try:
-                        # 使用moviepy提取第一帧
-                        with VideoFileClip(temp_video_path) as clip:
-                            # 提取第一帧（0.1秒处）
-                            frame = clip.get_frame(0.1)
+                        # 使用OpenCV提取第一帧
+                        cap = cv2.VideoCapture(temp_video_path)
+                        ret, frame = cap.read()
+                        cap.release()
+
+                        if ret:
+                            # OpenCV使用BGR格式，需要转换为RGB
+                            import numpy as np
+                            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
                             # 将numpy数组转换为PIL图像
                             from PIL import Image
-                            import numpy as np
-                            img = Image.fromarray(frame.astype(np.uint8))
+                            img = Image.fromarray(frame_rgb)
 
                             # 确保是RGB模式
                             if img.mode != 'RGB':
@@ -422,8 +433,12 @@ async def upload_file(
                             img.thumbnail((300, 300), Image.Resampling.LANCZOS)
                             img.save(thumbnail_path, 'JPEG', quality=85, optimize=True)
 
+                            # 设置视频封面URL
                             thumbnail_url = f"/uploads/{file_type.value}/{timestamp}/thumbnails/{thumbnail_filename}"
-                            logger.info(f"视频封面生成成功: {thumbnail_path}")
+                            video_thumb_generated = True
+                            logger.info(f"使用OpenCV生成视频封面成功: {thumbnail_path}")
+                        else:
+                            logger.warning(f"OpenCV无法读取视频帧: {temp_video_path}")
 
                     finally:
                         # 清理临时文件
@@ -433,12 +448,67 @@ async def upload_file(
                         except:
                             pass
 
-                except Exception as video_thumb_error:
-                    logger.warning(f"视频封面生成失败: {str(video_thumb_error)}")
-                    # 使用默认视频封面
-                    thumbnail_path_str = _create_default_thumbnail(thumbnail_path, 'video')
-                    if thumbnail_path_str:
-                        thumbnail_url = thumbnail_path_str
+                except ImportError:
+                    logger.warning(f"OpenCV模块未安装，尝试MoviePy")
+                except Exception as opencv_error:
+                    logger.warning(f"OpenCV提取视频封面失败: {str(opencv_error)}，尝试MoviePy")
+
+                # 方法2：如果OpenCV失败，尝试使用MoviePy
+                if not video_thumb_generated:
+                    try:
+                        from moviepy.editor import VideoFileClip
+                        import tempfile
+
+                        # 先保存视频文件到临时位置
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_video:
+                            temp_video.write(content)
+                            temp_video_path = temp_video.name
+
+                        try:
+                            # 使用moviepy提取第一帧
+                            with VideoFileClip(temp_video_path) as clip:
+                                # 提取第一帧（0.1秒处）
+                                frame = clip.get_frame(0.1)
+
+                                # 将numpy数组转换为PIL图像
+                                from PIL import Image
+                                import numpy as np
+                                img = Image.fromarray(frame.astype(np.uint8))
+
+                                # 确保是RGB模式
+                                if img.mode != 'RGB':
+                                    img = img.convert('RGB')
+
+                                # 调整尺寸并保存
+                                img.thumbnail((300, 300), Image.Resampling.LANCZOS)
+                                img.save(thumbnail_path, 'JPEG', quality=85, optimize=True)
+
+                            # 设置视频封面URL
+                            thumbnail_url = f"/uploads/{file_type.value}/{timestamp}/thumbnails/{thumbnail_filename}"
+                            video_thumb_generated = True
+                            logger.info(f"使用MoviePy生成视频封面成功: {thumbnail_path}")
+
+                        finally:
+                            # 清理临时文件
+                            import os
+                            try:
+                                os.unlink(temp_video_path)
+                            except:
+                                pass
+
+                    except ImportError as import_error:
+                        logger.warning(f"MoviePy模块未安装，无法提取视频封面: {str(import_error)}")
+                    except Exception as moviepy_error:
+                        logger.warning(f"MoviePy提取视频封面失败: {str(moviepy_error)}")
+
+                # 方法3：如果都失败，使用默认视频封面
+                if not video_thumb_generated:
+                    if _create_default_thumbnail(thumbnail_path, 'video'):
+                        # 确保设置默认封面的URL
+                        thumbnail_url = f"/uploads/{file_type.value}/{timestamp}/thumbnails/{thumbnail_filename}"
+                        logger.info(f"使用默认视频封面: {thumbnail_path}")
+                    else:
+                        logger.error(f"默认视频封面生成失败")
 
             elif file_type == Type.Audio:
                 # 音频：使用MP3演示.jpg作为默认图标
@@ -453,30 +523,46 @@ async def upload_file(
 
                     if mp3_demo_path.exists():
                         shutil.copy2(mp3_demo_path, thumbnail_path)
+                        # 确保设置音频缩略图URL
                         thumbnail_url = f"/uploads/{file_type.value}/{timestamp}/thumbnails/{thumbnail_filename}"
                         logger.info(f"使用MP3演示.jpg作为音频默认图标: {thumbnail_path}")
                     else:
                         logger.warning(f"MP3演示.jpg文件不存在: {mp3_demo_path}，使用生成的默认图标")
-                        thumbnail_path_str = _create_default_thumbnail(thumbnail_path, 'audio')
-                        if thumbnail_path_str:
-                            thumbnail_url = thumbnail_path_str
+                        if _create_default_thumbnail(thumbnail_path, 'audio'):
+                            # 确保设置默认音频图标URL
+                            thumbnail_url = f"/uploads/{file_type.value}/{timestamp}/thumbnails/{thumbnail_filename}"
+                            logger.info(f"使用生成的音频默认图标: {thumbnail_path}")
+                        else:
+                            logger.error(f"生成的音频默认图标失败")
                 except Exception as audio_thumb_error:
                     logger.warning(f"音频缩略图生成失败: {str(audio_thumb_error)}，使用生成的默认图标")
-                    thumbnail_path_str = _create_default_thumbnail(thumbnail_path, 'audio')
-                    if thumbnail_path_str:
-                        thumbnail_url = thumbnail_path_str
+                    if _create_default_thumbnail(thumbnail_path, 'audio'):
+                        # 确保设置异常情况下的音频缩略图URL
+                        thumbnail_url = f"/uploads/{file_type.value}/{timestamp}/thumbnails/{thumbnail_filename}"
+                        logger.info(f"异常情况下使用生成的音频默认图标: {thumbnail_path}")
+                    else:
+                        logger.error(f"异常情况下生成的音频默认图标失败")
 
         except Exception as thumb_error:
             logger.warning(f"缩略图处理失败: {str(thumb_error)}")
             thumbnail_url = None
 
+        # 调试：记录最终缩略图URL
+        if thumbnail_url:
+            logger.info(f"最终缩略图URL: {thumbnail_url}")
+        else:
+            logger.warning(f"缩略图URL为空，文件类型: {file_type}")
+
         # 获取音频/视频时长
         duration = None
         if file_type == Type.Audio:
             # 获取音频时长
+            audio_duration_obtained = False
+
+            # 方法1：尝试使用mutagen获取音频时长（推荐，更稳定）
             try:
                 import tempfile
-                from moviepy.editor import AudioFileClip
+                from mutagen._file import File as MutagenFile
 
                 # 保存音频到临时文件
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_audio:
@@ -484,9 +570,14 @@ async def upload_file(
                     temp_audio_path = temp_audio.name
 
                 try:
-                    with AudioFileClip(temp_audio_path) as audio_clip:
-                        duration = float(audio_clip.duration)
-                        logger.info(f"音频时长获取成功: {duration}秒")
+                    # 使用mutagen获取音频信息
+                    audio_file = MutagenFile(temp_audio_path)
+                    if audio_file is not None and hasattr(audio_file, 'info'):
+                        duration = float(audio_file.info.length)
+                        audio_duration_obtained = True
+                        logger.info(f"使用mutagen获取音频时长成功: {duration}秒")
+                    else:
+                        logger.warning(f"mutagen无法获取音频信息: {temp_audio_path}")
                 finally:
                     # 清理临时文件
                     import os
@@ -495,15 +586,90 @@ async def upload_file(
                     except:
                         pass
 
-            except Exception as duration_error:
-                logger.warning(f"音频时长获取失败: {str(duration_error)}, 使用默认值")
+            except ImportError:
+                logger.warning(f"mutagen模块未安装，尝试OpenCV获取音频时长")
+            except Exception as mutagen_error:
+                logger.warning(f"mutagen获取音频时长失败: {str(mutagen_error)}，尝试OpenCV")
+
+            # 方法2：如果mutagen失败，尝试使用OpenCV
+            if not audio_duration_obtained:
+                try:
+                    import cv2
+                    import tempfile
+
+                    # 保存音频到临时文件
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_audio:
+                        temp_audio.write(content)
+                        temp_audio_path = temp_audio.name
+
+                    try:
+                        # 使用OpenCV获取音频时长
+                        cap = cv2.VideoCapture(temp_audio_path)
+                        fps = cap.get(cv2.CAP_PROP_FPS)
+                        frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+                        cap.release()
+
+                        if fps > 0 and frame_count > 0:
+                            duration = float(frame_count / fps)
+                            audio_duration_obtained = True
+                            logger.info(f"使用OpenCV获取音频时长成功: {duration}秒")
+                        else:
+                            logger.warning(f"OpenCV无法获取音频时长信息")
+                    finally:
+                        # 清理临时文件
+                        import os
+                        try:
+                            os.unlink(temp_audio_path)
+                        except:
+                            pass
+
+                except ImportError:
+                    logger.warning(f"OpenCV模块未安装，尝试MoviePy获取音频时长")
+                except Exception as opencv_error:
+                    logger.warning(f"OpenCV获取音频时长失败: {str(opencv_error)}，尝试MoviePy")
+
+            # 方法3：如果都失败，尝试使用MoviePy
+            if not audio_duration_obtained:
+                try:
+                    import tempfile
+                    from moviepy.editor import AudioFileClip
+
+                    # 保存音频到临时文件
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_audio:
+                        temp_audio.write(content)
+                        temp_audio_path = temp_audio.name
+
+                    try:
+                        with AudioFileClip(temp_audio_path) as audio_clip:
+                            duration = float(audio_clip.duration)
+                            audio_duration_obtained = True
+                            logger.info(f"使用MoviePy获取音频时长成功: {duration}秒")
+                    finally:
+                        # 清理临时文件
+                        import os
+                        try:
+                            os.unlink(temp_audio_path)
+                        except:
+                            pass
+
+                except ImportError as import_error:
+                    logger.warning(f"MoviePy模块未安装，无法获取音频时长: {str(import_error)}")
+                except Exception as moviepy_error:
+                    logger.warning(f"MoviePy获取音频时长失败: {str(moviepy_error)}")
+
+            # 方法4：如果都失败，使用默认值
+            if not audio_duration_obtained:
                 duration = 120.0  # 默认2分钟
+                logger.warning(f"所有方法都失败，使用音频默认时长: {duration}秒")
 
         elif file_type == Type.Video:
             # 获取视频时长
+            video_duration_obtained = False
+
+            # 方法1：尝试使用OpenCV获取视频时长（推荐，更稳定）
             try:
+                import cv2
                 import tempfile
-                from moviepy.editor import VideoFileClip
 
                 # 保存视频到临时文件
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_video:
@@ -511,9 +677,18 @@ async def upload_file(
                     temp_video_path = temp_video.name
 
                 try:
-                    with VideoFileClip(temp_video_path) as video_clip:
-                        duration = float(video_clip.duration)
-                        logger.info(f"视频时长获取成功: {duration}秒")
+                    # 使用OpenCV获取视频时长
+                    cap = cv2.VideoCapture(temp_video_path)
+                    fps = cap.get(cv2.CAP_PROP_FPS)
+                    frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+                    cap.release()
+
+                    if fps > 0 and frame_count > 0:
+                        duration = float(frame_count / fps)
+                        video_duration_obtained = True
+                        logger.info(f"使用OpenCV获取视频时长成功: {duration}秒")
+                    else:
+                        logger.warning(f"OpenCV无法获取视频时长信息")
                 finally:
                     # 清理临时文件
                     import os
@@ -522,9 +697,44 @@ async def upload_file(
                     except:
                         pass
 
-            except Exception as duration_error:
-                logger.warning(f"视频时长获取失败: {str(duration_error)}, 使用默认值")
+            except ImportError:
+                logger.warning(f"OpenCV模块未安装，尝试MoviePy获取视频时长")
+            except Exception as opencv_error:
+                logger.warning(f"OpenCV获取视频时长失败: {str(opencv_error)}，尝试MoviePy")
+
+            # 方法2：如果OpenCV失败，尝试使用MoviePy
+            if not video_duration_obtained:
+                try:
+                    import tempfile
+                    from moviepy.editor import VideoFileClip
+
+                    # 保存视频到临时文件
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_video:
+                        temp_video.write(content)
+                        temp_video_path = temp_video.name
+
+                    try:
+                        with VideoFileClip(temp_video_path) as video_clip:
+                            duration = float(video_clip.duration)
+                            video_duration_obtained = True
+                            logger.info(f"使用MoviePy获取视频时长成功: {duration}秒")
+                    finally:
+                        # 清理临时文件
+                        import os
+                        try:
+                            os.unlink(temp_video_path)
+                        except:
+                            pass
+
+                except ImportError as import_error:
+                    logger.warning(f"MoviePy模块未安装，无法获取视频时长: {str(import_error)}")
+                except Exception as moviepy_error:
+                    logger.warning(f"MoviePy获取视频时长失败: {str(moviepy_error)}")
+
+            # 方法3：如果都失败，使用默认值
+            if not video_duration_obtained:
                 duration = 180.0  # 默认3分钟
+                logger.warning(f"所有方法都失败，使用视频默认时长: {duration}秒")
 
         # 构建响应数据
         try:

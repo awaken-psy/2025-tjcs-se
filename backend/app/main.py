@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException, Query, Path, UploadFile, File, Reque
 from fastapi.staticfiles import StaticFiles # 用于挂载静态文件目录 (如上传的图片)
 from fastapi.middleware.cors import CORSMiddleware # 导入 CORS 中间件，解决跨域问题
 from fastapi.exceptions import RequestValidationError # 用于处理请求体数据验证失败的异常
+import mimetypes
 
 # 导入自定义的日志模块
 from app.logger import get_logger, app_logger
@@ -148,17 +149,77 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 # 获取项目根目录 (backend/)
 PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
 
+# 确保MIME类型正确设置 - 在全局范围内添加
+mimetypes.add_type('video/mp4', '.mp4')
+mimetypes.add_type('video/webm', '.webm')
+mimetypes.add_type('video/quicktime', '.mov')
+mimetypes.add_type('video/x-msvideo', '.avi')
+mimetypes.add_type('audio/mpeg', '.mp3')
+mimetypes.add_type('audio/wav', '.wav')
+mimetypes.add_type('audio/aac', '.aac')
+mimetypes.add_type('audio/flac', '.flac')
+
 # 配置静态文件服务，用于访问用户上传的图片、视频等文件
 UPLOAD_DIR = os.getenv('UPLOAD_DIR', os.path.join(PROJECT_ROOT, 'uploads'))
 
+class CustomStaticFiles(StaticFiles):
+    """自定义静态文件处理，为视频文件添加HTTP头支持"""
+
+    async def __call__(self, scope, receive, send):
+        # 检查请求路径是否为媒体文件
+        if scope["type"] == "http" and any(scope["path"].endswith(ext) for ext in ['.mp4', '.webm', '.mov', '.avi', '.mp3', '.wav']):
+            # 创建自定义的send方法来添加HTTP头
+            original_send = send
+
+            async def custom_send(message):
+                if message["type"] == "http.response.start":
+                    # 为媒体文件添加必要的HTTP头
+                    headers = list(message.get("headers", []))
+                    headers.extend([
+                        (b"accept-ranges", b"bytes"),
+                        (b"cache-control", b"public, max-age=3600"),
+                        (b"access-control-allow-origin", b"*"),
+                        (b"access-control-allow-methods", b"GET, HEAD, OPTIONS"),
+                        (b"access-control-allow-headers", b"Range"),
+                    ])
+
+                    # 特殊处理：对于.mp4扩展名但实际是QuickTime格式的文件，使用兼容的MIME类型
+                    scope_path = scope.get("path", "")
+                    if scope_path.endswith('.mp4'):
+                        # 检查文件是否实际是QuickTime格式
+                        try:
+                            import os
+                            from pathlib import Path
+                            # 确保路径是字符串类型
+                            directory_str = str(self.directory) if hasattr(self, 'directory') else ""
+                            relative_path = scope_path.lstrip('/uploads/')
+                            full_path = os.path.join(directory_str, relative_path)
+                            if os.path.exists(full_path):
+                                with open(full_path, 'rb') as f:
+                                    header = f.read(16)
+                                    if len(header) >= 16 and header[4:8] == b'ftyp' and header[8:12] == b'qt  ':
+                                        # 这是一个QuickTime文件，使用更兼容的MIME类型
+                                        headers = [h for h in headers if not h[0].startswith(b'content-type')]
+                                        # 使用 application/octet-stream 让浏览器自动检测
+                                        headers.append((b"content-type", b"application/octet-stream"))
+                        except Exception as e:
+                            pass  # 如果检查失败，使用默认MIME类型
+
+                    message["headers"] = headers
+                await original_send(message)
+
+            await super().__call__(scope, receive, custom_send)
+        else:
+            await super().__call__(scope, receive, send)
+
 if os.path.exists(UPLOAD_DIR):
     # 挂载上传目录作为静态文件服务，通过 /uploads/filename 访问
-    app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+    app.mount("/uploads", CustomStaticFiles(directory=UPLOAD_DIR), name="uploads")
     print(f"📁 静态文件服务已挂载: {UPLOAD_DIR} -> /uploads")
 else:
     # 如果上传目录不存在，创建它
     os.makedirs(UPLOAD_DIR, exist_ok=True)
-    app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+    app.mount("/uploads", CustomStaticFiles(directory=UPLOAD_DIR), name="uploads")
     print(f"📁 创建并挂载上传目录: {UPLOAD_DIR} -> /uploads")
 
 # -----------------------------------------------------------

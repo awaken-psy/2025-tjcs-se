@@ -107,7 +107,8 @@
                   :src="currentMedia.url"
                   :poster="currentMedia.thumbnail"
                   controls
-                  autoplay
+                  muted
+                  preload="metadata"
                   class="full-media"></video>
 
                 <div

@@ -78,9 +78,19 @@ def get_file_type_from_content(content: bytes) -> str:
         # 检测 MP3
         elif content[0:2] in [b'ID3', b'\xFF\xFB', b'\xFF\xF3', b'\xFF\xF2']:
             return 'audio'  # MP3
-        # 检测 MP4
+        # 检测 MP4/QuickTime
         elif content[4:8] in [b'ftyp', b'mdat']:
-            return 'video'  # MP4
+            # 进一步检测文件类型
+            if len(content) >= 16:
+                # 检查 ftyp 盒子来确定具体格式
+                if content[4:8] == b'ftyp':
+                    brand = content[8:12]
+                    if brand in [b'qt  ', b'moov']:  # QuickTime
+                        return 'video'  # MOV
+                    elif brand in [b'isom', b'iso2', b'iso3', b'iso4', b'iso5', b'iso6',
+                                   b'mp41', b'mp42', b'avc1', b'hvc1', b'hevc']:  # MP4
+                        return 'video'  # MP4
+            return 'video'  # 默认视频
 
     return 'unknown'
 
@@ -142,7 +152,15 @@ def get_file_format_from_content(content: bytes, filename: str) -> str:
         elif content[0:2] in [b'ID3', b'\xFF\xFB', b'\xFF\xF3', b'\xFF\xF2']:
             return 'mp3'
         elif content[4:8] in [b'ftyp', b'mdat']:
-            return 'mp4'
+            # 进一步检测MP4 vs MOV
+            if len(content) >= 16 and content[4:8] == b'ftyp':
+                brand = content[8:12]
+                if brand in [b'qt  ', b'moov']:  # QuickTime
+                    return 'mov'
+                elif brand in [b'isom', b'iso2', b'iso3', b'iso4', b'iso5', b'iso6',
+                               b'mp41', b'mp42', b'avc1', b'hvc1', b'hevc']:  # MP4
+                    return 'mp4'
+            return 'mp4'  # 默认MP4
 
     # 如果检测失败，使用文件扩展名
     return Path(filename).suffix.lower().lstrip('.')
