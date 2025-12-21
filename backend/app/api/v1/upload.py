@@ -81,6 +81,82 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 router = APIRouter(prefix='/upload', tags=['Upload'])
 logger = get_logger(f"router<{__name__}>")
 
+def _create_default_thumbnail(thumbnail_path: Path, media_type: str) -> Optional[str]:
+    """创建默认缩略图"""
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+
+        # 创建300x300的画布
+        img = Image.new('RGB', (300, 300), color='#f0f0f0')
+        draw = ImageDraw.Draw(img)
+
+        # 根据媒体类型绘制不同的图标
+        if media_type == 'video':
+            # 绘制视频播放图标
+            # 背景
+            draw.ellipse([50, 50, 250, 250], fill='#333333')
+            # 播放三角形
+            draw.polygon([(130, 120), (130, 180), (180, 150)], fill='#ffffff')
+            text = "VIDEO"
+        elif media_type == 'audio':
+            # 绘制音频波形图标
+            # 音频条形图
+            bar_width = 20
+            bar_spacing = 25
+            start_x = 50
+            center_y = 150
+
+            for i, height in enumerate([80, 120, 60, 140, 100, 80, 110, 90, 130, 70]):
+                x = start_x + i * bar_spacing
+                y_top = center_y - height // 2
+                y_bottom = center_y + height // 2
+                draw.rectangle([x, y_top, x + bar_width, y_bottom], fill='#333333')
+            text = "AUDIO"
+        else:
+            # 通用文件图标
+            draw.rectangle([75, 50, 225, 200], fill='#333333', outline='#ffffff', width=3)
+            text = "FILE"
+
+        # 添加文字标签
+        try:
+            # 尝试使用系统字体
+            font = ImageFont.truetype("arial.ttf", 24)
+        except:
+            # 如果没有系统字体，使用默认字体
+            font = ImageFont.load_default()
+
+        # 计算文字位置（居中）
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_x = (300 - text_width) // 2
+        draw.text((text_x, 250), text, fill='#333333', font=font)
+
+        # 保存图片
+        img.save(thumbnail_path, 'JPEG', quality=85, optimize=True)
+
+        # 返回相对路径
+        parts = thumbnail_path.parts
+        uploads_idx = parts.index('uploads')
+        relative_path = '/'.join(parts[uploads_idx:])
+
+        logger.info(f"默认{media_type}缩略图创建成功: {thumbnail_path}")
+        return f"/{relative_path}"
+
+    except Exception as e:
+        logger.error(f"创建默认缩略图失败: {str(e)}")
+        # 如果生成失败，创建一个最小的1x1像素图片
+        try:
+            from PIL import Image
+            img = Image.new('RGB', (1, 1), color='#f0f0f0')
+            img.save(thumbnail_path, 'JPEG')
+
+            parts = thumbnail_path.parts
+            uploads_idx = parts.index('uploads')
+            relative_path = '/'.join(parts[uploads_idx:])
+            return f"/{relative_path}"
+        except:
+            return None
+
 
 @router.post("/", response_model=UploadResponse)
 async def upload_file(
@@ -270,38 +346,185 @@ async def upload_file(
         # 生成访问URL
         file_url = f"/uploads/{file_type.value}/{timestamp}/{filename}"
 
-        # 生成缩略图（仅图片）
+        # 生成缩略图
         thumbnail_url = None
-        if file_type == Type.Image:
-            try:
-                thumbnail_filename = f"{file_id}_thumb.jpg"
-                thumbnail_dir = upload_dir / "thumbnails"
-                thumbnail_path = thumbnail_dir / thumbnail_filename
+        try:
+            thumbnail_filename = f"{file_id}_thumb.jpg"
+            thumbnail_dir = upload_dir / "thumbnails"
+            thumbnail_dir.mkdir(parents=True, exist_ok=True)
+            thumbnail_path = thumbnail_dir / thumbnail_filename
 
-                # 创建缩略图目录
-                thumbnail_dir.mkdir(parents=True, exist_ok=True)
-                logger.info(f"缩略图目录创建成功: {thumbnail_dir}")
+            if file_type == Type.Image:
+                # 图片：生成缩略图
+                try:
+                    from PIL import Image
+                    import io
 
-                # 简化：暂时使用原图作为缩略图
-                thumbnail_url = f"/uploads/{file_type.value}/{timestamp}/thumbnails/{thumbnail_filename}"
+                    # 使用PIL生成缩略图
+                    with Image.open(io.BytesIO(content)) as img:
+                        # 转换为RGB模式（处理RGBA等模式）
+                        if img.mode in ['RGBA', 'LA', 'P']:
+                            background = Image.new('RGB', img.size, (255, 255, 255))
+                            if img.mode == 'P':
+                                img = img.convert('RGBA')
+                            if img.mode in ['RGBA', 'LA']:
+                                background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+                            else:
+                                background.paste(img)
+                            img = background
+                        elif img.mode != 'RGB':
+                            img = img.convert('RGB')
 
-                # 复制原图作为缩略图（实际应该生成真正的缩略图）
-                with open(thumbnail_path, "wb") as thumb_f:
-                    thumb_f.write(content)
-                logger.info(f"缩略图生成成功: {thumbnail_path}")
+                        # 生成缩略图，最大尺寸300x300
+                        img.thumbnail((300, 300), Image.Resampling.LANCZOS)
 
-            except Exception as thumb_error:
-                logger.warning(f"缩略图生成失败: {str(thumb_error)}")
-                thumbnail_url = None
+                        # 保存为JPG
+                        img.save(thumbnail_path, 'JPEG', quality=85, optimize=True)
 
-        # 获取音频/视频时长（简化处理）
+                    thumbnail_url = f"/uploads/{file_type.value}/{timestamp}/thumbnails/{thumbnail_filename}"
+                    logger.info(f"图片缩略图生成成功: {thumbnail_path}")
+
+                except Exception as img_thumb_error:
+                    logger.warning(f"图片缩略图生成失败: {str(img_thumb_error)}")
+                    # 如果生成失败，使用原图
+                    with open(thumbnail_path, "wb") as thumb_f:
+                        thumb_f.write(content)
+                    thumbnail_url = f"/uploads/{file_type.value}/{timestamp}/thumbnails/{thumbnail_filename}"
+
+            elif file_type == Type.Video:
+                # 视频：提取第一帧作为封面
+                try:
+                    # 尝试使用moviepy提取视频第一帧
+                    from moviepy.editor import VideoFileClip
+                    import tempfile
+
+                    # 先保存视频文件到临时位置
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_video:
+                        temp_video.write(content)
+                        temp_video_path = temp_video.name
+
+                    try:
+                        # 使用moviepy提取第一帧
+                        with VideoFileClip(temp_video_path) as clip:
+                            # 提取第一帧（0.1秒处）
+                            frame = clip.get_frame(0.1)
+
+                            # 将numpy数组转换为PIL图像
+                            from PIL import Image
+                            import numpy as np
+                            img = Image.fromarray(frame.astype(np.uint8))
+
+                            # 确保是RGB模式
+                            if img.mode != 'RGB':
+                                img = img.convert('RGB')
+
+                            # 调整尺寸并保存
+                            img.thumbnail((300, 300), Image.Resampling.LANCZOS)
+                            img.save(thumbnail_path, 'JPEG', quality=85, optimize=True)
+
+                            thumbnail_url = f"/uploads/{file_type.value}/{timestamp}/thumbnails/{thumbnail_filename}"
+                            logger.info(f"视频封面生成成功: {thumbnail_path}")
+
+                    finally:
+                        # 清理临时文件
+                        import os
+                        try:
+                            os.unlink(temp_video_path)
+                        except:
+                            pass
+
+                except Exception as video_thumb_error:
+                    logger.warning(f"视频封面生成失败: {str(video_thumb_error)}")
+                    # 使用默认视频封面
+                    thumbnail_path_str = _create_default_thumbnail(thumbnail_path, 'video')
+                    if thumbnail_path_str:
+                        thumbnail_url = thumbnail_path_str
+
+            elif file_type == Type.Audio:
+                # 音频：使用MP3演示.jpg作为默认图标
+                try:
+                    # 复制MP3演示.jpg到缩略图位置
+                    import shutil
+
+                    # 获取后端根目录路径（从当前文件路径向上两级）
+                    current_file_path = Path(__file__)
+                    backend_root = current_file_path.parent.parent.parent
+                    mp3_demo_path = backend_root / "MP3演示.jpg"
+
+                    if mp3_demo_path.exists():
+                        shutil.copy2(mp3_demo_path, thumbnail_path)
+                        thumbnail_url = f"/uploads/{file_type.value}/{timestamp}/thumbnails/{thumbnail_filename}"
+                        logger.info(f"使用MP3演示.jpg作为音频默认图标: {thumbnail_path}")
+                    else:
+                        logger.warning(f"MP3演示.jpg文件不存在: {mp3_demo_path}，使用生成的默认图标")
+                        thumbnail_path_str = _create_default_thumbnail(thumbnail_path, 'audio')
+                        if thumbnail_path_str:
+                            thumbnail_url = thumbnail_path_str
+                except Exception as audio_thumb_error:
+                    logger.warning(f"音频缩略图生成失败: {str(audio_thumb_error)}，使用生成的默认图标")
+                    thumbnail_path_str = _create_default_thumbnail(thumbnail_path, 'audio')
+                    if thumbnail_path_str:
+                        thumbnail_url = thumbnail_path_str
+
+        except Exception as thumb_error:
+            logger.warning(f"缩略图处理失败: {str(thumb_error)}")
+            thumbnail_url = None
+
+        # 获取音频/视频时长
         duration = None
         if file_type == Type.Audio:
-            # 简化：设置默认时长
-            duration = 120.0
+            # 获取音频时长
+            try:
+                import tempfile
+                from moviepy.editor import AudioFileClip
+
+                # 保存音频到临时文件
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_audio:
+                    temp_audio.write(content)
+                    temp_audio_path = temp_audio.name
+
+                try:
+                    with AudioFileClip(temp_audio_path) as audio_clip:
+                        duration = float(audio_clip.duration)
+                        logger.info(f"音频时长获取成功: {duration}秒")
+                finally:
+                    # 清理临时文件
+                    import os
+                    try:
+                        os.unlink(temp_audio_path)
+                    except:
+                        pass
+
+            except Exception as duration_error:
+                logger.warning(f"音频时长获取失败: {str(duration_error)}, 使用默认值")
+                duration = 120.0  # 默认2分钟
+
         elif file_type == Type.Video:
-            # 简化：设置默认时长
-            duration = 180.0
+            # 获取视频时长
+            try:
+                import tempfile
+                from moviepy.editor import VideoFileClip
+
+                # 保存视频到临时文件
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_video:
+                    temp_video.write(content)
+                    temp_video_path = temp_video.name
+
+                try:
+                    with VideoFileClip(temp_video_path) as video_clip:
+                        duration = float(video_clip.duration)
+                        logger.info(f"视频时长获取成功: {duration}秒")
+                finally:
+                    # 清理临时文件
+                    import os
+                    try:
+                        os.unlink(temp_video_path)
+                    except:
+                        pass
+
+            except Exception as duration_error:
+                logger.warning(f"视频时长获取失败: {str(duration_error)}, 使用默认值")
+                duration = 180.0  # 默认3分钟
 
         # 构建响应数据
         try:
