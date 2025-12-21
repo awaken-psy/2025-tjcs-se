@@ -183,14 +183,51 @@ class Capsule:
             avatar=avatar_url
         )
     
+        # 获取真实的统计数据
+        try:
+            from app.database.repositories.interaction_repository import InteractionRepository
+            from app.database.repositories.capsule_repository import CapsuleRepository
+            from app.database.database import get_db
+
+            # 确保 capsule_id 不为 None
+            if self.capsule_id is None:
+                raise ValueError("capsule_id cannot be None")
+
+            # 获取数据库会话
+            db = next(get_db())
+            interaction_repo = InteractionRepository(db)
+            capsule_repo = CapsuleRepository(db)
+            user_id = getattr(user, 'user_id', None)
+
+            # 获取真实统计数据 - 浏览次数通过解锁记录的查看次数总和计算
+            view_count = capsule_repo.get_capsule_view_count(self.capsule_id)
+            like_count = interaction_repo.get_like_count(self.capsule_id)
+
+            # 获取评论数量 - 通过查询交互记录中的评论类型来计算
+            comment_count = len(interaction_repo.get_comments_by_capsule(self.capsule_id, page=1, page_size=1000))
+
+            is_liked = interaction_repo.get_like_interaction(user_id, self.capsule_id) is not None if user_id else False
+            is_collected = interaction_repo.is_user_collected_capsule(user_id, self.capsule_id) if user_id else False
+
+            # 关闭数据库会话
+            db.close()
+
+        except Exception as e:
+            # 如果获取统计数据失败，使用默认值
+            view_count = 0
+            like_count = self.like_count or 0
+            comment_count = self.comment_count or 0
+            is_liked = False
+            is_collected = False
+
         # 转换统计信息
         stats = CapsuleStats(
-            view_count=0,  # TODO: 实现访问统计
-            like_count=self.like_count,
-            comment_count=self.comment_count,
-            unlock_count=len(self.unlocked_by),
-            is_liked=False,  # TODO: 实现点赞状态
-            is_collected=False  # TODO: 实现收藏状态
+            view_count=view_count,
+            like_count=like_count,
+            comment_count=comment_count,
+            unlock_count=len(self.unlocked_by) if self.unlocked_by else 0,
+            is_liked=is_liked,
+            is_collected=is_collected
         )
     
     # 根据content_type推断标签
