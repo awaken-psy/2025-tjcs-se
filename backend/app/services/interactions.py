@@ -279,19 +279,25 @@ class InteractionService:
         """获取胶囊的互动统计"""
         try:
             like_count = self.interaction_repo.get_like_count(capsule_id)
+            comment_count = self.interaction_repo.get_comment_count_by_capsule(capsule_id)
 
-            # 获取评论数量（简化实现）
-            comments = self.interaction_repo.get_comments_by_capsule(capsule_id, 1, 1)
-            comment_count = len(comments)  # 这里简化处理，实际应该有专门的计数方法
+            # 获取收藏数量
+            from sqlalchemy import and_
+            from app.database.orm.capsule_interaction import CapsuleInteraction
+            from app.database.orm.unlock_record import UnlockRecord
 
-            # 获取收藏数量（简化实现）
-            # 这里可以添加专门的收藏统计方法，但暂时返回0
+            collect_count = self.db.query(CapsuleInteraction).join(UnlockRecord).filter(
+                and_(
+                    UnlockRecord.capsule_id == capsule_id,
+                    CapsuleInteraction.interaction_type == InteractionType.COLLECT.value
+                )
+            ).count()
 
             return {
                 "like_count": like_count,
                 "comment_count": comment_count,
                 "share_count": 0,  # 简化实现，暂不支持分享统计
-                "collect_count": 0  # 简化实现，可以通过查询COLLECT类型的交互来获取
+                "collect_count": collect_count
             }
         except Exception as e:
             raise ValueError(f"获取互动统计失败: {str(e)}")

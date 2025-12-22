@@ -166,6 +166,20 @@ class Capsule:
 
                cover_image = _build_thumbnail_url_from_file_url(file_url, first_media.file_type)
 
+       # 获取真实的评论数
+       comment_count = self.comment_count
+       try:
+           from app.database.repositories.interaction_repository import InteractionRepository
+           from app.database.database import get_db
+
+           if self.capsule_id is not None:
+               db = next(get_db())
+               interaction_repo = InteractionRepository(db)
+               comment_count = interaction_repo.get_comment_count_by_capsule(self.capsule_id)
+               db.close()
+       except Exception:
+           pass  # 使用默认值
+
        return CapsuleBasic(
             id=capsule_id_str,  # 转换为字符串ID
             title=self.title,
@@ -176,7 +190,7 @@ class Capsule:
             cover_image=cover_image,  # 使用实际的缩略图URL
             unlock_count=len(self.unlocked_by),
             like_count=self.like_count,
-            comment_count=self.comment_count,
+            comment_count=comment_count,
             latitude=latitude,  # 添加经纬度信息
             longitude=longitude
         )
@@ -221,8 +235,8 @@ class Capsule:
             view_count = capsule_repo.get_capsule_view_count(self.capsule_id)
             like_count = interaction_repo.get_like_count(self.capsule_id)
 
-            # 获取评论数量 - 通过查询交互记录中的评论类型来计算
-            comment_count = len(interaction_repo.get_comments_by_capsule(self.capsule_id, page=1, page_size=1000))
+            # 获取评论数量 - 使用专门的计数方法
+            comment_count = interaction_repo.get_comment_count_by_capsule(self.capsule_id)
 
             is_liked = interaction_repo.get_like_interaction(user_id, self.capsule_id) is not None if user_id else False
             is_collected = interaction_repo.is_user_collected_capsule(user_id, self.capsule_id) if user_id else False

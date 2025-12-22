@@ -298,17 +298,52 @@ class InteractionRepository:
 
         self.db.commit()
         return deleted_count > 0
-    def get_comments_by_capsule_with_tree(self, capsule_id: int, page: int = 1, page_size: int = 20,
-                                         sort: str = "latest") -> List[Interaction]:
-        """获取胶囊的评论列表（简化实现，不依赖数据库parent_id字段）"""
-        # 由于数据库表中没有parent_id字段，暂时使用普通评论列表
-        # 在domain层构建虚拟的评论树结构
-        comments = self.get_comments_by_capsule(capsule_id, page, page_size, sort)
+    def get_all_comments_by_capsule(self, capsule_id: int, sort: str = "latest") -> List[Interaction]:
+        """获取胶囊的所有评论（不分页，用于构建评论树）"""
+        from ..orm.capsule_interaction import CapsuleInteraction
+        from ..orm.unlock_record import UnlockRecord
 
-        # 为每个评论添加空的回复列表，保持API兼容性
-        for comment in comments:
-            comment.replies = []
-            comment.like_count = 0  # 简化处理，实际需要查询点赞数
+        # 构建查询
+        query = self.db.query(CapsuleInteraction).join(UnlockRecord).filter(
+            and_(
+                UnlockRecord.capsule_id == capsule_id,
+                CapsuleInteraction.interaction_type == InteractionType.COMMENT.value,
+                CapsuleInteraction.comment_content.isnot(None)
+            )
+        )
+
+        # 排序
+        if sort == "latest":
+            query = query.order_by(desc(CapsuleInteraction.created_at))
+        elif sort == "hottest":
+            # 暂时按创建时间排序，后续可以实现点赞数排序
+            query = query.order_by(desc(CapsuleInteraction.created_at))
+
+        # 获取所有评论（不分页）
+        interactions_orm = query.all()
+
+        # 转换为domain对象并添加点赞数
+        comments = []
+        for interaction_orm in interactions_orm:
+            interaction = self._orm_to_domain_interaction(interaction_orm)
+            interaction.like_count = self.get_comment_like_count(interaction.id or 0)
+            interaction.reply_count = 0  # 稍后计算
+            comments.append(interaction)
 
         return comments
+
+    def get_comment_count_by_capsule(self, capsule_id: int) -> int:
+        """获取胶囊的总评论数"""
+        from ..orm.capsule_interaction import CapsuleInteraction
+        from ..orm.unlock_record import UnlockRecord
+
+        count = self.db.query(CapsuleInteraction).join(UnlockRecord).filter(
+            and_(
+                UnlockRecord.capsule_id == capsule_id,
+                CapsuleInteraction.interaction_type == InteractionType.COMMENT.value,
+                CapsuleInteraction.comment_content.isnot(None)
+            )
+        ).count()
+
+        return count
 
