@@ -29,7 +29,7 @@
           </span>
         </div>
 
-        <div class="detail-unlock-condition">
+        <div class="detail-unlock-condition" v-if="!detailData.is_mine && detailData.unlock_conditions_is_unlocked === false">
           <i :class="getUnlockIcon(detailData.unlock_conditions_type)" />
           解锁条件：
           {{ getUnlockText(detailData) }}
@@ -178,9 +178,59 @@
             <i class="fas fa-comment-dots" />
             {{ detailData.comment_count || 0 }} 评论
           </span>
-          <span class="stat-item">
-            <i class="fas fa-unlock" /> {{ detailData.unlock_count || 0 }} 解锁
-          </span>
+        </div>
+
+        <div class="comments-container">
+          <h4 class="section-title">
+            评论 ({{ detailData.comment_count || 0 }})
+          </h4>
+
+          <div class="comment-input-area">
+            <textarea
+              v-model="newComment"
+              placeholder="说点什么吧..."
+              rows="2"
+              :disabled="isSubmitting"></textarea>
+            <div class="input-footer">
+              <button
+                class="btn-send"
+                :disabled="!newComment.trim() || isSubmitting"
+                @click="submitComment">
+                {{ isSubmitting ? '发送中...' : '发表评论' }}
+              </button>
+            </div>
+          </div>
+
+          <div v-if="commentList.length > 0" class="comments-list">
+            <div
+              v-for="comment in commentList"
+              :key="comment.id"
+              class="comment-item">
+              <img
+                :src="comment.user.avatar"
+                class="comment-avatar"
+                alt="avatar" />
+              <div class="comment-content-wrap">
+                <div class="comment-user-info">
+                  <span class="comment-nickname">{{
+                    comment.user.nickname
+                  }}</span>
+                  <span class="comment-time">{{
+                    formatStandard(comment.created_at)
+                  }}</span>
+                </div>
+                <div class="comment-text">{{ comment.content }}</div>
+
+                <div
+                  v-if="comment.replies && comment.replies.length > 0"
+                  class="replies-list"></div>
+              </div>
+            </div>
+          </div>
+          <div v-else-if="loadingComments" class="comment-empty">
+            加载评论中...
+          </div>
+          <div v-else class="comment-empty">暂无评论，快来抢沙发吧~</div>
         </div>
       </div>
 
@@ -199,6 +249,7 @@
 
 <script setup>
 import { defineProps, defineEmits, ref, computed, watch } from 'vue'
+import { getCapsuleComments, commentCapsule } from '@/api/new/interactionsApi'
 
 // #region 辅助函数
 
@@ -353,6 +404,7 @@ const handleShare = (data) => {
 }
 // #endregion
 
+// #region 多媒体查看器
 const activeMediaIndex = ref(null)
 
 const currentMedia = computed(() => {
@@ -368,6 +420,61 @@ const audioPlayer = ref(null)
 watch(activeMediaIndex, () => {
   isPlaying.value = false
 })
+// #endregion
+
+// #region 评论相关
+// --- 新增：评论相关状态 ---
+const commentList = ref([])
+const newComment = ref('')
+const isSubmitting = ref(false)
+const loadingComments = ref(false)
+
+/** 获取评论列表 */
+const fetchComments = async () => {
+  if (!props.detailData.id) return
+  loadingComments.value = true
+  try {
+    // 根据 request.js，这里直接拿到的就是 data 对象
+    const res = await getCapsuleComments(props.detailData.id, { page: 1, page_size: 50 })
+    commentList.value = res.comments || []
+  } catch (err) {
+    console.error('获取评论失败:', err)
+  } finally {
+    loadingComments.value = false
+  }
+}
+
+/** 提交新评论 */
+const submitComment = async () => {
+  if (!newComment.value.trim() || isSubmitting.value) return
+  
+  isSubmitting.value = true
+  try {
+    await commentCapsule(props.detailData.id, {
+      content: newComment.value,
+      parent_id: null // 顶级评论
+    })
+    newComment.value = '' // 清空输入框
+    // 重新拉取评论列表
+    await fetchComments()
+    // 也可以通知父组件更新评论数
+    emit('comment-success')
+  } catch (err) {
+    alert(err.message || '评论失败，请稍后再试')
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+// 监听模态框打开，自动加载评论
+watch(() => props.showModal, (newVal) => {
+  if (newVal && props.detailData.id) {
+    fetchComments()
+  } else {
+    commentList.value = [] // 关闭时重置
+  }
+})
+// #endregion
 </script>
 
 <style scoped>
@@ -795,4 +902,138 @@ watch(activeMediaIndex, () => {
 .is-playing .disc {
   animation: rotateDisc 5s linear infinite;
 }
+/* --- 新增：评论区样式 --- */
+.comments-container {
+  margin-top: 25px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 15px;
+  color: #333;
+}
+
+/* 输入框区域 */
+.comment-input-area {
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.comment-input-area textarea {
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 10px;
+  font-family: inherit;
+  resize: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.comment-input-area textarea:focus {
+  outline: none;
+  border-color: #6c8cff;
+}
+
+.input-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.btn-send {
+  background: #6c8cff;
+  color: white;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-send:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+/* 列表条目 */
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.comment-item {
+  display: flex;
+  gap: 12px;
+}
+
+.comment-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #eee;
+}
+
+.comment-content-wrap {
+  flex: 1;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 12px;
+}
+
+.comment-user-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.comment-nickname {
+  font-weight: 600;
+  font-size: 14px;
+  color: #444;
+}
+
+.comment-time {
+  font-size: 12px;
+  color: #999;
+}
+
+.comment-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #333;
+  word-break: break-all;
+}
+
+.comment-actions {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #888;
+}
+
+.action-btn {
+  cursor: pointer;
+  margin-right: 15px;
+  transition: color 0.2s;
+}
+
+.action-btn:hover {
+  color: #6c8cff;
+}
+
+.action-btn.liked {
+  color: #ff4d4f;
+}
+
+.comment-empty {
+  text-align: center;
+  color: #999;
+  padding: 20px 0;
+  font-size: 14px;
+}
+
 </style>

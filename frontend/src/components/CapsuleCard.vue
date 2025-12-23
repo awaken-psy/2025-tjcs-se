@@ -10,8 +10,8 @@
       class="capsule-thumb"
     >
       <img 
-        v-if="capsule.media_files.length > 0 && capsule.media_files[0].type === 'image'" 
-        :src="capsule.media_files[0].thumbnail_url || capsule.media_files[0].url" 
+        v-if="capsule.media_files.length > 0 " 
+        :src="capsule.media_files[0].thumbnail" 
         :alt="capsule.title"
         class="thumb-img"
       >
@@ -52,14 +52,10 @@
         {{ capsule.content }}
       </p>
 
-      <!-- 统计信息（点赞、解锁、评论） -->
+      <!-- 统计信息（点赞、评论） -->
       <div class="capsule-stats">
         <span class="stat-item">
           👍 {{ capsule.like_count || 0 }}
-        </span>
-        <span class="stat-separator">·</span>
-        <span class="stat-item">
-          🔓 {{ capsule.unlock_count || 0 }}
         </span>
         <span class="stat-separator">·</span>
         <span class="stat-item">
@@ -67,22 +63,6 @@
         </span>
       </div>
 
-      <!-- 操作按钮（查看、点赞）
-      <div class="capsule-actions">
-        <button 
-          class="action-btn view-btn"
-          @click.stop="handleViewClick"
-        >
-          查看详情
-        </button>
-        <button 
-          class="action-btn like-btn"
-          :class="{ liked: capsule.liked }"
-          @click.stop="handleLikeClick"
-        >
-          👍 {{ capsule.like_count || 0 }}
-        </button>
-      </div> -->
       <!-- ⭐ 重要：这里改为插槽，用于插入操作按钮 -->
       <div class="capsule-actions">
         <slot name="actions"></slot>
