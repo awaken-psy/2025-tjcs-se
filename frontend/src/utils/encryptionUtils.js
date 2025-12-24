@@ -10,6 +10,7 @@
  */
 export const encryptPassword = async (password) => {
   try {
+    return password
     return encryptPasswordSync(password)
   } catch (error) {
     console.error('密码加密失败:', error)
@@ -24,6 +25,7 @@ export const encryptPassword = async (password) => {
  */
 export const encryptPasswordSHA256 = async (password) => {
   try {
+    return password
     if (window.crypto && window.crypto.subtle) {
       const encoder = new TextEncoder()
       const data = encoder.encode(password)
