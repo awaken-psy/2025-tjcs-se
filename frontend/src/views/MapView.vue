@@ -357,6 +357,7 @@ const filters = ref({
  * @param {Object} coords - { longitude: number, latitude: number }
  */
 const handleLocationUpdate = (coords) => {
+  console.log('地图组件报告定位更新:', coords)
   userLocation.value = coords
   fetchCapsules()
 }
@@ -518,45 +519,13 @@ const doUnlockRequest = (capsuleId, password = null) => {
     const requiredRadius = capsule.unlock_conditions_radius || 0
 
     // 1. 如果需要地理位置，尝试获取最新位置 (MapContainer 应该已经提供了 userLocation)
-    if (requiredRadius > 0 && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const apiParams = {
-            capsule_id: capsuleId,
-            password: password || undefined,
-            user_location: {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-            },
-          }
-          unlockCapsule(apiParams).then(resolve).catch(reject)
-        },
-        (posError) => {
-          // 如果获取位置失败，检查是否是位置条件触发的胶囊
-          const errorMsg = posError.message || '无法获取您的地理位置信息。'
-          if (requiredRadius > 0) {
-            reject(new Error(`地点解锁失败: ${errorMsg}。请检查定位权限。`))
-          } else {
-            // 非地点解锁，继续尝试请求（使用 MapView 存储的位置）
-            const apiParams = {
-              capsule_id: capsuleId,
-              password: password || undefined,
-              user_location: userLocation.value, // 使用 MapView 存储的位置
-            }
-            unlockCapsule(apiParams).then(resolve).catch(reject)
-          }
-        },
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-      )
-    } else {
-      // 2. 如果不需要地理位置或浏览器不支持（使用 MapView 存储的位置）
-      const apiParams = {
-        capsule_id: capsuleId,
-        password: password || undefined,
-        user_location: userLocation.value, // 使用 MapView 存储的位置
-      }
-      unlockCapsule(apiParams).then(resolve).catch(reject)
+    // 直接使用 MapView 已保存的 userLocation，不再重复获取定位
+    const apiParams = {
+      capsule_id: capsuleId,
+      password: password || undefined,
+      user_location: userLocation.value,
     }
+    unlockCapsule(apiParams).then(resolve).catch(reject)
   })
 }
 
@@ -575,53 +544,20 @@ const startUnlockProcess = async (capsuleId, password = null) => {
       throw new Error('未找到该胶囊信息')
     }
 
-    // 2. 检查是否已经解锁（可选）
-    if (capsule.is_unlocked) {
-      alert('该胶囊已经解锁过了！')
-      isProcessing.value[loadingKey] = false
-      return
-    }
-
-    // if (!capsule.can_unlock){
-    //   alert('您无权解锁该胶囊！')
-    //   isProcessing.value[loadingKey] = false
-    //   return
-    // }
-
-    // if (capsule.owner_id === currentUser.value.id) {
-    //   alert('您不能解锁自己的胶囊！')
-    //   isProcessing.value[loadingKey] = false
-    //   return
-    // }
-    
-
-    // 4. 根据解锁类型执行前置检查 (如果需要密码但没传，则弹出 Modal)
-    if (capsule.unlock_conditions_type === 'password' && !password) {
-      // 设置 currentUnlockCapsule 用于弹窗显示
+    // 2. 确保 currentUnlockCapsule 已设置（用于 doUnlockRequest）
+    if (!currentUnlockCapsule.value || currentUnlockCapsule.value.id !== capsuleId) {
       currentUnlockCapsule.value = {
         id: capsule.id,
         title: capsule.title || '未命名胶囊',
         unlock_conditions_type: capsule.unlock_conditions_type,
         unlock_conditions_radius: capsule.unlock_conditions_radius || 0,
       }
-      showUnlockModal.value = true
-      unlockPasswordInput.value = '' // 清空输入
-      isProcessing.value[loadingKey] = false // 暂时解除 loading
-      return // 等待用户输入密码后再次调用
     }
 
-    // 5. 执行解锁请求 (包括位置/密码校验)
-    // 设置 currentUnlockCapsule 用于 doUnlockRequest 获取 radius
-    currentUnlockCapsule.value = {
-      id: capsule.id,
-      title: capsule.title || '未命名胶囊',
-      unlock_conditions_type: capsule.unlock_conditions_type,
-      unlock_conditions_radius: capsule.unlock_conditions_radius || 0,
-    }
-
+    // 3. 执行解锁请求 (包括位置/密码校验)
     const result = await doUnlockRequest(capsuleId, password)
 
-    // 6. 解锁成功后立即更新本地胶囊状态
+    // 4. 解锁成功后立即更新本地胶囊状态
     const capsuleIndex = capsules.value.findIndex((c) => c.id === capsuleId)
     if (capsuleIndex !== -1) {
       capsules.value[capsuleIndex].is_unlocked = true
@@ -644,14 +580,28 @@ const startUnlockProcess = async (capsuleId, password = null) => {
 }
 
 /**
- * 触发解锁流程 (MapContainer/列表点击) (从 MyCapsuleView.vue 复制并调整参数)
+ * 触发解锁流程 (MapContainer/列表点击)
  * @param {string} capsuleId
+ * @param {string} password - 可选，如果已有密码则直接解锁
  */
-const handleUnlockCapsule = (capsuleId) => {
+const handleUnlockCapsule = (capsuleId, password = null) => {
   // 从 MapView.vue 的 capsules 列表中查找胶囊，获取必要信息
   const capsule = capsules.value.find((c) => c.id === capsuleId)
   if (!capsule) {
     alert('未能找到该胶囊信息，无法解锁。')
+    return
+  }
+
+  // 检查是否已经解锁
+  if (capsule.is_unlocked) {
+    alert('该胶囊已经解锁过了！')
+    return
+  }
+
+  // 检查是否是胶囊所有者
+  const isMine = capsule.owner_id === userStore.user_id
+  if (isMine) {
+    alert('这是您自己的胶囊，无需解锁')
     return
   }
 
@@ -663,13 +613,14 @@ const handleUnlockCapsule = (capsuleId) => {
     unlock_conditions_radius: capsule.unlock_conditions_radius || 0,
   }
 
-  // 如果是密码类型，弹出解锁 Modal
-  if (capsule.unlock_conditions_type === 'password') {
+  // 如果是密码类型且没有提供密码，弹出解锁 Modal
+  if (capsule.unlock_conditions_type === 'password' && !password) {
+    console.log('密码类型胶囊，需要输入密码')
     showUnlockModal.value = true
     unlockPasswordInput.value = ''
   } else {
-    // 其他类型（location/any），直接尝试解锁
-    startUnlockProcess(capsuleId)
+    // 其他类型（location/any）或已有密码，直接尝试解锁
+    startUnlockProcess(capsuleId, password)
   }
 }
 

@@ -321,6 +321,7 @@ const locateUser = async() => {
       }
       
       // 【步骤一完成】：定位成功，将定位信息发射给 MapView.vue
+      console.log('定位成功，更新当前位置，坐标:', userLocation.value)
       emit('location-updated', userLocation.value) 
       
       updateUserLocationMarker()

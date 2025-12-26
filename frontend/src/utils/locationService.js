@@ -33,7 +33,7 @@ export const getCurrentLocation = () => {
             nativeResult.coords.longitude >= -180 && nativeResult.coords.longitude <= 180
 
           if (isValidCoord && typeof acc === 'number' && acc < 1000 && acc > 0) {
-            console.log('✅ 浏览器原生定位成功，精度:', acc, '米')
+            console.log('✅ 浏览器原生定位成功，精度:', acc, '米', nativeResult.coords)
             resolve({
               success: true,
               longitude: nativeResult.coords.longitude,
