@@ -43,6 +43,7 @@ class Capsule:
     updated_at: datetime = field(default_factory=datetime.now)  # 更新时间
     unlock_time: Optional[datetime] = None  # 解锁时间
     unlock_location: Optional[tuple] = None  # 解锁位置（lat, lng）
+    unlock_condition_type: Optional[str] = "location"  # 解锁条件类型（password, location）
     unlock_radius: int = 100  # 解锁半径（米）
     like_count: int = 0  # 点赞数
     comment_count: int = 0  # 评论数

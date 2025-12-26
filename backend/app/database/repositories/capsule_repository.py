@@ -10,6 +10,9 @@ from app.database.orm.unlock_record import UnlockRecord
 from app.database.orm.user import User
 from app.database.database import get_db
 from app.core.exceptions import RecordNotFoundException
+from app.logger import get_logger
+
+capsule_repository_log = get_logger(__name__)
 
 
 class CapsuleRepository:
@@ -237,6 +240,8 @@ class CapsuleRepository:
             unlock_condition_data=orm.unlock_conditions,  # 传递解锁条件数据
             media_files_data=orm.media_files  # 传递媒体文件数据
         )
+
+        capsule_repository_log.info(f"_orm_to_domain: {orm.id} -> {domain}")
 
         return domain
     

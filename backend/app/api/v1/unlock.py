@@ -167,6 +167,7 @@ async def get_nearby_capsules(
                     # 创建简化的NearbyCapsule对象（符合APIFox规范）
                     nearby_capsule = NearbyCapsule(
                         id=str(domain.capsule_id),
+                        owner_id=domain.owner_id,
                         title=domain.title,
                         location=location,
                         visibility=domain.visibility.value,

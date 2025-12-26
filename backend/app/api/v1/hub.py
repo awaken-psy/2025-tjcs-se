@@ -97,6 +97,7 @@ async def get_nearby_capsules(
         unlock_manager = UnlockManager(db)
 
         # 获取附近的胶囊
+        logger.info(f"获取附近胶囊: lat={lat}, lng={lng}, range={range}, page={page}, limit={limit}")
         nearby_capsules = unlock_manager.get_nearby_capsules(
             latitude=lat,
             longitude=lng,
@@ -105,10 +106,12 @@ async def get_nearby_capsules(
             page=page,
             limit=limit
         )
+        logger.info(f"获取到 {len(nearby_capsules.get('capsules', []))} 个胶囊")
 
         # 转换为hub响应格式
         response_capsules = []
         for item in nearby_capsules.get('capsules', []):
+            logger.info(f"处理胶囊: {item}")
             capsule_data = item['capsule']
 
             # 创建位置信息
@@ -128,6 +131,7 @@ async def get_nearby_capsules(
             # 创建附近胶囊对象
             nearby_capsule = NearbyCapsule(
                 id=str(capsule_data.get('id')),
+                owner_id=int(item.get("domain").owner_id),
                 title=capsule_data.get('title'),
                 location=location,
                 visibility=capsule_data.get('visibility'),

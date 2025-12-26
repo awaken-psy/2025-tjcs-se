@@ -561,7 +561,7 @@ const doUnlockRequest = (capsuleId, password = null) => {
 }
 
 /**
- * 核心解锁流程 (从 MyCapsuleView.vue 复制)
+ * 核心解锁流程 (修复版本：不调用 getCapsuleDetail，直接使用本地胶囊信息)
  * @param {string} capsuleId
  * @param {string | null} password
  */
@@ -569,40 +569,72 @@ const startUnlockProcess = async (capsuleId, password = null) => {
   const loadingKey = `unlock_${capsuleId}`
   isProcessing.value[loadingKey] = true
   try {
-    // 1. 获取胶囊详情（确保我们有最新的 creator_id 和 unlock_conditions）
-    const detail = await getCapsuleDetail(capsuleId)
-    // 检查是否已经解锁
-    const isMine = detail.creator?.user_id === userStore.user_id
+    // 1. 从本地列表获取胶囊信息（避免调用需要权限的 getCapsuleDetail 接口）
+    const capsule = capsules.value.find((c) => c.id === capsuleId)
+    if (!capsule) {
+      throw new Error('未找到该胶囊信息')
+    }
 
-    // 2. 根据解锁类型执行前置检查 (如果需要密码但没传，则弹出 Modal)
-    if (detail.unlock_conditions?.type === 'password' && !password) {
+    // 2. 检查是否已经解锁（可选）
+    if (capsule.is_unlocked) {
+      alert('该胶囊已经解锁过了！')
+      isProcessing.value[loadingKey] = false
+      return
+    }
+
+    // if (!capsule.can_unlock){
+    //   alert('您无权解锁该胶囊！')
+    //   isProcessing.value[loadingKey] = false
+    //   return
+    // }
+
+    if (capsule.owner_id === currentUser.value.id) {
+      alert('您不能解锁自己的胶囊！')
+      isProcessing.value[loadingKey] = false
+      return
+    }
+    
+
+    // 4. 根据解锁类型执行前置检查 (如果需要密码但没传，则弹出 Modal)
+    if (capsule.unlock_conditions_type === 'password' && !password) {
+      // 设置 currentUnlockCapsule 用于弹窗显示
       currentUnlockCapsule.value = {
-        // 只保留核心信息用于 Modal 显示
-        id: detail.id,
-        title: detail.title || '未命名胶囊',
-        unlock_conditions_type: detail.unlock_conditions.type,
+        id: capsule.id,
+        title: capsule.title || '未命名胶囊',
+        unlock_conditions_type: capsule.unlock_conditions_type,
+        unlock_conditions_radius: capsule.unlock_conditions_radius || 0,
       }
       showUnlockModal.value = true
       unlockPasswordInput.value = '' // 清空输入
-      isProcessing.value[loadingKey] = false // 此时应暂时解除 loading
+      isProcessing.value[loadingKey] = false // 暂时解除 loading
       return // 等待用户输入密码后再次调用
     }
 
-    // 3. 执行解锁请求 (包括位置/密码校验)
-    // 提前设置 currentUnlockCapsule 用于 doUnlockRequest 获取 radius
+    // 5. 执行解锁请求 (包括位置/密码校验)
+    // 设置 currentUnlockCapsule 用于 doUnlockRequest 获取 radius
     currentUnlockCapsule.value = {
-      id: detail.id,
-      title: detail.title || '未命名胶囊',
-      unlock_conditions_type: detail.unlock_conditions?.type,
-      unlock_conditions_radius: detail.unlock_conditions?.radius || 0,
+      id: capsule.id,
+      title: capsule.title || '未命名胶囊',
+      unlock_conditions_type: capsule.unlock_conditions_type,
+      unlock_conditions_radius: capsule.unlock_conditions_radius || 0,
     }
+
     const result = await doUnlockRequest(capsuleId, password)
 
+    // 6. 解锁成功后立即更新本地胶囊状态
+    const capsuleIndex = capsules.value.findIndex((c) => c.id === capsuleId)
+    if (capsuleIndex !== -1) {
+      capsules.value[capsuleIndex].is_unlocked = true
+      capsules.value[capsuleIndex].unlock_conditions_is_unlocked = true
+    }
+
     alert('解锁成功！')
-    // 成功后：刷新数据并关闭弹窗
+    // 成功后：关闭弹窗并清空密码
     showUnlockModal.value = false
     unlockPasswordInput.value = ''
-    await fetchCapsules() // 刷新地图数据
+
+    // 刷新地图数据（可选，如果需要获取完整数据）
+    await fetchCapsules()
   } catch (error) {
     console.error(`解锁胶囊(${capsuleId})失败：`, error)
     alert(`解锁失败：${error.message || '请稍后重试'}`)

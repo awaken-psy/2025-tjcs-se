@@ -2,8 +2,10 @@
 Capsule unlocking related Pydantic models
 """
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel, Field
+
+from app.database.orm import unlock_condition
 
 
 class CurrentLocation(BaseModel):
@@ -36,8 +38,10 @@ class NearbyCapsule(BaseModel):
     """附近胶囊项模型"""
     id: str
     title: str
+    owner_id: int
     location: NearbyCapsuleLocation
     visibility: str  # "private", "friends", "public"
+    unlock_condition_type: Optional[str] = "location"  # "password", "location"
     is_unlocked: bool
     can_unlock: bool
     creator_nickname: str
