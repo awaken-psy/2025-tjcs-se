@@ -832,7 +832,7 @@ const handleViewCapsule = async (capsuleId) => {
     }
   } catch (error) {
     console.error(`查看胶囊详情(${capsuleId})失败：`, error)
-    alert('查看详情失败，请稍后重试')
+    alert(`查看详情失败，${error.message || '未知错误'}`)
   } finally {
     isProcessing.value[loadingKey] = false
   }
@@ -971,44 +971,60 @@ const startUnlockProcess = async (capsuleId, password = null) => {
   isProcessing.value[loadingKey] = true
 
   try {
-    // 1. 获取胶囊详情（确保我们有最新的 creator_id 和 unlock_conditions）
-    // 【注意】这里假设 getCapsuleDetail 返回的对象包含 id 字段，否则应使用 capsuleId
-    const detail = await getCapsuleDetail(capsuleId)
-    
-    // 检查是否已经解锁（如果是私有胶囊，CreatorID 会有）
-    const isMine = detail.creator?.user_id === userStore.user_id;
+    // 1. 从本地列表获取胶囊信息（避免调用需要权限的 getCapsuleDetail 接口）
+    const capsule = capsuleList.value.find((c) => c.id === capsuleId)
+    if (!capsule) {
+      throw new Error('未找到该胶囊信息')
+    }
 
-    // 2. 根据解锁类型执行前置检查
+    // 2. 检查是否已经解锁
+    if (capsule.unlock_conditions_is_unlocked) {
+      alert('该胶囊已经解锁过了！')
+      isProcessing.value[loadingKey] = false
+      return
+    }
+
+    // 3. 检查是否是胶囊所有者
+    const isMine = capsule.is_mine || capsule.creator_id === userStore.user_id
+
+    // 4. 根据解锁类型执行前置检查
 
     // a. 私有胶囊检查：必须是自己的胶囊
-    if (detail.visibility === 'private' && !isMine) {
+    if (capsule.visibility === 'private' && !isMine) {
       throw new Error('该胶囊为私有，您无权解锁')
     }
-    
+
     // b. 密码检查
-    if (detail.unlock_conditions.type === 'password') {
+    if (capsule.unlock_conditions_type === 'password') {
       // 密码逻辑：如果需要密码但没传，则要求用户输入
       if (!password) {
         showUnlockModal.value = true;
-        currentUnlockCapsule.value = detail;
+        currentUnlockCapsule.value = {
+          id: capsule.id,
+          title: capsule.title || '未命名胶囊',
+          unlock_conditions_type: capsule.unlock_conditions_type,
+          unlock_conditions_radius: capsule.unlock_conditions_radius || 0,
+        };
         return; // 等待用户输入后，由 handleConfirmUnlock 再次调用
       }
-      // 【注意】前端校验密码不是最佳实践，通常只需将用户输入的 password 传给后端
-      // 让后端去校验。但如果产品要求前端先校验，则保留下面的逻辑。
-      // if (password !== detail.unlock_conditions.password) {
-      //     throw new Error('密码错误，无法解锁')
-      // }
     }
-    
+
     // c. 公开胶囊/时间触发（已到时间）/其他：直接进入下一步
-    // 3. 获取用户位置并请求解锁
+    // 5. 获取用户位置并请求解锁
     await doUnlockRequest(
       capsuleId,
-      detail.unlock_conditions.radius,
+      capsule.unlock_conditions_radius || 0,
       password,
     );
-    
-    // 解锁成功后刷新列表
+
+    // 6. 解锁成功后立即更新本地胶囊状态
+    const capsuleIndex = capsuleList.value.findIndex((c) => c.id === capsuleId)
+    if (capsuleIndex !== -1) {
+      capsuleList.value[capsuleIndex].unlock_conditions_is_unlocked = true
+      capsuleList.value[capsuleIndex].is_unlocked = true
+    }
+
+    // 刷新列表（获取完整数据）
     await fetchCapsuleList();
     alert('🎉 胶囊解锁成功！');
 

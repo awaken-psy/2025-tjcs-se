@@ -13,6 +13,7 @@ from app.model.unlock import (
 from app.model.base import BaseResponse, Pagination # 基础响应结构和分页模型
 from app.auth.dependencies import login_required # 认证依赖
 from app.domain.user import AuthorizedUser # 认证后的用户领域模型
+from app.domain.capsule import Capsule
 from app.services.unlock_manager import UnlockManager # 核心解锁业务逻辑服务
 from app.database.database import get_db # 数据库 Session 依赖
 from app.auth.jwt_handler import JWTHandler # JWT 处理工具，用于生成 Token
@@ -141,7 +142,7 @@ async def get_nearby_capsules(
             # 遍历 Service 层返回的原始数据，生成简化的NearbyCapsule格式
             for capsule_item in result.get('capsules', []):
                 # 从Service层结果中获取Domain对象
-                domain = capsule_item.get('domain')
+                domain: Capsule= capsule_item.get('domain')
                 if not domain:
                     continue
 
@@ -167,10 +168,11 @@ async def get_nearby_capsules(
                     # 创建简化的NearbyCapsule对象（符合APIFox规范）
                     nearby_capsule = NearbyCapsule(
                         id=str(domain.capsule_id),
-                        owner_id=domain.owner_id,
+                        owner_id=int(domain.owner_id),
                         title=domain.title,
                         location=location,
                         visibility=domain.visibility.value,
+                        unlock_condition_type=domain.unlock_condition_type,
                         is_unlocked=has_unlocked,
                         can_unlock=can_unlock,
                         creator_nickname=domain.title,  # 暂时使用title作为nickname，实际应从用户数据获取

@@ -895,13 +895,13 @@ const handleSubmit = async () => {
     showAlertMessage('请设置最早可解锁时间', 'error')
     return
   }
-  if (unlockConditions.unlockable_time) {
-    const selected = new Date(unlockConditions.unlockable_time)
-    if (selected < new Date()) {
-      showAlertMessage('解锁时间不能早于当前时间', 'error')
-      return
-    }
-  }
+  // if (unlockConditions.unlockable_time) {
+  //   const selected = new Date(unlockConditions.unlockable_time)
+  //   if (selected < new Date()) {
+  //     showAlertMessage('解锁时间不能早于当前时间', 'error')
+  //     return
+  //   }
+  // }
 
   isSubmitting.value = true
 

@@ -11,6 +11,7 @@ from app.database.orm.user import User
 from app.database.database import get_db
 from app.core.exceptions import RecordNotFoundException
 from app.logger import get_logger
+from app.database.orm import UnlockCondition
 
 capsule_repository_log = get_logger(__name__)
 
@@ -224,6 +225,12 @@ class CapsuleRepository:
                 orm.address or ""  # 地址字段，空值时使用空字符串
             )
 
+        unlock_conditions:list[UnlockCondition] = orm.unlock_conditions
+        if unlock_conditions:
+            unlock_condition_type = unlock_conditions.condition_type
+        else:
+            unlock_condition_type = 'location'
+
         # 创建Domain对象，并传递解锁条件和媒体文件数据
         domain = CapsuleDomain(
             capsule_id=orm.id,
@@ -237,6 +244,7 @@ class CapsuleRepository:
             created_at=orm.created_at,
             updated_at=orm.updated_at,
             unlock_location=unlock_location,
+            unlock_condition_type=unlock_condition_type,
             unlock_condition_data=orm.unlock_conditions,  # 传递解锁条件数据
             media_files_data=orm.media_files  # 传递媒体文件数据
         )

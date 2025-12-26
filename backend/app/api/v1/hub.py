@@ -13,6 +13,7 @@ from app.model.base import BaseResponse, Pagination
 from app.model.unlock import NearbyCapsule
 from app.auth.dependencies import login_required
 from app.domain.user import AuthorizedUser
+from app.domain.capsule import Capsule
 from app.logger import get_logger, api_logging
 from app.services.capsule import CapsuleManager
 
@@ -113,6 +114,7 @@ async def get_nearby_capsules(
         for item in nearby_capsules.get('capsules', []):
             logger.info(f"处理胶囊: {item}")
             capsule_data = item['capsule']
+            capsule_domain: Capsule = item.get("domain")
 
             # 创建位置信息
             latitude = capsule_data.get('latitude')
@@ -131,7 +133,8 @@ async def get_nearby_capsules(
             # 创建附近胶囊对象
             nearby_capsule = NearbyCapsule(
                 id=str(capsule_data.get('id')),
-                owner_id=int(item.get("domain").owner_id),
+                unlock_condition_type=capsule_domain.unlock_condition_type,
+                owner_id=int(capsule_domain.owner_id),
                 title=capsule_data.get('title'),
                 location=location,
                 visibility=capsule_data.get('visibility'),

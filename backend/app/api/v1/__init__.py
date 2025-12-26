@@ -16,8 +16,8 @@ from .test import router as test_router
 from .events import router as event_router
 
 # 导出路由器
-capsule_router = capsule_router
-unlock_router = unlock_router
+# capsule_router = capsule_router
+# unlock_router = unlock_router
 
 # Export all routers
 __all__ = [
@@ -25,13 +25,13 @@ __all__ = [
     'auth_router',
     'capsule_router',
     'hub_router',
-    'unlock_router',
     'interaction_router',
     'user_router',
+    'unlock_router',
     'friend_router',
     'upload_router',
     'report_router',
-    'test_router'
+    'test_router',
     'event_router'
 ]
 

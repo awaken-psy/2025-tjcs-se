@@ -297,9 +297,8 @@ import { routeJump } from '@/utils/routeUtils'
 // 仅使用创建、获取列表、获取详情、更新、删除这几个api函数
 import {
   getMyCapsules,
-  getCapsuleDetail,
-  updateCapsule, // 新增
-  deleteCapsule, // 新增
+  updateCapsule,
+  deleteCapsule,
 } from '@/api/new/capsulesApi'
 import { getNearbyCapsules } from '@/api/new/hubApi'
 import { unlockCapsule } from '@/api/new/unlockApi'
@@ -498,7 +497,7 @@ const handleViewCapsule = async (capsuleId) => {
     }
   } catch (error) {
     console.error(`查看胶囊详情(${capsuleId})失败：`, error)
-    alert('查看详情失败，请稍后重试')
+    alert(`查看详情失败：${error.message || '未知错误'}`)
   } finally {
     isProcessing.value[loadingKey] = false
   }
@@ -588,11 +587,11 @@ const startUnlockProcess = async (capsuleId, password = null) => {
     //   return
     // }
 
-    if (capsule.owner_id === currentUser.value.id) {
-      alert('您不能解锁自己的胶囊！')
-      isProcessing.value[loadingKey] = false
-      return
-    }
+    // if (capsule.owner_id === currentUser.value.id) {
+    //   alert('您不能解锁自己的胶囊！')
+    //   isProcessing.value[loadingKey] = false
+    //   return
+    // }
     
 
     // 4. 根据解锁类型执行前置检查 (如果需要密码但没传，则弹出 Modal)

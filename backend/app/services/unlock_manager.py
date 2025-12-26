@@ -10,6 +10,9 @@ from app.database.orm.unlock_record import UnlockRecord, UnlockAttempt
 from app.database.orm.unlock_condition import UnlockCondition
 from app.database.repositories.capsule_repository import CapsuleRepository
 from app.domain.capsule import Capsule as CapsuleDomain
+from app.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class UnlockManager:
@@ -18,6 +21,7 @@ class UnlockManager:
     def __init__(self, db: Session):
         self.db = db
         self.repository = CapsuleRepository(db)
+        # self.unlock_condition_repo = UnlockConditionRepository(db)
 
     def get_nearby_capsules(
         self,
@@ -44,10 +48,10 @@ class UnlockManager:
             # 查询附近区域内的胶囊
             query = self.db.query(Capsule).filter(
                 and_(
-                    Capsule.latitude >= min_lat,
-                    Capsule.latitude <= max_lat,
-                    Capsule.longitude >= min_lon,
-                    Capsule.longitude <= max_lon,
+                    # Capsule.latitude >= min_lat,
+                    # Capsule.latitude <= max_lat,
+                    # Capsule.longitude >= min_lon,
+                    # Capsule.longitude <= max_lon,
                     Capsule.visibility.in_(['public', 'campus'])  # 只获取可见的胶囊
                 )
             )
@@ -62,8 +66,13 @@ class UnlockManager:
             offset = (page - 1) * limit
             capsules = query.order_by(Capsule.created_at.desc()).offset(offset).limit(limit).all()
 
+            logger.info(f"查询附近胶囊 - 总记录数: {total}, 偏移量: {offset}, 限制数: {limit}")
+            logger.info(f"查询附近胶囊 - 胶囊数: {len(capsules)}")
+            logger.info(capsules)
+
             nearby_capsules = []
             for capsule in capsules:
+                logger.info(f"处理胶囊 {capsule.id}")
                 # 计算实际距离
                 capsule_lat = getattr(capsule, 'latitude', 0.0)
                 capsule_lon = getattr(capsule, 'longitude', 0.0)
@@ -72,9 +81,10 @@ class UnlockManager:
                     float(capsule_lat), float(capsule_lon)
                 )
 
-                if distance <= radius_meters:
+                if distance <= radius_meters or True:
                     # 通过Repository转换为Domain对象
                     domain = self.repository._orm_to_domain(capsule)
+                    logger.info(f"胶囊 {capsule.id}: 转换为 Domain 对象 {domain}")  
 
                     if domain and (user_id is None or self._can_user_view_capsule(user_id, domain)):
                         # 使用Domain的to_api_basic方法转换为API模型
@@ -96,7 +106,11 @@ class UnlockManager:
                             'unlockable': self._can_user_unlock_capsule(user_id, domain, (latitude, longitude)) if user_id is not None else False
                         })
                     else:
+                        logger.info(f"用户 {user_id} 无法获取胶囊 {domain.capsule_id}")
                         continue
+                else:
+                    logger.info(f"胶囊 {capsule.id}: 不满足距离条件，胶囊位置: ({capsule_lat}, {capsule_lon})，当前位置: ({latitude}, {longitude})， 距离: {distance:.2f} 米")
+                    continue
 
             # 按距离排序
             nearby_capsules.sort(key=lambda x: x['distance'])
@@ -117,6 +131,8 @@ class UnlockManager:
             }
 
         except Exception as e:
+            logger.error(f"获取附近胶囊时发生错误: {str(e)}")
+            raise e
             return {
                 'success': False,
                 'message': f"获取附近胶囊失败: {str(e)}",
@@ -366,8 +382,12 @@ class UnlockManager:
         检查用户是否可以查看胶囊
         """
         if not user_id:
-            return domain.visibility.value in ['public', 'campus']
-        return domain.can_view_by(str(user_id))
+            can_view = domain.visibility.value in ['public', 'campus']
+            logger.info(f"用户id为空，胶囊{domain.capsule_id}可见性: {domain.visibility.value}，是否可见: {can_view}")
+            return can_view
+        can_view = domain.can_view_by(str(user_id))
+        logger.info(f"用户 {user_id} 查看胶囊 {domain.capsule_id}，是否可见: {can_view}")
+        return can_view
 
     def _can_user_unlock_capsule(self, user_id: int, domain: CapsuleDomain, user_location: Optional[tuple] = None) -> bool:
         """
