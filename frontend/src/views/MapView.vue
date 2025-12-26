@@ -292,6 +292,7 @@ import MapContainer from '@/components/MapContainer.vue'
 import CapsuleDetail from '@/components/CapsuleDetail.vue'
 import GenericModal from '@/components/GenericModal.vue'
 import { routeJump } from '@/utils/routeUtils'
+import { getCapsuleDetail } from '@/api/new/capsulesApi'
 
 // 引入用户提供的 API 函数
 // 仅使用创建、获取列表、获取详情、更新、删除这几个api函数
