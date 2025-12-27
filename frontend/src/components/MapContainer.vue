@@ -1,47 +1,31 @@
 <template>
   <div class="map-container">
     <!-- 高德地图容器 -->
-    <div 
-      ref="mapRef" 
-      class="amap-container"
-      :style="{ height: mapHeight }"
-    >
+    <div ref="mapRef" class="amap-container" :style="{ height: mapHeight }">
       <!-- 通知栏 -->
-      <div
-        v-if="showNotification"
-        class="notification-bar"
-      >
+      <div v-if="showNotification" class="notification-bar">
         <div class="notification-content">
-          <i
-            class="fas"
-            :class="notificationIcon"
-          />
+          <i class="fas" :class="notificationIcon" />
           <span>{{ notificationText }}</span>
         </div>
-        <button
-          class="notification-close"
-          @click="hideNotification"
-        >
-          ✕
-        </button>
+        <button class="notification-close" @click="hideNotification">✕</button>
       </div>
     </div>
 
     <!-- 地图控制栏 -->
-    <div
-      v-if="showControls"
-      class="map-controls"
-    >
+    <div v-if="showControls" class="map-controls">
       <button
         class="control-btn"
         :disabled="isLocating"
         :title="locationPermission === 'granted' ? '重新定位' : '请求位置权限'"
-        @click="handleLocate"
-      >
+        @click="handleLocate">
         <i
           class="fas"
-          :class="locationPermission === 'granted' ? 'fa-location-arrow' : 'fa-location-crosshairs'"
-        />
+          :class="
+            locationPermission === 'granted'
+              ? 'fa-location-arrow'
+              : 'fa-location-crosshairs'
+          " />
         {{ isLocating ? '定位中...' : '定位' }}
       </button>
     </div>
@@ -49,97 +33,83 @@
     <!-- 实时追踪状态指示器 -->
     <div
       v-if="realTimeTracking && locationPermission === 'granted'"
-      class="tracking-indicator"
-    >
+      class="tracking-indicator">
       <div class="tracking-pulse" />
       <span>实时追踪中</span>
       <small>最后更新: {{ lastLocationUpdate }}</small>
     </div>
 
     <!-- 用户位置信息面板 -->
-    <div 
+    <div
       v-if="userLocation && userLocation.lat !== 39.90923"
-      class="location-panel"
-    >
+      class="location-panel">
       <div class="location-header">
         <i class="fas fa-map-marker-alt location-icon" />
-        <h4 class="location-title">
-          我的位置
-        </h4>
-        <button
-          class="location-close"
-          @click="clearUserLocation"
-        >
-          ✕
-        </button>
+        <h4 class="location-title">我的位置</h4>
+        <button class="location-close" @click="clearUserLocation">✕</button>
       </div>
       <div class="location-body">
         <div class="location-coords">
           <span>经度: {{ userLocation.lng.toFixed(6) }}</span>
           <span>纬度: {{ userLocation.lat.toFixed(6) }}</span>
         </div>
-        <div 
-          v-if="userLocation.accuracy"
-          class="location-accuracy"
-        >
-          <i class="fas fa-bullseye" /> 精度: ±{{ Math.round(userLocation.accuracy) }}米
+        <div v-if="userLocation.accuracy" class="location-accuracy">
+          <i class="fas fa-bullseye" /> 精度: ±{{
+            Math.round(userLocation.accuracy)
+          }}米
         </div>
       </div>
     </div>
 
     <!-- 胶囊信息面板 -->
-    <div 
-      v-if="activeMarker"
-      class="marker-panel"
-    >
+    <div v-if="activeMarker" class="marker-panel">
       <div class="panel-header">
         <h4 class="panel-title">
           {{ activeMarker.title }}
         </h4>
-        <button
-          class="panel-close"
-          @click="closeMarkerPanel"
-        >
-          ✕
-        </button>
+        <button class="panel-close" @click="closeMarkerPanel">✕</button>
       </div>
       <div class="panel-body">
         <p class="panel-desc">
           {{ truncateText(activeMarker.desc, 50) }}
         </p>
         <div class="panel-meta">
-          <span><i class="fas fa-clock" /> {{ formatTime(activeMarker.time) }}</span>
+          <span
+            ><i class="fas fa-clock" />
+            {{ formatTime(activeMarker.time) }}</span
+          >
           <span><i class="fas fa-eye" /> {{ activeMarker.views }} 浏览</span>
-          <span><i class="fas fa-lock" /> {{ getVisText(activeMarker.vis) }}</span>
+          <span
+            ><i class="fas fa-lock" /> {{ getVisText(activeMarker.vis) }}</span
+          >
         </div>
-        <div
-          v-if="activeMarker.distance"
-          class="panel-distance"
-        >
+        <div v-if="activeMarker.distance" class="panel-distance">
           <i class="fas fa-ruler" /> 距离: {{ activeMarker.distance }}米
         </div>
         <div class="panel-tags">
-          <span 
+          <span
             v-for="(tag, idx) in activeMarker.tags"
             :key="idx"
-            class="tag-item"
-          >
+            class="tag-item">
             {{ tag }}
           </span>
         </div>
       </div>
       <div class="panel-actions">
-        <button
-          class="btn small"
-          @click="handleViewCapsule(activeMarker.id)"
-        >
+        <button class="btn small" @click="handleViewCapsule(activeMarker.id)">
           查看详情
         </button>
         <button
           class="btn small ghost"
-          @click="handleNavToCapsule(activeMarker.id)"
-        >
-          导航到此
+          @click="handleUnlockCapsule(activeMarker.id)"
+          :disabled="activeMarker.is_unlocked"
+          :style="
+            activeMarker.is_unlocked ? 'opacity: 0.6; cursor: not-allowed;' : ''
+          ">
+          <i
+            class="fas"
+            :class="activeMarker.is_unlocked ? 'fa-lock-open' : 'fa-lock'"></i>
+          {{ activeMarker.is_unlocked ? '已解锁' : '解锁' }}
         </button>
       </div>
     </div>
@@ -154,19 +124,24 @@ const props = defineProps({
   capsuleData: {
     type: Array,
     required: true,
-    default: () => []
+    default: () => [],
   },
   mapHeight: {
     type: String,
-    default: '1200px'
+    default: '1200px',
   },
   showControls: {
     type: Boolean,
-    default: true
-  }
+    default: true,
+  },
 })
 
-const emit = defineEmits(['view-capsule', 'nav-capsule', 'map-ready'])
+const emit = defineEmits([
+  'view-capsule',
+  'unlock-capsule',
+  'map-ready',
+  'location-updated',
+])
 
 // 地图引用
 const mapRef = ref(null)
@@ -191,14 +166,12 @@ const markers = ref([])
 let userLocationMarker = null
 let locationPulseLayer = null
 
-
-
 // 显示通知
 const showStatusNotification = (text, icon = 'fa-info-circle') => {
   notificationText.value = text
   notificationIcon.value = icon
   showNotification.value = true
-  
+
   setTimeout(() => {
     showNotification.value = false
   }, 5000)
@@ -218,25 +191,21 @@ const initMap = () => {
   }
 
   isLoading.value = true
-  
+
   try {
-    // 使用默认中心点（北京）
-    const defaultCenter = [116.397428, 39.90923]
-    
     // 1. 创建地图实例
     map = new AMap.Map(mapRef.value, {
-        zoom: 15,
-        center: [120.529881, 31.026362], 
-        mapStyle: 'amap://styles/blue',
+      zoom: 15,
+      center: [120.529881, 31.026362],
+      mapStyle: 'amap://styles/blue',
     })
 
     // 【核心修复】：强制地图重绘
     // 延迟执行确保地图容器 DOM 元素已经获得了最终的像素高度
     setTimeout(() => {
-        if (map) {
-            map.setFitView();
-            console.log("AMap: 强制重绘/适配视图完成，地图应已显示。");
-        }
+      if (map) {
+        map.setFitView()
+      }
     }, 100) // 给予 100ms 足够的时间让浏览器计算布局
 
     // 添加地图控件
@@ -246,10 +215,13 @@ const initMap = () => {
     if (AMap.ToolBar) {
       map.addControl(new AMap.ToolBar())
     }
-    
+
     // 检查位置权限并尝试定位
     checkPermissionStatus()
-    
+
+    // 初始定位
+    locateUser()
+
     isMapLoaded.value = true
     emit('map-ready', map)
     showStatusNotification('地图加载成功', 'fa-check-circle')
@@ -262,7 +234,7 @@ const initMap = () => {
 }
 
 // 检查位置权限状态
-const checkPermissionStatus = async() => {
+const checkPermissionStatus = async () => {
   if (!navigator.permissions) {
     locationPermission.value = 'prompt'
     return
@@ -271,7 +243,7 @@ const checkPermissionStatus = async() => {
   try {
     const result = await navigator.permissions.query({ name: 'geolocation' })
     locationPermission.value = result.state
-    
+
     result.onchange = () => {
       locationPermission.value = result.state
       if (result.state === 'granted') {
@@ -290,56 +262,71 @@ const checkPermissionStatus = async() => {
 // 定位用户
 const handleLocate = () => {
   if (locationPermission.value === 'denied') {
-    showStatusNotification('位置权限已被拒绝，请在浏览器设置中启用位置权限', 'fa-exclamation-triangle')
+    showStatusNotification(
+      '位置权限已被拒绝，请在浏览器设置中启用位置权限',
+      'fa-exclamation-triangle'
+    )
     return
   }
-  
+
   locateUser()
 }
 
 // 执行定位 - 使用新的定位服务
 // 执行定位 - 直接使用高德地图定位
 // MapContainer.vue - locateUser 函数
-const locateUser = async() => {
+const locateUser = async () => {
   isLocating.value = true
-  
+
   try {
     const location = await getCurrentLocation()
-    
+
     // 关键修改：不再严格依赖 location.success，而是检查是否有坐标，
     // 且精度在可接受范围内。
     // 假设：我们接受精度在 100 米以内的结果
     const ACCEPTABLE_ACCURACY = 400 // 设定一个可接受的精度阈值
 
-    if (location.longitude && location.latitude && location.accuracy <= ACCEPTABLE_ACCURACY) {
+    if (
+      location.longitude &&
+      location.latitude &&
+      location.accuracy <= ACCEPTABLE_ACCURACY
+    ) {
       // 成功获取到坐标且精度合格 (即使 location.success 可能为 false)
       userLocation.value = {
         lng: location.longitude,
         lat: location.latitude,
         accuracy: location.accuracy,
-        source: location.source
+        source: location.source,
       }
-      
-      // 【步骤一完成】：定位成功，将定位信息发射给 MapView.vue
-      console.log('定位成功，更新当前位置，坐标:', userLocation.value)
-      emit('location-updated', userLocation.value) 
-      
+
+      // 【修改点】：发送给父组件时，构造标准格式对象
+      const locationPayload = {
+        longitude: location.longitude, // 全拼
+        latitude: location.latitude, // 全拼
+        lng: location.longitude, // 兼容保留
+        lat: location.latitude, // 兼容保留
+      }
+
+      emit('location-updated', locationPayload) // 发送标准对象
+
       updateUserLocationMarker()
       renderCapsuleMarkers()
       updateLastLocationTime()
-      
+
       // 显示通知：如果是失败后抢救的定位，可能需要不同的通知
       if (!location.success) {
-          showStatusNotification(`定位成功，精度 ${location.accuracy} 米`, 'fa-crosshairs')
+        showStatusNotification(
+          `定位成功，精度 ${location.accuracy} 米`,
+          'fa-crosshairs'
+        )
       } else {
-          showStatusNotification('定位成功！', 'fa-crosshairs')
+        showStatusNotification('定位成功！', 'fa-crosshairs')
       }
-      
+
       if (locationPermission.value === 'granted' && !realTimeTracking.value) {
         realTimeTracking.value = true
         startRealTimeTracking()
       }
-      
     } else {
       // 定位失败 (无坐标、或精度过差、或 getCurrentLocation 彻底失败)
       // 如果定位失败，且提供了错误信息，则抛出它
@@ -347,7 +334,9 @@ const locateUser = async() => {
         throw new Error(location.error)
       } else if (location.accuracy > ACCEPTABLE_ACCURACY) {
         // 如果有坐标但精度不满足要求，明确抛出精度不足的错误
-        throw new Error(`定位精度不足（${location.accuracy}米），已设置阈值为 ${ACCEPTABLE_ACCURACY} 米。`)
+        throw new Error(
+          `定位精度不足（${location.accuracy}米），已设置阈值为 ${ACCEPTABLE_ACCURACY} 米。`
+        )
       } else {
         // 彻底的未知失败
         throw new Error('定位失败')
@@ -355,17 +344,17 @@ const locateUser = async() => {
     }
   } catch (error) {
     console.error('定位失败:', error)
-    
+
     // 定位失败后，使用默认位置并继续渲染地图和胶囊
     userLocation.value = { lng: 116.397428, lat: 39.90923, source: '默认位置' }
-    
+
     // 【步骤一完成】：定位失败，但仍需将默认位置信息发射给 MapView.vue
     // 这样 MapView.vue 才能触发 fetchCapsules()
-    emit('location-updated', userLocation.value) 
+    emit('location-updated', userLocation.value)
 
     updateUserLocationMarker()
     renderCapsuleMarkers()
-    
+
     showStatusNotification('定位失败，使用默认位置', 'fa-map-marker-alt')
   } finally {
     isLocating.value = false
@@ -394,7 +383,7 @@ const removeUserLocationMarker = () => {
 const updateUserLocationMarker = () => {
   // 清除现有用户位置标记
   removeUserLocationMarker()
-  
+
   if (userLocation.value && map) {
     // 创建显著的脉冲圆环效果
     locationPulseLayer = new AMap.Circle({
@@ -405,7 +394,7 @@ const updateUserLocationMarker = () => {
       strokeOpacity: 0.6,
       fillColor: '#1890ff',
       fillOpacity: 0.2,
-      zIndex: 50
+      zIndex: 50,
     })
     map.add(locationPulseLayer)
 
@@ -415,9 +404,9 @@ const updateUserLocationMarker = () => {
       // 使用自定义图标 - 更显著的定位图标
       content: createUserLocationIcon(),
       offset: new AMap.Pixel(-20, -20),
-      zIndex: 100
+      zIndex: 100,
     })
-    
+
     userLocationMarker.isUserLocation = true
     map.add(userLocationMarker)
 
@@ -431,16 +420,16 @@ const updateUserLocationMarker = () => {
         strokeOpacity: 0.4,
         fillColor: '#52c41a',
         fillOpacity: 0.1,
-        zIndex: 30
+        zIndex: 30,
       })
       map.add(accuracyCircle)
       markers.value.push(accuracyCircle)
     }
-    
+
     // 定位到用户位置并适当缩放
     map.setCenter([userLocation.value.lng, userLocation.value.lat])
     map.setZoom(15) // 放大到更近的级别
-    
+
     // 添加脉冲动画
     startPulseAnimation()
   }
@@ -490,14 +479,16 @@ const renderCapsuleMarkers = () => {
   if (!map) return
 
   // 清除现有胶囊标记
-  markers.value.filter(m => !m.isUserLocation).forEach(marker => {
-    map.remove(marker)
-  })
-  
+  markers.value
+    .filter((m) => !m.isUserLocation)
+    .forEach((marker) => {
+      map.remove(marker)
+    })
+
   // 只使用传入的胶囊数据，不使用默认数据
   const capsules = props.capsuleData
-  
-  capsules.forEach(capsule => {
+
+  capsules.forEach((capsule) => {
     const marker = createCapsuleMarker(capsule)
     if (marker) {
       map.add(marker)
@@ -509,7 +500,7 @@ const renderCapsuleMarkers = () => {
 // 创建胶囊标记
 const createCapsuleMarker = (capsule) => {
   if (typeof AMap === 'undefined') return null
-  
+
   // 根据可见性设置不同的图标
   let iconUrl = 'https://webapi.amap.com/theme/v1.3/markers/n/mark_b.png' // 默认蓝色
 
@@ -526,55 +517,70 @@ const createCapsuleMarker = (capsule) => {
   }
 
   // 过滤掉无效坐标的胶囊不在地图显示
-  if (capsule.lng < 73 || capsule.lng > 135 || capsule.lat < 18 || capsule.lat > 54) {
-    console.warn(`跳过无效坐标的胶囊: [${capsule.lng}, ${capsule.lat}] (超出中国范围)`)
+  if (
+    capsule.lng < 73 ||
+    capsule.lng > 135 ||
+    capsule.lat < 18 ||
+    capsule.lat > 54
+  ) {
+    console.warn(
+      `跳过无效坐标的胶囊: [${capsule.lng}, ${capsule.lat}] (超出中国范围)`
+    )
     return null
   }
-  
+
   // 创建自定义图标，调整图标大小
   const icon = new AMap.Icon({
-    size: new AMap.Size(20, 20),  // 减小图标大小
+    size: new AMap.Size(20, 20), // 减小图标大小
     image: iconUrl,
-    imageSize: new AMap.Size(16, 16),  // 减小图片大小
-    imageOffset: new AMap.Pixel(-2, -2)  // 图片偏移，使图标居中
+    imageSize: new AMap.Size(16, 16), // 减小图片大小
+    imageOffset: new AMap.Pixel(-2, -2), // 图片偏移，使图标居中
   })
 
   const marker = new AMap.Marker({
     position: [capsule.lng, capsule.lat],
     icon: icon,
-    offset: new AMap.Pixel(-10, -10),  // 调整偏移以匹配新的图标大小
+    offset: new AMap.Pixel(-10, -10), // 调整偏移以匹配新的图标大小
     extData: capsule, // 将胶囊数据存储在标记中
-    zIndex: 100,  // 设置层级，确保标记在上层
-    cursor: 'pointer',  // 鼠标样式
+    zIndex: 100, // 设置层级，确保标记在上层
+    cursor: 'pointer', // 鼠标样式
     // 移除动画参数，避免 API 兼容性问题
   })
 
   // 添加鼠标悬停效果（适度放大）
   marker.on('mouseover', () => {
-    marker.setIcon(new AMap.Icon({
-      size: new AMap.Size(24, 24),  // 适度放大图标
-      image: iconUrl,
-      imageSize: new AMap.Size(20, 20),
-      imageOffset: new AMap.Pixel(-2, -2)
-    }))
+    marker.setIcon(
+      new AMap.Icon({
+        size: new AMap.Size(24, 24), // 适度放大图标
+        image: iconUrl,
+        imageSize: new AMap.Size(20, 20),
+        imageOffset: new AMap.Pixel(-2, -2),
+      })
+    )
   })
 
   marker.on('mouseout', () => {
-    marker.setIcon(icon)  // 恢复原始图标
+    marker.setIcon(icon) // 恢复原始图标
   })
-  
+
   // 创建信息窗内容
   const infoWindowContent = `
     <div style="padding: 10px; min-width: 200px;">
-      <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: bold; color: #333;">${capsule.title || '未命名胶囊'}</h3>
-      <p style="margin: 4px 0; font-size: 12px; color: #666;">${capsule.content_preview || '暂无描述'}</p>
+      <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: bold; color: #333;">${
+        capsule.title || '未命名胶囊'
+      }</h3>
+      <p style="margin: 4px 0; font-size: 12px; color: #666;">${
+        capsule.content_preview || '暂无描述'
+      }</p>
       <div style="margin-top: 8px; font-size: 11px; color: #999;">
         <span>🔒 ${getVisibilityText(capsule.visibility || 'public')}</span>
         <span style="margin-left: 8px;">👍 ${capsule.like_count || 0}</span>
         <span style="margin-left: 8px;">💬 ${capsule.comment_count || 0}</span>
       </div>
       <div style="margin-top: 8px;">
-        <button id="view-detail-${capsule.id}" style="background: #6c8cff; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;">查看详情</button>
+        <button id="view-detail-${
+          capsule.id
+        }" style="background: #6c8cff; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;">查看详情</button>
       </div>
     </div>
   `
@@ -582,7 +588,7 @@ const createCapsuleMarker = (capsule) => {
   // 创建信息窗
   const infoWindow = new AMap.InfoWindow({
     content: infoWindowContent,
-    offset: new AMap.Pixel(0, -35)
+    offset: new AMap.Pixel(0, -35),
   })
 
   // 添加点击事件
@@ -605,40 +611,53 @@ const createCapsuleMarker = (capsule) => {
   // 辅助函数：获取可见性文字
   function getVisibilityText(visibility) {
     switch (visibility) {
-      case 'private': return '仅自己可见'
-      case 'friends': return '好友可见'
+      case 'private':
+        return '仅自己可见'
+      case 'friends':
+        return '好友可见'
       case 'campus':
-      case 'public': return '校园公开'
-      default: return '公开'
+      case 'public':
+        return '校园公开'
+      default:
+        return '公开'
     }
   }
-  
+
   return marker
 }
 
 // 开始实时位置追踪
 const startRealTimeTracking = () => {
   stopRealTimeTracking() // 先停止之前的定时器
-  
+
   // 每10秒更新一次位置
-  locationTimer.value = setInterval(async() => {
+  locationTimer.value = setInterval(async () => {
     if (locationPermission.value === 'granted') {
       try {
         const location = await getCurrentLocation()
         if (location.success) {
           userLocation.value = {
             lng: location.longitude,
-            lat: location.latitude
+            lat: location.latitude,
           }
           updateUserLocationMarker()
           updateLastLocationTime()
+
+          // 【修改点】：同样构造标准格式
+          const locationPayload = {
+            longitude: location.longitude,
+            latitude: location.latitude,
+            lng: location.longitude,
+            lat: location.latitude,
+          }
+          emit('location-updated', locationPayload)
         }
       } catch (error) {
         console.error('实时位置更新失败:', error)
       }
     }
   }, 10000) // 10秒
-  
+
   realTimeTracking.value = true
   showStatusNotification('实时追踪已开启', 'fa-satellite-dish')
 }
@@ -688,7 +707,7 @@ const zoomOut = () => {
 // 标记点击处理
 const handleMarkerClick = (capsule) => {
   activeMarker.value = capsule
-  
+
   // 计算距离（如果用户位置存在）
   if (userLocation.value) {
     const distance = calculateDistance(
@@ -704,10 +723,12 @@ const handleMarkerClick = (capsule) => {
 // 计算两点间距离（米）
 const calculateDistance = (lng1, lat1, lng2, lat2) => {
   const R = 6371000
-  const toRad = deg => deg * Math.PI / 180
+  const toRad = (deg) => (deg * Math.PI) / 180
   const dLat = toRad(lat2 - lat1)
   const dLng = toRad(lng2 - lng1)
-  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2)**2
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
   return 2 * R * Math.asin(Math.sqrt(a))
 }
 
@@ -719,10 +740,14 @@ const closeMarkerPanel = () => {
 // 辅助函数
 const getVisText = (vis) => {
   switch (vis) {
-  case 'public': return '校园公开'
-  case 'friend': return '好友可见'
-  case 'private': return '仅自己可见'
-  default: return '未知'
+    case 'public':
+      return '校园公开'
+    case 'friend':
+      return '好友可见'
+    case 'private':
+      return '仅自己可见'
+    default:
+      return '未知'
   }
 }
 
@@ -747,36 +772,40 @@ const handleViewCapsule = (capsuleId) => {
   closeMarkerPanel()
 }
 
-const handleNavToCapsule = (capsuleId) => {
-  emit('nav-capsule', capsuleId)
-  const marker = markers.value.find(m => m.extData?.id === capsuleId)
-  if (marker && map) {
-    map.setCenter(marker.getPosition())
-    map.setZoom(15)
-  }
+const handleUnlockCapsule = (capsuleId) => {
+  // 触发解锁事件，传给父组件处理
+  emit('unlock-capsule', capsuleId)
+
+  // 可选：点击解锁后是否关闭小窗？
+  // 如果父组件会弹出解锁弹窗，建议这里保持小窗或关闭均可。
+  //closeMarkerPanel()
 }
 
 // 监听胶囊数据变化
-watch(() => props.capsuleData, (newVal) => {
-  //console.log('MapContainer Watch: 接收到新胶囊数据，长度:', newVal.length)
-  if (isMapLoaded.value) {
-    renderCapsuleMarkers()
-  }
-}, { deep: true })
+watch(
+  () => props.capsuleData,
+  (newVal) => {
+    //console.log('MapContainer Watch: 接收到新胶囊数据，长度:', newVal.length)
+    if (isMapLoaded.value) {
+      renderCapsuleMarkers()
+    }
+  },
+  { deep: true }
+)
 
 // 组件挂载和卸载
 onMounted(() => {
-    // 假设 AMap 库已加载
-    if (window.AMap) {
-        initMap()
-    } else {
-        // 如果 AMap 是异步加载的，这里需要添加一个延迟或监听机制
-        console.warn('等待 AMap 库加载...')
-        // 实际项目中应监听 AMap Ready 事件，此处简化为 setTimeout
-        setTimeout(() => {
-             if (window.AMap) initMap();
-        }, 500)
-    }
+  // 假设 AMap 库已加载
+  if (window.AMap) {
+    initMap()
+  } else {
+    // 如果 AMap 是异步加载的，这里需要添加一个延迟或监听机制
+    console.warn('等待 AMap 库加载...')
+    // 实际项目中应监听 AMap Ready 事件，此处简化为 setTimeout
+    setTimeout(() => {
+      if (window.AMap) initMap()
+    }, 500)
+  }
 })
 
 onUnmounted(() => {
@@ -799,7 +828,7 @@ onUnmounted(() => {
 
 .amap-container {
   width: 100%;
-  height: 100%; 
+  height: 100%;
 }
 
 /* 通知栏 */
@@ -862,7 +891,7 @@ onUnmounted(() => {
 .map-controls {
   position: absolute;
   bottom: 20px;
-  left: 20px;
+  right: 20px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -927,8 +956,15 @@ onUnmounted(() => {
 }
 
 @keyframes trackingPulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.2); }
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.2);
+  }
 }
 
 .tracking-indicator small {
@@ -1159,9 +1195,12 @@ onUnmounted(() => {
   --accent: #3b82f6;
   --accent-hover: #2563eb;
   --accent-light: rgba(59, 130, 246, 0.1);
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
   --radius: 12px;
   --radius-sm: 8px;
 }

@@ -135,7 +135,8 @@
         :is-loading-data="isLoading"
         @location-updated="handleLocationUpdate"
         @marker-clicked="handleCapsuleClick"
-        @view-capsule="handleViewCapsule" />
+        @view-capsule="handleViewCapsule"
+        @unlock-capsule="handleUnlockCapsule" />
 
       <div v-if="isLoading" class="loading-overlay">
         {{ loadingMessage }}
@@ -218,7 +219,7 @@
     <template #default>
       <div v-if="currentUnlockCapsule" class="unlock-form-content">
         <p class="unlock-tip">
-          您正尝试解锁胶囊 **{{ currentUnlockCapsule.title }}**。
+          您正尝试解锁胶囊 <strong>{{ currentUnlockCapsule.title }}</strong>
         </p>
 
         <div
@@ -231,31 +232,36 @@
             v-model="unlockPasswordInput"
             placeholder="输入密码"
             @keyup.enter="handleConfirmUnlock"
+            class="filter-input"
             :disabled="isProcessing[`unlock_${currentUnlockCapsule.id}`]" />
         </div>
 
         <div
           v-else-if="currentUnlockCapsule.unlock_conditions_type === 'location'"
           class="location-tip">
-          <p>🗺️ 这是一个**地点触发**的胶囊。</p>
+          <p>🗺️ 这是一个<strong>地点触发</strong>的胶囊。</p>
           <p class="note">
-            点击“开始解锁”后，系统将获取您的位置信息并进行半径校验。
+            点击“开始解锁”后，系统将校验您是否位于目标位置附近（{{
+              currentUnlockCapsule.unlock_conditions_radius || 50
+            }}米内）。
           </p>
         </div>
 
         <div v-else class="location-tip">
-          <p>🔓 正在尝试解锁。</p>
-          <p class="note">
-            点击“开始解锁”后，系统将获取您的位置（如需）并进行 API 解锁请求。
-          </p>
+          <p>🔓 确认解锁</p>
+          <p class="note">点击下方按钮即可尝试解锁该胶囊内容。</p>
         </div>
       </div>
     </template>
+
     <template #actions>
       <button
         class="btn ghost"
         @click="showUnlockModal = false"
-        :disabled="isProcessing[`unlock_${currentUnlockCapsule?.id}`]">
+        :disabled="
+          currentUnlockCapsule &&
+          isProcessing[`unlock_${currentUnlockCapsule.id}`]
+        ">
         取消
       </button>
       <button
@@ -264,10 +270,14 @@
         :disabled="
           (currentUnlockCapsule?.unlock_conditions_type === 'password' &&
             !unlockPasswordInput) ||
-          isProcessing[`unlock_${currentUnlockCapsule?.id}`]
+          (currentUnlockCapsule &&
+            isProcessing[`unlock_${currentUnlockCapsule.id}`])
         ">
         <i
-          v-if="isProcessing[`unlock_${currentUnlockCapsule?.id}`]"
+          v-if="
+            currentUnlockCapsule &&
+            isProcessing[`unlock_${currentUnlockCapsule.id}`]
+          "
           class="fas fa-spinner fa-spin"></i>
         <span v-else>
           {{
@@ -357,7 +367,6 @@ const filters = ref({
  * @param {Object} coords - { longitude: number, latitude: number }
  */
 const handleLocationUpdate = (coords) => {
-  console.log('地图组件报告定位更新:', coords)
   userLocation.value = coords
   fetchCapsules()
 }
@@ -505,137 +514,133 @@ const handleViewCapsule = async (capsuleId) => {
   }
 }
 
-/**
- * 实际执行解锁API请求的函数，处理地理位置获取逻辑 (从 MyCapsuleView.vue 复制并调整 MapView 的位置参数)
- * @param {string} capsuleId
- * @param {string | null} password
- * @returns {Promise<Object>} API response
- */
-const doUnlockRequest = (capsuleId, password = null) => {
-  return new Promise((resolve, reject) => {
-    // MapView 应该始终有 userLocation，但为了兼容 MyCapsuleView 的复杂逻辑，我们保持地理位置的优先获取。
-    const capsule = currentUnlockCapsule.value || {}
-    // 从 currentUnlockCapsule 中获取 radius，它在 startUnlockProcess 中被设置
-    const requiredRadius = capsule.unlock_conditions_radius || 0
-
-    // 1. 如果需要地理位置，尝试获取最新位置 (MapContainer 应该已经提供了 userLocation)
-    // 直接使用 MapView 已保存的 userLocation，不再重复获取定位
-    const apiParams = {
-      capsule_id: capsuleId,
-      password: password || undefined,
-      user_location: userLocation.value,
-    }
-    unlockCapsule(apiParams).then(resolve).catch(reject)
-  })
+const onCapsuleCreated = async (result) => {
+  alert('胶囊创建成功！')
+  handleCloseForm()
 }
+// #endregion
 
-/**
- * 核心解锁流程 (修复版本：不调用 getCapsuleDetail，直接使用本地胶囊信息)
- * @param {string} capsuleId
- * @param {string | null} password
- */
-const startUnlockProcess = async (capsuleId, password = null) => {
-  const loadingKey = `unlock_${capsuleId}`
-  isProcessing.value[loadingKey] = true
-  try {
-    // 1. 从本地列表获取胶囊信息（避免调用需要权限的 getCapsuleDetail 接口）
-    const capsule = capsules.value.find((c) => c.id === capsuleId)
-    if (!capsule) {
-      throw new Error('未找到该胶囊信息')
-    }
+// #region 解锁功能 
 
-    // 2. 确保 currentUnlockCapsule 已设置（用于 doUnlockRequest）
-    if (!currentUnlockCapsule.value || currentUnlockCapsule.value.id !== capsuleId) {
-      currentUnlockCapsule.value = {
-        id: capsule.id,
-        title: capsule.title || '未命名胶囊',
-        unlock_conditions_type: capsule.unlock_conditions_type,
-        unlock_conditions_radius: capsule.unlock_conditions_radius || 0,
-      }
-    }
-
-    // 3. 执行解锁请求 (包括位置/密码校验)
-    const result = await doUnlockRequest(capsuleId, password)
-
-    // 4. 解锁成功后立即更新本地胶囊状态
-    const capsuleIndex = capsules.value.findIndex((c) => c.id === capsuleId)
-    if (capsuleIndex !== -1) {
-      capsules.value[capsuleIndex].is_unlocked = true
-      capsules.value[capsuleIndex].unlock_conditions_is_unlocked = true
-    }
-
-    alert('解锁成功！')
-    // 成功后：关闭弹窗并清空密码
-    showUnlockModal.value = false
-    unlockPasswordInput.value = ''
-
-    // 刷新地图数据（可选，如果需要获取完整数据）
-    await fetchCapsules()
-  } catch (error) {
-    console.error(`解锁胶囊(${capsuleId})失败：`, error)
-    alert(`解锁失败：${error.message || '请稍后重试'}`)
-  } finally {
-    isProcessing.value[loadingKey] = false
-  }
-}
-
-/**
- * 触发解锁流程 (MapContainer/列表点击)
- * @param {string} capsuleId
- * @param {string} password - 可选，如果已有密码则直接解锁
- */
-const handleUnlockCapsule = (capsuleId, password = null) => {
-  // 从 MapView.vue 的 capsules 列表中查找胶囊，获取必要信息
+const handleUnlockCapsule = (capsuleId) => {
+  // 1. 在本地列表中查找胶囊数据
   const capsule = capsules.value.find((c) => c.id === capsuleId)
+  
   if (!capsule) {
     alert('未能找到该胶囊信息，无法解锁。')
     return
   }
 
-  // 检查是否已经解锁
+  // 2. 基础校验
   if (capsule.is_unlocked) {
     alert('该胶囊已经解锁过了！')
     return
   }
-
-  // 检查是否是胶囊所有者
-  const isMine = capsule.owner_id === userStore.user_id
+  
+  // 校验所有权
+  const isMine = capsule.creator?.user_id === userStore.userInfo.user_id
   if (isMine) {
-    alert('这是您自己的胶囊，无需解锁')
+    alert('这是您自己的胶囊，无需解锁，可直接查看详情。')
     return
   }
 
-  // 设置 currentUnlockCapsule 用于弹窗和 doUnlockRequest 内部使用
+  // 3. 【核心修复】：强力提取解锁类型
+  // 后端返回的数据结构可能是 capsule.unlock_conditions.type 
+  // 也可能是扁平化的 capsule.unlock_conditions_type
+  let type = 'any'
+  let radius = 0
+
+  if (capsule.unlock_conditions && typeof capsule.unlock_conditions === 'object') {
+     type = capsule.unlock_conditions.type
+     radius = capsule.unlock_conditions.radius
+  } else {
+     type = capsule.unlock_conditions_type || 'any'
+     radius = capsule.unlock_conditions_radius || 0
+  }
+
+  console.log('正在解锁胶囊:', capsule.title, '类型:', type) // 调试日志
+
+  console.log('胶囊数据:', capsule) // 调试日志
+  // 4. 初始化弹窗状态
   currentUnlockCapsule.value = {
     id: capsule.id,
     title: capsule.title || '未命名胶囊',
-    unlock_conditions_type: capsule.unlock_conditions_type || 'any',
-    unlock_conditions_radius: capsule.unlock_conditions_radius || 0,
+    // 强制扁平化赋值，确保 Template 能读到
+    unlock_conditions_type:capsule.unlock_condition_type || type, 
+    unlock_conditions_radius: radius
   }
+  console.log('解锁类型:', currentUnlockCapsule.value.unlock_conditions_type) // 调试日志
 
-  // 如果是密码类型且没有提供密码，弹出解锁 Modal
-  if (capsule.unlock_conditions_type === 'password' && !password) {
-    console.log('密码类型胶囊，需要输入密码')
-    showUnlockModal.value = true
-    unlockPasswordInput.value = ''
-  } else {
-    // 其他类型（location/any）或已有密码，直接尝试解锁
-    startUnlockProcess(capsuleId, password)
-  }
+  unlockPasswordInput.value = '' 
+  showUnlockModal.value = true   
 }
 
-// —— 处理解锁弹窗确认按钮 —— (从 MyCapsuleView.vue 复制)
+/**
+ * 2. 弹窗中点击“确认/开始解锁”的触发函数
+ */
 const handleConfirmUnlock = () => {
   const capsule = currentUnlockCapsule.value
   if (!capsule) return
-  // 传入用户输入的密码
+  
+  // 调用核心处理流程，传入用户输入的密码
   startUnlockProcess(capsule.id, unlockPasswordInput.value)
 }
 
-const onCapsuleCreated = async (result) => {
-  alert('胶囊创建成功！')
-  handleCloseForm()
+/**
+ * 3. 执行实际解锁流程 (API调用)
+ */
+const startUnlockProcess = async (capsuleId, password = null) => {
+  const loadingKey = `unlock_${capsuleId}`
+  isProcessing.value[loadingKey] = true
+
+  try {
+    const lat = userLocation.value.lat || userLocation.value.latitude
+    const lng = userLocation.value.lng || userLocation.value.longitude
+
+    if (!lat || !lng) {
+      throw new Error('无法获取您的当前位置，请检查定位权限。')
+    }
+
+    const apiParams = {
+      capsule_id: capsuleId,
+      password: password || undefined,
+      current_location: {
+        lat: Number(lat), // 强制转换为 lat
+        lng: Number(lng)  // 强制转换为 lng
+      }
+    }
+
+    // 调用 API
+    await unlockCapsule(apiParams)
+
+    // --- 成功后续处理 ---
+    alert('🎉 解锁成功！')
+    
+    // 1. 关闭弹窗
+    showUnlockModal.value = false
+    unlockPasswordInput.value = ''
+    currentUnlockCapsule.value = null
+
+    // 2. 更新本地数据状态 (避免刷新整个地图导致闪烁)
+    const capsuleIndex = capsules.value.findIndex((c) => c.id === capsuleId)
+    if (capsuleIndex !== -1) {
+      capsules.value[capsuleIndex].is_unlocked = true
+      capsules.value[capsuleIndex].unlock_conditions_is_unlocked = true // 兼容不同字段名
+    }
+    
+    // 3. (可选) 如果需要获取最新完整数据，可以刷新一次
+    // await fetchCapsules() 
+
+  } catch (error) {
+    console.error(`解锁胶囊(${capsuleId})失败：`, error)
+    // 友好的错误提示
+    const msg = error.response?.data?.detail || error.message || '解锁失败'
+    alert(`解锁失败：${msg}`)
+  } finally {
+    isProcessing.value[loadingKey] = false
+  }
 }
+
 // #endregion
 
 // #region 模态框/表单事件处理函数 (更新)
@@ -1290,4 +1295,49 @@ onMounted(() => {
   background: transparent;
   color: var(--muted);
 }
+
+/* MapView.vue (Style 部分) */
+
+.unlock-form-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 10px 0;
+}
+
+.unlock-tip {
+  font-size: 15px;
+  color: #1f2937;
+  text-align: center;
+  margin: 0;
+}
+
+.password-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.location-tip {
+  background: #f0f9ff;
+  border: 1px dashed #3b82f6;
+  padding: 16px;
+  border-radius: 8px;
+  color: #1e40af;
+  text-align: center;
+}
+
+.location-tip p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.location-tip .note {
+  font-size: 12px;
+  color: #60a5fa;
+  margin-top: 8px;
+}
+
 </style>

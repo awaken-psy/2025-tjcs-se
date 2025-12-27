@@ -26,7 +26,9 @@ request.interceptors.request.use(config => {
   }
 
   // 详细记录请求信息
-  console.group(`📡 [REQUEST DETAILS] ${config.method?.toUpperCase()} ${config.url}`)
+  console.groupCollapsed(
+    `📡 [REQUEST DETAILS] ${config.method?.toUpperCase()} ${config.url}`
+  )
   //console.log('📋 请求方法:', config.method?.toUpperCase())
   //console.log('🌐 请求URL:', config.url)
   //console.log('🔑 认证头:', config.headers.Authorization ? '已设置' : '未设置')
@@ -56,7 +58,11 @@ request.interceptors.response.use(response => {
   const result = response.data
   
   // 详细记录响应信息
-  console.group(`✅ [RESPONSE DETAILS] ${response.config.method?.toUpperCase()} ${response.config.url}`)
+  console.groupCollapsed(
+    `✅ [RESPONSE DETAILS] ${response.config.method?.toUpperCase()} ${
+      response.config.url
+    }`
+  )
   console.log('📊 响应状态码:', response.status)
   //console.log('📋 响应头:', response.headers)
   //console.log('📦 完整响应数据:', result)
@@ -90,7 +96,11 @@ request.interceptors.response.use(response => {
   return result
 }, error => {
   // 详细记录错误信息
-  console.group(`❌ [ERROR DETAILS] ${error.config?.method?.toUpperCase()} ${error.config?.url}`)
+  console.groupCollapsed(
+    `❌ [ERROR DETAILS] ${error.config?.method?.toUpperCase()} ${
+      error.config?.url
+    }`
+  )
   
   // 网络错误或服务器错误（HTTP状态码非2xx）
   console.error('🚨 错误类型:', error.name || 'Unknown Error')

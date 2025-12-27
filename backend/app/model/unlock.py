@@ -10,9 +10,8 @@ from app.database.orm import unlock_condition
 
 class CurrentLocation(BaseModel):
     """当前位置模型"""
-    latitude: float
-    longitude: float
-
+    latitude: float = Field(..., validation_alias="lat")
+    longitude: float = Field(..., validation_alias="lng")
 
 class UnlockCapsuleRequest(BaseModel):
     """解锁胶囊请求模型"""

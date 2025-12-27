@@ -14,11 +14,9 @@ window._AMapSecurityConfig = {
  */
 export const getCurrentLocation = () => {
   return new Promise((resolve) => {
-    console.log('🚀 开始高精度定位流程（浏览器原生+高德增强）...')
 
     // 优先尝试浏览器原生高精度定位
     if (navigator.geolocation) {
-      console.log('📍 尝试浏览器原生高精度定位...')
       const nativeOptions = {
         enableHighAccuracy: true,
         timeout: 15000,
